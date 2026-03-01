@@ -24,6 +24,13 @@ feat: commit message
 Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>
 ```
 
+### コミュニケーションについて
+
+AI駆動で開発をするために各々がメモ帳を持っています。以下のように運用をお願いします
+
+- AIはplan_by_agent.mdを自由に編集してください
+- spec.local.mdは、ユーザのメモです。AIに提示するときもありますが、編集不可です
+
 ## 🗺️ ロードマップ / フェーズ
 ### Phase 1: 初期セットアップ
 - [x] リポジトリ初期化
