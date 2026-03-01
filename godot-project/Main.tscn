@@ -1,15 +1,15 @@
-[gd_scene load_steps=3 format=3 uid="uid://b8q7w1e4"]
+[gd_scene format=3 uid="uid://b8q7w1e4"]
 
-[ext_resource type="Script" path="res://scripts/MainScene.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://v1037ibyg42v" path="res://scripts/MainScene.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cx6y8v2h" path="res://Player.tscn" id="2_player"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1997899663]
 script = ExtResource("1_main")
 
-[node name="Player" parent="." instance=ExtResource("2_player")]
+[node name="Player" parent="." unique_id=480727888 instance=ExtResource("2_player")]
 position = Vector2(50, 600)
 
-[node name="Camera2D" type="Camera2D" parent="Player"]
+[node name="Camera2D" type="Camera2D" parent="Player" unique_id=1788074333]
 limit_left = 0
 limit_bottom = 700
 position_smoothing_enabled = true

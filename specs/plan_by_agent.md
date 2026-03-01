@@ -33,8 +33,27 @@
 
 ---
 
+---
+
 **→ 直近の実装作業手順：**
-1. スケール係数やBodyモデルを持つプレーンなGDScriptを作成
-2. `CharacterDrawer.gd` と `PlayerBody.gd` を作成し、二分探索でかがむ棒人間を実装
-3. ステージをパースして生成する `StageBuilder.gd` の実装
-4. メインテストループ `Main.tscn` をこれらで置き換える
+
+1. **[済] スケール係数やBodyモデルを持つプレーンなGDScriptを作成** (`Global.gd`)
+2. **[進行中] プレイヤーのリファクタリング**: 
+   - `SkeletalPlayer.gd` から描画ロジックを `CharacterDrawer.gd` (Node2D) へ分離。
+   - 物理・入力・センサー管理を本体に残す。
+3. **[新規] `StageBuilder.gd` の実装**:
+   - `grep_simulator` の `stages.ts` にあるデータを Godot の Dictionary または Resource 形式で定義。
+   - `type: 'overhead'` は CollisionLayer 2 (頭上)
+   - `type: 'ground'` は CollisionLayer 1 (足元)
+   - `type: 'background'` は CollisionLayer なしの表示用。
+4. **[新規] メインシーン (`MainScene.gd`) の改修**:
+   - `StageBuilder` を呼び出してステージを入れ替える機能。
+   - UI（現在の身長やステージ名表示）の構築。
+
+### ステージデータの移植用メモ
+`grep_simulator` から取得したデータ構造：
+- `id`: identifier
+- `x`, `x2`: 範囲 (cm)
+- `height`: 地面からの高さ (cm)
+- `type`: 'overhead' | 'background' | 'ground'
+- `comment`: 身長に応じたメッセージ（Godotでは `Callable` か辞書の文字列フォーマットで対応予定）
