@@ -15,6 +15,7 @@ var pose: String = "stand" # "stand", "reach", "squat", "sit", "crouch", "chair_
 
 var auto_crouch: bool = true
 var target_crouch_cm: float = -1.0
+var visual_height_cm: float = 180.0 # 補間用の現在の高さ
 
 # 計測データ
 var m: Dictionary
@@ -36,9 +37,11 @@ func update_measurements() -> void:
         var global = get_node("/root/Global")
         m = global.get_body_measurements()
         CM_TO_PX = global.CM_TO_PX
+        visual_height_cm = m["height"]
     else:
         # フォールバック (とりあえず180cm女性)
         m = _mock_measurements()
+        visual_height_cm = m["height"] # Initialize for fallback too
 
     # 古いセンサーを破棄
     for s in sensors:
@@ -82,6 +85,7 @@ func _physics_process(delta: float) -> void:
         walk_phase = lerp_angle(walk_phase, 0.0, 10.0 * delta)
 
     _handle_auto_crouch()
+    _update_visual_height(delta)
     _update_collision()
     move_and_slide()
     character_drawer.queue_redraw() # 毎フレーム再描画
@@ -178,19 +182,24 @@ func _is_ceiling_blocked() -> bool:
     sensors[4].force_raycast_update()
     return sensors[4].is_colliding()
 
-func _update_collision():
-    # ポーズに応じてコリジョンの高さと位置を調節
-    var h_cm = m["height"]
-    var current_top_cm = h_cm
+func _update_visual_height(delta: float):
+    var target_h_cm = m["height"]
     
-    if pose == "squat": current_top_cm *= 0.65
-    elif pose == "sit": current_top_cm *= 0.55
-    elif pose == "chair_sit": current_top_cm = 45.0 + h_cm * 0.55
+    if pose == "squat": target_h_cm *= 0.65
+    elif pose == "sit": target_h_cm *= 0.55
+    elif pose == "chair_sit": target_h_cm = 45.0 + m["height"] * 0.55
     elif pose == "crouch":
-        if target_crouch_cm > 0: current_top_cm = target_crouch_cm
-        else: current_top_cm *= 0.8
-        
-    var h_px = current_top_cm * CM_TO_PX
+        if target_crouch_cm > 0:
+            target_h_cm = target_crouch_cm
+        else:
+            target_h_cm *= 0.8
+            
+    # 補間の速さ (15.0 くらいだとヌルっとしつつキビキビ動く)
+    visual_height_cm = lerp(visual_height_cm, target_h_cm, 15.0 * delta)
+
+func _update_collision():
+    # 補間された高さに基づいてコリジョンの高さを調節
+    var h_px = visual_height_cm * CM_TO_PX
     var shape = collision_shape.shape as CapsuleShape2D
     if shape:
         shape.height = max(40.0, h_px)

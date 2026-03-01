@@ -10,7 +10,6 @@ func _draw() -> void:
     var facing = player.facing
     var is_walking = player.is_walking
     var walk_phase = player.walk_phase
-    var target_crouch_cm = player.target_crouch_cm
 
     if m == null or m.is_empty():
         return
@@ -39,10 +38,11 @@ func _draw() -> void:
     var shin_l = (m["leg"] * 0.45) * p
     
     # Crouch時の二分探索ロジック
-    if pose == "crouch":
-        var target_cm = target_crouch_cm
-        if target_cm <= 0: target_cm = m["height"] * 0.8
-        var target_px = target_cm * p
+    # pose が crouch の時、または高さが補間中(フル身長でない)の時にアニメーションを適用
+    var is_crouching = (pose == "crouch") or (player.visual_height_cm < m["height"] - 0.1)
+    
+    if is_crouching:
+        var target_px = player.visual_height_cm * p
         
         var min_t = 0.0
         var max_t = 2.0
