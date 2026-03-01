@@ -41,14 +41,18 @@
 2. **[進行中] プレイヤーのリファクタリング**: 
    - `SkeletalPlayer.gd` から描画ロジックを `CharacterDrawer.gd` (Node2D) へ分離。
    - 物理・入力・センサー管理を本体に残す。
-3. **[新規] `StageBuilder.gd` の実装**:
+3. **[済] `StageBuilder.gd` の実装**:
    - `grep_simulator` の `stages.ts` にあるデータを Godot の Dictionary または Resource 形式で定義。
    - `type: 'overhead'` は CollisionLayer 2 (頭上)
    - `type: 'ground'` は CollisionLayer 1 (足元)
    - `type: 'background'` は CollisionLayer なしの表示用。
-4. **[新規] メインシーン (`MainScene.gd`) の改修**:
+4. **[済] メインシーン (`MainScene.gd`) の改修**:
    - `StageBuilder` を呼び出してステージを入れ替える機能。
    - UI（現在の身長やステージ名表示）の構築。
+
+### 次のステップ: カメラ設定とコメント機能
+- **Camera2Dの追従と拡大率**: 全体が見えるようにしていますが、本番では主人公を中心に置き、身長に合わせたスケールで表示したい。
+- **背景オブジェクトとのインタラクション**: 各障害物に定義された `comment` を Godot 上の吹き出しUIで表示させる。
 
 ### ステージデータの移植用メモ
 `grep_simulator` から取得したデータ構造：

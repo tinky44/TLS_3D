@@ -28,6 +28,9 @@ var m: Dictionary
 var sensors: Array = []
 
 func _ready() -> void:
+    update_measurements()
+
+func update_measurements() -> void:
     # Globalオートロードが設定されていれば取得
     if has_node("/root/Global"):
         var global = get_node("/root/Global")
@@ -37,8 +40,17 @@ func _ready() -> void:
         # フォールバック (とりあえず180cm女性)
         m = _mock_measurements()
 
+    # 古いセンサーを破棄
+    for s in sensors:
+        s.queue_free()
+    sensors.clear()
+
     _setup_sensors()
     _update_collision()
+    
+    # 描画更新
+    if character_drawer:
+        character_drawer.queue_redraw()
 
 func _physics_process(delta: float) -> void:
     if not is_on_floor():
