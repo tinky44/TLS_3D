@@ -1,0 +1,50 @@
+[gd_scene load_steps=6 format=3 uid="uid://b8q7w1e4"]
+
+[ext_resource type="PackedScene" uid="uid://cx6y8v2h" path="res://Player.tscn" id="1_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(1200, 40)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_floor"]
+size = Vector2(1200, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_obstacle"]
+size = Vector2(200, 20)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_obstacle"]
+size = Vector2(200, 20)
+
+[node name="Main" type="Node2D"]
+
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(576, 600)
+collision_layer = 3
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="Sprite2D" type="Sprite2D" parent="Floor"]
+texture = SubResource("PlaceholderTexture2D_floor")
+
+[node name="ObstacleHigh" type="StaticBody2D" parent="."]
+position = Vector2(800, 480)
+collision_layer = 3
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ObstacleHigh"]
+shape = SubResource("RectangleShape2D_obstacle")
+
+[node name="Sprite2D" type="Sprite2D" parent="ObstacleHigh"]
+texture = SubResource("PlaceholderTexture2D_obstacle")
+
+[node name="ObstacleLow" type="StaticBody2D" parent="."]
+position = Vector2(400, 520)
+collision_layer = 3
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ObstacleLow"]
+shape = SubResource("RectangleShape2D_obstacle")
+
+[node name="Sprite2D" type="Sprite2D" parent="ObstacleLow"]
+texture = SubResource("PlaceholderTexture2D_obstacle")
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+position = Vector2(100, 560)
