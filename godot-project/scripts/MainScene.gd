@@ -185,8 +185,7 @@ func _load_stage():
         if cam:
             var m = player.get("m")
             if m and m.has("height"):
-                # キャラクターの身長の60%くらいをオフセットにして、胸〜顔あたりを中心にする
-                cam.offset = Vector2(0, -m["height"] * p * 0.6)
-            # 地面は y=50 あたりのため、画面下部にそこまで余白が必要ない
-            # (limit_bottom を小さくすることで見えすぎを防ぐ)
-            cam.limit_bottom = 200
+                # キャラクターの身長の40〜50%あたり（腰〜胸付近）を中心にする
+                cam.offset = Vector2(0, -m["height"] * p * 0.4)
+            # 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
+            cam.limit_bottom = 250
