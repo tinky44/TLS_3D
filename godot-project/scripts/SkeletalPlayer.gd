@@ -147,13 +147,15 @@ func _handle_auto_crouch():
         var ray: RayCast2D = sensors[i]
         if ray.is_colliding():
             var hit_point = ray.get_collision_point()
-            # 障害物の高さを大まかに計算(地面から)
-            # 修正：より正確にはRayCastのヒット位置を頼りにするが、今回はシンプルに
-            # ヒットしたオブジェクトのCollider設定から拾う事も可能。
-            # 今回はヒットしたY座標のワールド位置から cmを算出
-            # (ここでは簡略化のため、自キャラYのワールド座標との差分)
-            var obj_y = global_position.y - hit_point.y
-            var obs_cm = obj_y / CM_TO_PX
+            var collider = ray.get_collider()
+            var obs_cm = 0.0
+            
+            if collider and collider.has_meta("obs_height_cm"):
+                obs_cm = float(collider.get_meta("obs_height_cm"))
+            else:
+                var obj_y = global_position.y - hit_point.y
+                obs_cm = obj_y / CM_TO_PX
+                
             should_crouch = true
             if obs_cm < min_obs_h_cm:
                 min_obs_h_cm = obs_cm

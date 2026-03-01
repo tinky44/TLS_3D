@@ -135,6 +135,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node = area
         
     node.set_meta("is_stage_obj", true)
+    node.set_meta("obs_height_cm", h_cm)
     
     # 描画の準備
     var main_color: Color

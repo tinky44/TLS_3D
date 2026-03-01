@@ -36,85 +36,89 @@ func _process(_delta: float) -> void:
 
 func _setup_ui():
     ui_layer = CanvasLayer.new()
-    status_label = Label.new()
+    
+    # サイドバー全体を覆うパネル
+    var sidebar = PanelContainer.new()
+    sidebar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+    sidebar.custom_minimum_size = Vector2(320, 0)
     
     var style = StyleBoxFlat.new()
-    style.bg_color = Color(0, 0, 0, 0.5)
-    style.content_margin_left = 10
-    style.content_margin_right = 10
-    style.content_margin_top = 10
-    style.content_margin_bottom = 10
+    style.bg_color = Color("#f8f9fa") # 明るい背景
+    style.border_width_right = 2
+    style.border_color = Color("#dee2e6")
+    sidebar.add_theme_stylebox_override("panel", style)
     
-    status_label.add_theme_stylebox_override("normal", style)
-    status_label.position = Vector2(20, 20)
-    status_label.add_theme_font_size_override("font_size", 16)
-    
-    ui_layer.add_child(status_label)
-    add_child(ui_layer)
-    _setup_params_ui()
-
-func _setup_params_ui():
-    var global = get_node_or_null("/root/Global")
-    if not global: return
-    
-    var panel = PanelContainer.new()
-    var style = StyleBoxFlat.new()
-    style.bg_color = Color(0, 0, 0, 0.5)
-    style.content_margin_left = 10
-    style.content_margin_right = 10
-    style.content_margin_top = 10
-    style.content_margin_bottom = 10
-    panel.add_theme_stylebox_override("panel", style)
-    panel.position = Vector2(320, 20)
+    var margin = MarginContainer.new()
+    margin.add_theme_constant_override("margin_left", 20)
+    margin.add_theme_constant_override("margin_top", 20)
+    margin.add_theme_constant_override("margin_right", 20)
+    margin.add_theme_constant_override("margin_bottom", 20)
+    sidebar.add_child(margin)
     
     var vbox = VBoxContainer.new()
-    panel.add_child(vbox)
+    vbox.add_theme_constant_override("separation", 20)
+    margin.add_child(vbox)
     
+    status_label = Label.new()
+    status_label.add_theme_color_override("font_color", Color("#212529"))
+    status_label.add_theme_font_size_override("font_size", 16)
+    vbox.add_child(status_label)
+    
+    # 線のセパレータ
+    var sep = HSeparator.new()
+    vbox.add_child(sep)
+    
+    _build_sliders(vbox)
+    
+    ui_layer.add_child(sidebar)
+    add_child(ui_layer)
+
+func _build_sliders(parent_vbox: VBoxContainer):
+    var global = get_node_or_null("/root/Global")
+    if not global: return
     var params = global.current_params
     
-    # Height
+    # 身長
     var h_lbl = Label.new()
     h_lbl.text = "身長 (100 - 300cm)"
-    vbox.add_child(h_lbl)
+    h_lbl.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(h_lbl)
     var h_slider = HSlider.new()
     h_slider.min_value = 100.0
     h_slider.max_value = 300.0
     h_slider.step = 0.5
     h_slider.value = params["height"]
-    h_slider.custom_minimum_size = Vector2(250, 20)
     h_slider.focus_mode = Control.FOCUS_NONE
     h_slider.value_changed.connect(_on_height_changed)
-    vbox.add_child(h_slider)
+    parent_vbox.add_child(h_slider)
     
-    # Ratio
+    # 頭身
     var r_lbl = Label.new()
     r_lbl.text = "頭身 (5.0 - 10.0)"
-    vbox.add_child(r_lbl)
+    r_lbl.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(r_lbl)
     var r_slider = HSlider.new()
     r_slider.min_value = 5.0
     r_slider.max_value = 10.0
     r_slider.step = 0.1
     r_slider.value = params["ratio"]
-    r_slider.custom_minimum_size = Vector2(250, 20)
     r_slider.focus_mode = Control.FOCUS_NONE
     r_slider.value_changed.connect(_on_ratio_changed)
-    vbox.add_child(r_slider)
+    parent_vbox.add_child(r_slider)
     
-    # Leg Ratio
+    # 股下
     var l_lbl = Label.new()
     l_lbl.text = "股下比率 (30% - 60%)"
-    vbox.add_child(l_lbl)
+    l_lbl.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(l_lbl)
     var l_slider = HSlider.new()
     l_slider.min_value = 30.0
     l_slider.max_value = 60.0
     l_slider.step = 0.5
     l_slider.value = params["legRatio"]
-    l_slider.custom_minimum_size = Vector2(250, 20)
     l_slider.focus_mode = Control.FOCUS_NONE
     l_slider.value_changed.connect(_on_leg_ratio_changed)
-    vbox.add_child(l_slider)
-    
-    ui_layer.add_child(panel)
+    parent_vbox.add_child(l_slider)
 
 func _on_height_changed(val: float):
     var global = get_node_or_null("/root/Global")
@@ -186,6 +190,7 @@ func _load_stage():
             var m = player.get("m")
             if m and m.has("height"):
                 # キャラクターの身長の40〜50%あたり（腰〜胸付近）を中心にする
-                cam.offset = Vector2(0, -m["height"] * p * 0.4)
+                # X軸に -160 を指定し、キャラクターを画面右側に寄せる（左側のUI領域を確保）
+                cam.offset = Vector2(-160, -m["height"] * p * 0.4)
             # 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
             cam.limit_bottom = 250
