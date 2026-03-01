@@ -82,6 +82,7 @@ func _setup_params_ui():
     h_slider.step = 0.5
     h_slider.value = params["height"]
     h_slider.custom_minimum_size = Vector2(250, 20)
+    h_slider.focus_mode = Control.FOCUS_NONE
     h_slider.value_changed.connect(_on_height_changed)
     vbox.add_child(h_slider)
     
@@ -95,6 +96,7 @@ func _setup_params_ui():
     r_slider.step = 0.1
     r_slider.value = params["ratio"]
     r_slider.custom_minimum_size = Vector2(250, 20)
+    r_slider.focus_mode = Control.FOCUS_NONE
     r_slider.value_changed.connect(_on_ratio_changed)
     vbox.add_child(r_slider)
     
@@ -108,6 +110,7 @@ func _setup_params_ui():
     l_slider.step = 0.5
     l_slider.value = params["legRatio"]
     l_slider.custom_minimum_size = Vector2(250, 20)
+    l_slider.focus_mode = Control.FOCUS_NONE
     l_slider.value_changed.connect(_on_leg_ratio_changed)
     vbox.add_child(l_slider)
     
