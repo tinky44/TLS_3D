@@ -10,6 +10,28 @@ var current_params: Dictionary = {
     "sex": "female"
 }
 
+const SAVE_PATH = "user://settings.cfg"
+
+func _ready():
+    load_settings()
+
+func load_settings():
+    var config = ConfigFile.new()
+    var err = config.load(SAVE_PATH)
+    if err == OK:
+        current_params["height"] = config.get_value("Player", "height", current_params["height"])
+        current_params["ratio"] = config.get_value("Player", "ratio", current_params["ratio"])
+        current_params["legRatio"] = config.get_value("Player", "legRatio", current_params["legRatio"])
+        current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
+
+func save_settings():
+    var config = ConfigFile.new()
+    config.set_value("Player", "height", current_params["height"])
+    config.set_value("Player", "ratio", current_params["ratio"])
+    config.set_value("Player", "legRatio", current_params["legRatio"])
+    config.set_value("Player", "sex", current_params["sex"])
+    config.save(SAVE_PATH)
+
 func get_body_measurements() -> Dictionary:
     var h: float = current_params["height"]
     var ratio: float = current_params["ratio"]

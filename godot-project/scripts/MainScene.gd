@@ -124,6 +124,7 @@ func _on_height_changed(val: float):
     var global = get_node_or_null("/root/Global")
     if global:
         global.current_params["height"] = val
+        global.save_settings()
         if player and player.has_method("update_measurements"):
             player.update_measurements()
 
@@ -131,6 +132,7 @@ func _on_ratio_changed(val: float):
     var global = get_node_or_null("/root/Global")
     if global:
         global.current_params["ratio"] = val
+        global.save_settings()
         if player and player.has_method("update_measurements"):
             player.update_measurements()
 
@@ -138,6 +140,7 @@ func _on_leg_ratio_changed(val: float):
     var global = get_node_or_null("/root/Global")
     if global:
         global.current_params["legRatio"] = val
+        global.save_settings()
         if player and player.has_method("update_measurements"):
             player.update_measurements()
 
