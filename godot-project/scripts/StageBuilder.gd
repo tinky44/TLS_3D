@@ -121,10 +121,10 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
             rect.size = Vector2(w_px, h_px)
             shape.position = Vector2(obs["x"] * cm_to_px + w_px / 2.0, -h_px / 2.0)
         else: # overhead
-            # 高いところにあるブロック（厚みは20cmと仮定）
-            var thick_cm = 20.0
-            rect.size = Vector2(w_px, thick_cm * cm_to_px)
-            shape.position = Vector2(obs["x"] * cm_to_px + w_px / 2.0, -h_px - (thick_cm * cm_to_px / 2.0))
+            # CollisionShapeはすり抜け防止のためかなり分厚くする(100cm)
+            var coll_thick_cm = 100.0
+            rect.size = Vector2(w_px, coll_thick_cm * cm_to_px)
+            shape.position = Vector2(obs["x"] * cm_to_px + w_px / 2.0, -h_px - (coll_thick_cm * cm_to_px / 2.0))
             
         shape.shape = rect
         body.add_child(shape)
