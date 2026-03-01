@@ -1,0 +1,22 @@
+# Local and environment files
+*.local.md
+.env
+
+# Godot-specific ignores
+.godot/
+*.import
+export_presets.cfg
+*.translation
+
+# Build artifacts
+bin/
+build/
+dist/
+*.pck
+*.exe
+*.zip
+
+# System/Misc
+.DS_Store
+node_modules/
+
