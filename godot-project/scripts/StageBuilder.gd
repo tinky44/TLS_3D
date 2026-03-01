@@ -136,29 +136,68 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         
     node.set_meta("is_stage_obj", true)
     
-    # 描画用のColorRect
-    var cr = ColorRect.new()
+    # 描画の準備
+    var main_color: Color
+    var y_pos: float
+    var h_draw_px: float
+
     if type == "overhead":
-        cr.color = Color(0.8, 0.4, 0.4, 0.8) # 赤っぽく
+        main_color = Color(0.8, 0.4, 0.4, 0.8) # 赤っぽく
         var thick_cm = 20.0
-        cr.position = Vector2(obs["x"] * cm_to_px, -h_px - thick_cm * cm_to_px)
-        cr.size = Vector2(w_px, thick_cm * cm_to_px)
-    elif type == "ground":
-        cr.color = Color(0.4, 0.8, 0.4, 0.8) # 緑っぽく
-        cr.position = Vector2(obs["x"] * cm_to_px, -h_px)
-        cr.size = Vector2(w_px, h_px)
-    else: # background
-        cr.color = Color(0.5, 0.5, 0.8, 0.5) # 薄い青
-        cr.position = Vector2(obs["x"] * cm_to_px, -h_px)
-        cr.size = Vector2(w_px, h_px) # backgroundは地面からその高さ、あるいは特定の位置に配置するか。ひとまず地面からの四角形。
+        y_pos = - h_px - thick_cm * cm_to_px
+        h_draw_px = thick_cm * cm_to_px
         
+        # ドアフレーム（柱）を描画して、空中に浮かないようにする
+        var pillar_w = 12.0
+        var p_left = ColorRect.new()
+        p_left.color = Color(0.6, 0.3, 0.3, 0.8)
+        p_left.position = Vector2(obs["x"] * cm_to_px, -h_px)
+        p_left.size = Vector2(pillar_w, h_px)
+        node.add_child(p_left)
+
+        var p_right = ColorRect.new()
+        p_right.color = Color(0.6, 0.3, 0.3, 0.8)
+        p_right.position = Vector2(obs["x2"] * cm_to_px - pillar_w, -h_px)
+        p_right.size = Vector2(pillar_w, h_px)
+        node.add_child(p_right)
+        
+    elif type == "ground":
+        main_color = Color(0.4, 0.8, 0.4, 0.8) # 緑っぽく
+        y_pos = - h_px
+        h_draw_px = h_px
+    else: # background
+        main_color = Color(0.5, 0.6, 0.9, 0.4) # 薄い青
+        y_pos = - h_px
+        h_draw_px = h_px
+
+    # メインの四角形（梁や本体）
+    var cr = ColorRect.new()
+    cr.color = main_color
+    cr.position = Vector2(obs["x"] * cm_to_px, y_pos)
+    cr.size = Vector2(w_px, h_draw_px)
     node.add_child(cr)
     
+    # 基準となる高さのライン（黄色線）
+    var line = Line2D.new()
+    line.add_point(Vector2(obs["x"] * cm_to_px, -h_px))
+    line.add_point(Vector2(obs["x2"] * cm_to_px, -h_px))
+    line.width = 3.0
+    line.default_color = Color(1.0, 1.0, 0.2, 0.9) # やや明るい黄色
+    node.add_child(line)
+
+    # ラベル（名前と高さ）
     var label = Label.new()
-    label.text = obs["id"]
-    label.position = cr.position + Vector2(0, -20)
-    label.add_theme_color_override("font_color", Color(1, 1, 1))
-    label.add_theme_font_size_override("font_size", 12)
-    node.add_child(label)
+    var display_name = str(obs["id"]).capitalize()
+    label.text = "%s\n%.0f cm" % [display_name, h_cm]
+    label.add_theme_color_override("font_color", Color.WHITE)
+    label.add_theme_color_override("font_outline_color", Color.BLACK)
+    label.add_theme_constant_override("outline_size", 4)
+    label.add_theme_font_size_override("font_size", 14)
+    label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     
+    # 表示位置の調整
+    label.size = Vector2(w_px, 40)
+    label.position = Vector2(obs["x"] * cm_to_px, -h_px - 45)
+    
+    node.add_child(label)
     parent.add_child(node)
