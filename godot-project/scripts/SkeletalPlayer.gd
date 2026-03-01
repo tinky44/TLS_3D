@@ -119,14 +119,17 @@ func _setup_sensors():
         ray.target_position = Vector2(look_ahead_px, 0)
         # 障害物はレイヤー2に配置する想定（頭上のみレイヤー2等）
         ray.collision_mask = 2 | 1
+        ray.hit_from_inside = true # 薄いColliderの内部からでも拾えるように
         add_child(ray)
         sensors.append(ray)
         
-    # 天井検知用レーダー (立ち上がる時用)
+    # 天井検知用レーダー (立ち上がる時用) - 上方向へ飛ばす
     var ceil_ray = RayCast2D.new()
     ceil_ray.position = Vector2(0, -m["height"] * 0.5 * CM_TO_PX)
-    ceil_ray.target_position = Vector2(0, -m["height"] * 0.55 * CM_TO_PX)
+    # 真上に向かって、身長の1.2倍くらいまでチェック
+    ceil_ray.target_position = Vector2(0, -m["height"] * 0.7 * CM_TO_PX)
     ceil_ray.collision_mask = 2 | 1
+    ceil_ray.hit_from_inside = true
     add_child(ceil_ray)
     sensors.append(ceil_ray) # index 4
 
