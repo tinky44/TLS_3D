@@ -13,6 +13,7 @@ const CROUCH_SPEED = 0.2 # Tween duration
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var head_forward_cast: RayCast2D = $HeadForwardCast
+@onready var head_mid_cast: RayCast2D = $HeadMidCast
 @onready var ceiling_cast: RayCast2D = $CeilingCast
 
 # State
@@ -39,6 +40,7 @@ func _physics_process(delta: float) -> void:
         velocity.x = direction * SPEED
         # Update Cast direction based on facing
         head_forward_cast.target_position.x = 50 * sign(direction)
+        head_mid_cast.target_position.x = 50 * sign(direction)
     else:
         velocity.x = move_toward(velocity.x, 0, SPEED)
 
@@ -52,7 +54,7 @@ func _handle_crouch_logic(_delta: float) -> void:
     
     # Auto crouch detection
     if auto_crouch_enabled and not wants_to_crouch:
-        if head_forward_cast.is_colliding():
+        if head_forward_cast.is_colliding() or head_mid_cast.is_colliding():
             wants_to_crouch = true
     
     # Check if we are physically blocked from standing up
@@ -95,3 +97,5 @@ func _set_crouch_state(crouch: bool, target_height: float) -> void:
     height_tween.tween_property(ceiling_cast, "position:y", -target_height + 10, CROUCH_SPEED)
     # HeadForwardCast needs to stay near the top
     height_tween.tween_property(head_forward_cast, "position:y", -target_height + 10, CROUCH_SPEED)
+    # HeadMidCast stays 40 pixels below HeadForwardCast
+    height_tween.tween_property(head_mid_cast, "position:y", -target_height + 50, CROUCH_SPEED)
