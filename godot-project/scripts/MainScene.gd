@@ -9,6 +9,8 @@ var p: float = 2.0
 # UI用
 var ui_layer: CanvasLayer
 var status_label: Label
+var bubble_panel: PanelContainer
+var bubble_label: Label
 
 func _ready() -> void:
     # 既存のテスト用古いノード群があれば削除
@@ -22,10 +24,81 @@ func _ready() -> void:
         p = global.CM_TO_PX
         
     _setup_ui()
+    _setup_bubble()
     _load_stage()
+
+func _setup_bubble():
+    bubble_panel = PanelContainer.new()
+    var style = StyleBoxFlat.new()
+    style.bg_color = Color(1.0, 1.0, 1.0, 0.9)
+    style.border_width_left = 2
+    style.border_width_top = 2
+    style.border_width_right = 2
+    style.border_width_bottom = 2
+    style.border_color = Color(0.2, 0.2, 0.2, 0.5)
+    style.corner_radius_top_left = 12
+    style.corner_radius_top_right = 12
+    style.corner_radius_bottom_right = 12
+    style.corner_radius_bottom_left = 12
+    style.content_margin_left = 16
+    style.content_margin_right = 16
+    style.content_margin_top = 10
+    style.content_margin_bottom = 10
+    bubble_panel.add_theme_stylebox_override("panel", style)
+    
+    bubble_label = Label.new()
+    bubble_label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+    bubble_label.add_theme_font_size_override("font_size", 14)
+    # 改行対応
+    bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    bubble_label.custom_minimum_size = Vector2(200, 0)
+    
+    bubble_panel.add_child(bubble_label)
+    add_child(bubble_panel)
+    bubble_panel.hide()
+
 
 func _process(_delta: float) -> void:
     _update_ui()
+    _update_bubble()
+    
+func _update_bubble():
+    if not player or not bubble_panel: return
+    
+    var m = player.get("m")
+    if not m: return
+    
+    var px = player.global_position.x / p
+    var hit_dist = 60.0 # 60cm以内に近づいたら表示
+    var closest_obs: Node2D = null
+    var min_dist = INF
+    
+    for child in get_children():
+        if child.has_meta("is_stage_obj") and child.has_meta("obs_x"):
+            # AABBチェックのようなもの。
+            var ox1 = float(child.get_meta("obs_x"))
+            var ox2 = float(child.get_meta("obs_x2"))
+            var dist = 0.0
+            if px < ox1: dist = ox1 - px
+            elif px > ox2: dist = px - ox2
+            
+            if dist < hit_dist and dist < min_dist:
+                min_dist = dist
+                closest_obs = child
+                
+    if closest_obs:
+        var obs_id = closest_obs.get_meta("obs_id")
+        var oh = closest_obs.get_meta("obs_height_cm")
+        var h = m["height"]
+        
+        bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
+        bubble_panel.show()
+        
+        # プレイヤーの少し上、画面から見切れない位置にパネルを配置
+        var offset_y = player.visual_height_cm * p + 80
+        bubble_panel.global_position = player.global_position + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
+    else:
+        bubble_panel.hide()
     
     # ステージ切り替え (数字キー 6, 7, 8, 9)
     # Player.tscn内で1~5はポーズ切り替えに使われているため

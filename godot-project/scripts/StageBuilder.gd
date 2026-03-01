@@ -135,7 +135,11 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node = area
         
     node.set_meta("is_stage_obj", true)
+    node.set_meta("obs_id", obs["id"])
     node.set_meta("obs_height_cm", h_cm)
+    node.set_meta("obs_x", obs["x"])
+    node.set_meta("obs_x2", obs["x2"])
+    node.set_meta("obs_type", type)
     
     # 描画の準備
     var main_color: Color
@@ -178,6 +182,65 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     cr.size = Vector2(w_px, h_draw_px)
     node.add_child(cr)
     
+    # ---------------------------------------------------------
+    # IDに応じた装飾の追加 (ドアの取っ手、吊り革の丸、鏡の枠など)
+    # ---------------------------------------------------------
+    var o_id = obs["id"]
+    if "door" in o_id:
+        # ドアの場合は、横に取っ手を描く
+        var knob = ColorRect.new()
+        knob.color = Color(0.2, 0.2, 0.2, 0.8)
+        var is_right_door = ("right" in o_id or "2" in o_id or "4" in o_id) # 奇数左、偶数右みたいな簡易判定
+        var knob_x = cr.position.x + (20.0 if not is_right_door else w_px - 30.0)
+        knob.position = Vector2(knob_x, cr.position.y + h_draw_px * 0.5)
+        knob.size = Vector2(10.0, 40.0)
+        node.add_child(knob)
+        # ドアの窓
+        var win = ColorRect.new()
+        win.color = Color(0.7, 0.8, 0.9, 0.6)
+        win.size = Vector2(w_px * 0.6, h_draw_px * 0.4)
+        win.position = Vector2(cr.position.x + w_px * 0.2, cr.position.y + 20)
+        node.add_child(win)
+        
+    elif "strap" in o_id:
+        # 吊り革の場合は、上のバーから伸びる紐と輪っかを描く
+        var strap_line = Line2D.new()
+        strap_line.add_point(Vector2(cr.position.x + w_px * 0.5, cr.position.y))
+        strap_line.add_point(Vector2(cr.position.x + w_px * 0.5, cr.position.y + 40.0))
+        strap_line.width = 4.0
+        strap_line.default_color = Color(0.8, 0.8, 0.8)
+        node.add_child(strap_line)
+        
+        # 簡易的な輪っかとして、中抜きのPolygon2DやLine2Dを使う代わりに小さい矩形を置く
+        var ring = ColorRect.new()
+        ring.color = Color(0.9, 0.9, 0.4)
+        ring.size = Vector2(24, 24)
+        ring.position = Vector2(cr.position.x + w_px * 0.5 - 12, cr.position.y + 40)
+        node.add_child(ring)
+        var ring_hole = ColorRect.new()
+        ring_hole.color = main_color
+        ring_hole.size = Vector2(14, 14)
+        ring_hole.position = ring.position + Vector2(5, 5)
+        node.add_child(ring_hole)
+
+    elif o_id == "washstand":
+        # 鏡らしく、内側を明るい水色にする
+        var glass = ColorRect.new()
+        glass.color = Color(0.8, 0.9, 1.0, 0.7)
+        glass.size = Vector2(w_px - 20, h_draw_px - 20)
+        glass.position = cr.position + Vector2(10, 10)
+        node.add_child(glass)
+
+    elif o_id == "range_hood":
+        # 換気扇の吸い込み口（斜めに見えるよう下部に暗い色）
+        var hole = ColorRect.new()
+        hole.color = Color(0.2, 0.2, 0.2, 0.8)
+        hole.size = Vector2(w_px - 10, 20)
+        hole.position = Vector2(cr.position.x + 5, cr.position.y + h_draw_px - 25)
+        node.add_child(hole)
+    # ---------------------------------------------------------
+
+    
     # 基準となる高さのライン（黄色線）
     var line = Line2D.new()
     line.add_point(Vector2(obs["x"] * cm_to_px, -h_px))
@@ -202,3 +265,57 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     
     node.add_child(label)
     parent.add_child(node)
+
+static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
+    match obs_id:
+        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4":
+            if h > oh:
+                return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "ドア（高さ%dcm）を余裕でくぐれます（余裕%dcm）。" % [oh, round(oh - h)]
+        "range_hood":
+            if h > oh:
+                return "レンジフード（高さ%dcm）に頭がぶつかります！\n%dcmかがまないと通れません。" % [oh, round(h - oh)]
+            else:
+                return "レンジフード（高さ%dcm）はあなたの頭より%dcm上にあります。" % [oh, round(oh - h)]
+        "washstand":
+            if h > 180:
+                return "洗面台の鏡。かがまないと顔が見えません（身長%dcm）。" % h
+            else:
+                return "洗面台の鏡。ちょうど顔が映ります。"
+        "shower":
+            return "シャワー（%dcm）から頭上へお湯が降り注ぎます。" % oh
+        "strap_1", "strap_2", "strap_3":
+            if h >= oh:
+                return "吊り革バー（%dcm）が目の前！楽々手が届きます！" % oh
+            else:
+                return "吊り革バー（%dcm）まで%dcm届きません。" % [oh, round(oh - h)]
+        "public_phone":
+            return "公衆電話（高さ%dcm）。\nあなたが使うと受話器は胸のあたりの位置です。" % oh
+        "pedestrian_signal":
+            return "歩行者用信号機（%dm）。\nあなた（%dcm）の%.1f倍の高さです。" % [oh / 100, h, oh / h]
+        "streetlight", "traffic_signal", "curve_mirror", "footbridge":
+            return "障害物（%dm）。\nあなた（%dcm）の%.1f倍の高さです。" % [oh / 100, h, oh / h]
+        "utility_pole":
+            return "電柱（%dm）！\nあなた（%dcm）が%.1f人分積み重なった高さ。" % [oh / 100, h, oh / h]
+        "house_2f", "house_3f":
+            return "建物（%dm）。あなた（%dcm）が%.1f人分の高さ。" % [oh / 100, h, oh / h]
+        "vending_machine":
+            if h > oh:
+                return "自販機（%dcm）より背が高いですね。\n取り出し口が遠く感じそうです。" % oh
+            else:
+                return "自販機（%dcm）。\nあなた（%dcm）より%dcm高いです。" % [oh, h, round(oh - h)]
+        "blackboard":
+            if h > 180:
+                return "黒板の上の方まで楽々手が届きますね。"
+            else:
+                return "黒板の上の方は少し背伸びが必要かもしれません。"
+        "desk_1", "desk_2", "teacher_desk":
+            return "学校の机（%dcm）。\n昔はこんなに小さかったですね。" % oh
+    
+    if h > oh:
+        return "オブジェクト（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, math_round(h - oh)]
+    return "オブジェクト（高さ%dcm）。" % oh
+
+static func math_round(val: float) -> int:
+    return int(round(val))
