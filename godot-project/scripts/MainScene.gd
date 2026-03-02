@@ -30,7 +30,7 @@ func _ready() -> void:
 func _setup_bubble():
     bubble_panel = PanelContainer.new()
     var style = StyleBoxFlat.new()
-    style.bg_color = Color(1.0, 1.0, 1.0, 0.9)
+    style.bg_color = Color(1.0, 1.0, 1.0, 0.5)
     style.border_width_left = 2
     style.border_width_top = 2
     style.border_width_right = 2

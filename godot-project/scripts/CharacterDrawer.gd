@@ -138,51 +138,164 @@ func _draw() -> void:
         
     # --- 描画順：奥の腕 -> 奥の足 -> 胴体下 -> 胴体上 -> 手前の足 -> 首・頭 -> 手前の腕 ---
 
-    # 1. 奥の腕
-    var arm_len = m["armLength"] * p
-    var u_arm = arm_len * 0.45
-    var l_arm = arm_len * 0.55
-    var shoulder_offset = Vector2(shoulder_w * 0.2, 0).rotated(waist_angle - PI / 2 if dir == 1 else PI / 2)
-    if facing == "side": shoulder_offset = Vector2.ZERO # 真横ならオフセットなし
-    
-    var s_pos_l = Vector2(sx, sy) - shoulder_offset
-    var p_elb_l = _rotated_point(s_pos_l.x, s_pos_l.y, u_arm, _arm_l_angle * PI / 180 + waist_angle + PI / 2)
-    var p_hand_l = _rotated_point(p_elb_l.x, p_elb_l.y, l_arm, _arm_l_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
-    var p_sleeve_l = _rotated_point(s_pos_l.x, s_pos_l.y, u_arm * 0.4, _arm_l_angle * PI / 180 + waist_angle + PI / 2)
-    
-    _draw_limb(s_pos_l, p_elb_l, arm_w, skin_dark)
-    _draw_limb(s_pos_l, p_sleeve_l, arm_w * 1.05, shirt_dark) # 奥の袖
-    _draw_limb(p_elb_l, p_hand_l, arm_w * 0.8, skin_dark)
+    if facing == "front" or facing == "back":
+        # ======== 正面・背面 (Front / Back) ========
+        # grep_simulatorのロジックに倣い、胴体自体の幅(body_w)は肩幅(shoulder_w)の 3/5 程度にする
+        var body_w = shoulder_w * 0.6
+        var body_w_half = body_w / 2.0
+        
+        # 腕のオフセット：胴体の幅のすぐ外側（肩幅の 1/2 より少し内側）
+        var sh_off = shoulder_w * 0.5 - arm_w * 0.5
+        
+        # 肩の高さ（sy は元々背骨の曲がり等を考慮した位置だが、正面描画では少し高く見えすぎるため調整）
+        # grep_simulator では yShoulderScaled = crotchY - currentTorsoL としている
+        var front_sy = cy - m["arm"] * p
+        
+        # 脚のオフセット：胴体幅の半分より少し内側
+        var hp_off = body_w_half * 0.6
+        
+        # 腕と脚の基点
+        var p_hip_l = Vector2(cx - hp_off, cy)
+        var p_hip_r = Vector2(cx + hp_off, cy)
+        var p_sh_l = Vector2(sx - sh_off, front_sy)
+        var p_sh_r = Vector2(sx + sh_off, front_sy)
+        
+        # 歩行時の左右のブレを抑えるため角度変化を小さくする
+        var f_leg_l_ang = (leg_l_angle * 0.2) * PI / 180 + PI / 2
+        var f_leg_r_ang = (leg_r_angle * 0.2) * PI / 180 + PI / 2
 
-    # 2. 奥の足
-    var p_thigh_l = _rotated_point(cx, cy, thigh_l, leg_l_angle * PI / 180 + PI / 2)
-    var p_shin_l = _rotated_point(p_thigh_l.x, p_thigh_l.y, shin_l, leg_l_angle * PI / 180 + PI / 2 + knee_l)
-    _draw_limb(Vector2(cx, cy), p_thigh_l, thigh_w, pants_dark) # 太もも
-    _draw_limb(p_thigh_l, p_shin_l, shin_w, skin_dark) # すね
+        # 1. 両足 (背面に配置するため最初に描画)
+        var p_thigh_l = _rotated_point(p_hip_l.x, p_hip_l.y, thigh_l, f_leg_l_ang)
+        var p_shin_l = _rotated_point(p_thigh_l.x, p_thigh_l.y, shin_l, f_leg_l_ang + knee_l * 0.2)
+        _draw_limb(p_hip_l, p_thigh_l, thigh_w, pants_color)
+        _draw_limb(p_thigh_l, p_shin_l, shin_w, skin_color)
+        
+        var p_thigh_r = _rotated_point(p_hip_r.x, p_hip_r.y, thigh_l, f_leg_r_ang)
+        var p_shin_r = _rotated_point(p_thigh_r.x, p_thigh_r.y, shin_l, f_leg_r_ang + knee_r * 0.2)
+        _draw_limb(p_hip_r, p_thigh_r, thigh_w, pants_color)
+        _draw_limb(p_thigh_r, p_shin_r, shin_w, skin_color)
 
-    # 3. 胴体（服）
-    # 下部（骨盤〜腰）
-    _draw_trapezoid(Vector2(wx, wy), Vector2(cx, cy), hip_w, hip_w, base_shirt_color, waist_angle * 0.5)
-    # 中部・上部（腰〜肩）
-    _draw_trapezoid(Vector2(sx, sy), Vector2(wx, wy), shoulder_w, hip_w, base_shirt_color, waist_angle)
+        # 2. 胴体 (シャツ)
+        # 胴体の丸みを消し、角ばった形にして「服」らしいシルエットを強調
+        var body_pts_lower = PackedVector2Array([
+            Vector2(wx - body_w_half, wy), Vector2(wx + body_w_half, wy),
+            Vector2(cx + body_w_half, cy), Vector2(cx - body_w_half, cy)
+        ])
+        draw_polygon(body_pts_lower, PackedColorArray([base_shirt_color]))
+        
+        var body_pts_upper = PackedVector2Array([
+            Vector2(sx - body_w_half, front_sy), Vector2(sx + body_w_half, front_sy),
+            Vector2(wx + body_w_half, wy), Vector2(wx - body_w_half, wy)
+        ])
+        draw_polygon(body_pts_upper, PackedColorArray([base_shirt_color]))
 
-    # 4. 手前の足
-    var p_thigh_r = _rotated_point(cx, cy, thigh_l, leg_r_angle * PI / 180 + PI / 2)
-    var p_shin_r = _rotated_point(p_thigh_r.x, p_thigh_r.y, shin_l, leg_r_angle * PI / 180 + PI / 2 + knee_r)
-    _draw_limb(Vector2(cx, cy), p_thigh_r, thigh_w, pants_color) # 太もも
-    _draw_limb(p_thigh_r, p_shin_r, shin_w, skin_color) # すね
-    
-    # 5. 首
-    _draw_limb(Vector2(sx, sy), Vector2(nx, ny), neck_w, skin_color)
+        # 3. 首
+        _draw_limb(Vector2(sx, front_sy), Vector2(nx, ny), neck_w, skin_color)
 
-    # 6. 頭
-    var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
-    if facing == "side": head_w *= 0.85 # 横顔は少し幅を狭める
-    
-    _draw_ellipse(Vector2(hx, hy), head_w / 2.0, head_h / 2.0, skin_color)
-    
-    # 目と口（サイドビュー時）
-    if facing == "side":
+        # 4. 頭
+        var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
+        _draw_ellipse(Vector2(hx, hy), head_w / 2.0, head_h / 2.0, skin_color)
+
+        # 5. 両腕 (胴体の上に描画)
+        var arm_len = m["armLength"] * p
+        var u_arm = arm_len * 0.45
+        var l_arm = arm_len * 0.55
+        
+        # 左腕（画面左側）: やや左へ広げる (+0.12ラジアン)
+        var f_arm_l_ang = 0.12 + (_arm_l_angle * 0.3) * PI / 180 + PI / 2
+        var p_elb_l = _rotated_point(p_sh_l.x, p_sh_l.y, u_arm, f_arm_l_ang)
+        var p_hand_l = _rotated_point(p_elb_l.x, p_elb_l.y, l_arm, f_arm_l_ang)
+        var p_sleeve_l = _rotated_point(p_sh_l.x, p_sh_l.y, u_arm * 0.4, f_arm_l_ang)
+        
+        # 右腕（画面右側）: やや右へ広げる (-0.12ラジアン)
+        var f_arm_r_ang = -0.12 + (arm_r_angle * 0.3) * PI / 180 + PI / 2
+        var p_elb_r = _rotated_point(p_sh_r.x, p_sh_r.y, u_arm, f_arm_r_ang)
+        var p_hand_r = _rotated_point(p_elb_r.x, p_elb_r.y, l_arm, f_arm_r_ang)
+        var p_sleeve_r = _rotated_point(p_sh_r.x, p_sh_r.y, u_arm * 0.4, f_arm_r_ang)
+
+        # 腕の描画
+        var arm_color = skin_color if facing == "front" else skin_dark
+        var sleeve_color = base_shirt_color if facing == "front" else shirt_dark
+        _draw_limb(p_sh_l, p_elb_l, arm_w, arm_color)
+        _draw_limb(p_sh_l, p_sleeve_l, arm_w * 1.05, sleeve_color)
+        _draw_limb(p_elb_l, p_hand_l, arm_w * 0.8, arm_color)
+        
+        _draw_limb(p_sh_r, p_elb_r, arm_w, arm_color)
+        _draw_limb(p_sh_r, p_sleeve_r, arm_w * 1.05, sleeve_color)
+        _draw_limb(p_elb_r, p_hand_r, arm_w * 0.8, arm_color)
+
+        # 6. 顔とディテール (一番上に描画)
+        if facing == "front":
+            var eye_off_x = head_w * 0.2
+            var eye_y = hy - (head_h * 0.1)
+            draw_circle(Vector2(hx - eye_off_x, eye_y), 2.5, Color("#333333"))
+            draw_circle(Vector2(hx + eye_off_x, eye_y), 2.5, Color("#333333"))
+            
+            # ニッコリ口
+            var mouth_y = hy + (head_h * 0.15)
+            var m_pts = PackedVector2Array()
+            for i in range(11):
+                var t = float(i) / 10.0
+                var xx = lerp(-head_w * 0.15, head_w * 0.15, t)
+                var yy = mouth_y + sin(t * PI) * 3.0
+                m_pts.append(Vector2(hx + xx, yy))
+            for i in range(m_pts.size() - 1):
+                draw_line(m_pts[i], m_pts[i + 1], Color("#c07070"), 2.0)
+            
+            # 胸のポッチ
+            # currentTorsoL = arm_p (胴体の長さ全体)
+            var current_torso_l = m["arm"] * p
+            var nipple_y = front_sy + (current_torso_l * 0.25)
+            # nipple_x は肩幅の 3/25 程度 (grep_simulator準拠)
+            var nip_x = shoulder_w * (3.0 / 25.0)
+            draw_circle(Vector2(sx - nip_x, nipple_y), 3.0, Color("#d0a0a0"))
+            draw_circle(Vector2(sx + nip_x, nipple_y), 3.0, Color("#d0a0a0"))
+            
+            # おへそ
+            var navel_y = front_sy + (current_torso_l * 0.60)
+            draw_circle(Vector2(wx, navel_y), 2.0, Color("#d0a0a0"))
+
+    else:
+        # ======== 横向き (Side) ========
+        # 1. 奥の腕
+        var arm_len = m["armLength"] * p
+        var u_arm = arm_len * 0.45
+        var l_arm = arm_len * 0.55
+        var shoulder_offset = Vector2.ZERO # 真横ならオフセットなし
+        
+        var s_pos_l = Vector2(sx, sy) - shoulder_offset
+        var p_elb_l = _rotated_point(s_pos_l.x, s_pos_l.y, u_arm, _arm_l_angle * PI / 180 + waist_angle + PI / 2)
+        var p_hand_l = _rotated_point(p_elb_l.x, p_elb_l.y, l_arm, _arm_l_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
+        var p_sleeve_l = _rotated_point(s_pos_l.x, s_pos_l.y, u_arm * 0.4, _arm_l_angle * PI / 180 + waist_angle + PI / 2)
+        
+        _draw_limb(s_pos_l, p_elb_l, arm_w, skin_dark)
+        _draw_limb(s_pos_l, p_sleeve_l, arm_w * 1.05, shirt_dark) # 奥の袖
+        _draw_limb(p_elb_l, p_hand_l, arm_w * 0.8, skin_dark)
+
+        # 2. 奥の足
+        var p_thigh_l = _rotated_point(cx, cy, thigh_l, leg_l_angle * PI / 180 + PI / 2)
+        var p_shin_l = _rotated_point(p_thigh_l.x, p_thigh_l.y, shin_l, leg_l_angle * PI / 180 + PI / 2 + knee_l)
+        _draw_limb(Vector2(cx, cy), p_thigh_l, thigh_w, pants_dark) # 太もも
+        _draw_limb(p_thigh_l, p_shin_l, shin_w, skin_dark) # すね
+
+        # 3. 胴体（服）
+        _draw_trapezoid(Vector2(wx, wy), Vector2(cx, cy), hip_w, hip_w, base_shirt_color, waist_angle * 0.5)
+        _draw_trapezoid(Vector2(sx, sy), Vector2(wx, wy), shoulder_w, hip_w, base_shirt_color, waist_angle)
+
+        # 4. 手前の足
+        var p_thigh_r = _rotated_point(cx, cy, thigh_l, leg_r_angle * PI / 180 + PI / 2)
+        var p_shin_r = _rotated_point(p_thigh_r.x, p_thigh_r.y, shin_l, leg_r_angle * PI / 180 + PI / 2 + knee_r)
+        _draw_limb(Vector2(cx, cy), p_thigh_r, thigh_w, pants_color) # 太もも
+        _draw_limb(p_thigh_r, p_shin_r, shin_w, skin_color) # すね
+        
+        # 5. 首
+        _draw_limb(Vector2(sx, sy), Vector2(nx, ny), neck_w, skin_color)
+
+        # 6. 頭
+        var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p * 0.85 # 横顔は少し幅を狭める
+        _draw_ellipse(Vector2(hx, hy), head_w / 2.0, head_h / 2.0, skin_color)
+        
+        # 目と口（サイドビュー時）
         var eye_x = hx + (head_w * 0.25)
         var eye_y = hy - (head_h * 0.1)
         draw_circle(Vector2(eye_x, eye_y), 2.5, Color("#333333"))
@@ -191,15 +304,15 @@ func _draw() -> void:
         var mouth_y = hy + (head_h * 0.15)
         draw_line(Vector2(mouth_x - 1, mouth_y), Vector2(mouth_x + 3, mouth_y - 2), Color("#c07070"), 2.0)
 
-    # 7. 手前の腕
-    var s_pos_r = Vector2(sx, sy) + shoulder_offset
-    var p_elb_r = _rotated_point(s_pos_r.x, s_pos_r.y, u_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2)
-    var p_hand_r = _rotated_point(p_elb_r.x, p_elb_r.y, l_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
-    var p_sleeve_r = _rotated_point(s_pos_r.x, s_pos_r.y, u_arm * 0.4, arm_r_angle * PI / 180 + waist_angle + PI / 2)
-    
-    _draw_limb(s_pos_r, p_elb_r, arm_w, skin_color)
-    _draw_limb(s_pos_r, p_sleeve_r, arm_w * 1.05, base_shirt_color) # 手前の袖
-    _draw_limb(p_elb_r, p_hand_r, arm_w * 0.8, skin_color)
+        # 7. 手前の腕
+        var s_pos_r = Vector2(sx, sy) + shoulder_offset
+        var p_elb_r = _rotated_point(s_pos_r.x, s_pos_r.y, u_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2)
+        var p_hand_r = _rotated_point(p_elb_r.x, p_elb_r.y, l_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
+        var p_sleeve_r = _rotated_point(s_pos_r.x, s_pos_r.y, u_arm * 0.4, arm_r_angle * PI / 180 + waist_angle + PI / 2)
+        
+        _draw_limb(s_pos_r, p_elb_r, arm_w, skin_color)
+        _draw_limb(s_pos_r, p_sleeve_r, arm_w * 1.05, base_shirt_color) # 手前の袖
+        _draw_limb(p_elb_r, p_hand_r, arm_w * 0.8, skin_color)
 
     if flip:
         draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
