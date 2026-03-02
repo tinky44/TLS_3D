@@ -1,7 +1,6 @@
 extends Node2D
 
-const STAGES = ["room", "train", "outdoor", "school"]
-var current_stage_index = 0
+# const STAGES = ["room", "train", "outdoor", "school"]
 var p: float = 2.0
 
 @onready var player: Node = $Player
@@ -100,12 +99,7 @@ func _update_bubble():
     else:
         bubble_panel.hide()
     
-    # ステージ切り替え (数字キー 6, 7, 8, 9)
-    # Player.tscn内で1~5はポーズ切り替えに使われているため
-    if Input.is_key_pressed(KEY_6): _change_stage(0)
-    elif Input.is_key_pressed(KEY_7): _change_stage(1)
-    elif Input.is_key_pressed(KEY_8): _change_stage(2)
-    elif Input.is_key_pressed(KEY_9): _change_stage(3)
+    pass
 
 func _setup_ui():
     ui_layer = CanvasLayer.new()
@@ -141,96 +135,32 @@ func _setup_ui():
     var sep = HSeparator.new()
     vbox.add_child(sep)
     
-    _build_sliders(vbox)
-    
+    # ステージ選択画面に戻るボタンなどを追加
+    var back_btn = Button.new()
+    back_btn.text = "ステージ選択に戻る"
+    back_btn.custom_minimum_size = Vector2(0, 50)
+    back_btn.add_theme_font_size_override("font_size", 16)
+    back_btn.focus_mode = Control.FOCUS_NONE
+    back_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/StageSelectScene.tscn"))
+    vbox.add_child(back_btn)
+
     ui_layer.add_child(sidebar)
     add_child(ui_layer)
-
-func _build_sliders(parent_vbox: VBoxContainer):
-    var global = get_node_or_null("/root/Global")
-    if not global: return
-    var params = global.current_params
-    
-    # 身長
-    var h_lbl = Label.new()
-    h_lbl.text = "身長 (100 - 300cm)"
-    h_lbl.add_theme_color_override("font_color", Color("#495057"))
-    parent_vbox.add_child(h_lbl)
-    var h_slider = HSlider.new()
-    h_slider.min_value = 100.0
-    h_slider.max_value = 300.0
-    h_slider.step = 0.5
-    h_slider.value = params["height"]
-    h_slider.focus_mode = Control.FOCUS_NONE
-    h_slider.value_changed.connect(_on_height_changed)
-    parent_vbox.add_child(h_slider)
-    
-    # 頭身
-    var r_lbl = Label.new()
-    r_lbl.text = "頭身 (5.0 - 10.0)"
-    r_lbl.add_theme_color_override("font_color", Color("#495057"))
-    parent_vbox.add_child(r_lbl)
-    var r_slider = HSlider.new()
-    r_slider.min_value = 5.0
-    r_slider.max_value = 10.0
-    r_slider.step = 0.1
-    r_slider.value = params["ratio"]
-    r_slider.focus_mode = Control.FOCUS_NONE
-    r_slider.value_changed.connect(_on_ratio_changed)
-    parent_vbox.add_child(r_slider)
-    
-    # 股下
-    var l_lbl = Label.new()
-    l_lbl.text = "股下比率 (30% - 60%)"
-    l_lbl.add_theme_color_override("font_color", Color("#495057"))
-    parent_vbox.add_child(l_lbl)
-    var l_slider = HSlider.new()
-    l_slider.min_value = 30.0
-    l_slider.max_value = 60.0
-    l_slider.step = 0.5
-    l_slider.value = params["legRatio"]
-    l_slider.focus_mode = Control.FOCUS_NONE
-    l_slider.value_changed.connect(_on_leg_ratio_changed)
-    parent_vbox.add_child(l_slider)
-
-func _on_height_changed(val: float):
-    var global = get_node_or_null("/root/Global")
-    if global:
-        global.current_params["height"] = val
-        global.save_settings()
-        if player and player.has_method("update_measurements"):
-            player.update_measurements()
-
-func _on_ratio_changed(val: float):
-    var global = get_node_or_null("/root/Global")
-    if global:
-        global.current_params["ratio"] = val
-        global.save_settings()
-        if player and player.has_method("update_measurements"):
-            player.update_measurements()
-
-func _on_leg_ratio_changed(val: float):
-    var global = get_node_or_null("/root/Global")
-    if global:
-        global.current_params["legRatio"] = val
-        global.save_settings()
-        if player and player.has_method("update_measurements"):
-            player.update_measurements()
 
 
 func _update_ui():
     if not player or not status_label: return
     
-    var stage_id = STAGES[current_stage_index]
-    var stage_name = StageBuilder.STAGES[stage_id]["name"]
+    var global = get_node_or_null("/root/Global")
+    var stage_id = global.current_stage_id if global else "room"
+    var stage_name = StageBuilder.STAGES[stage_id]["name"] if StageBuilder.STAGES.has(stage_id) else "Unknown"
     var m = player.get("m")
     if not m: return
     
-    var global = get_node_or_null("/root/Global")
     var params = global.current_params if global else m
     
     var text = "【基本情報】\n"
-    text += "Stage: %s ([6]-[9] で切替)\n" % stage_name
+    text += "Stage: %s\n" % stage_name
     text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
     text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
     if player.pose == "crouch":
@@ -243,14 +173,9 @@ func _update_ui():
     
     status_label.text = text
 
-func _change_stage(index: int):
-    if current_stage_index == index:
-        return
-    current_stage_index = index
-    _load_stage()
-
 func _load_stage():
-    var stage_id = STAGES[current_stage_index]
+    var global = get_node_or_null("/root/Global")
+    var stage_id = global.current_stage_id if global else "room"
     
     # 床や障害物を生成
     StageBuilder.build_stage(stage_id, self , p)
