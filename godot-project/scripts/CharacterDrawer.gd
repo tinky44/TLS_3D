@@ -91,62 +91,161 @@ func _draw() -> void:
     # 向きに応じたスケーリング対応のためTransformを使う
     var flip = (dir == -1 and facing == "side")
     
-    var color = Color("#e8c5a0")
-    var thick = 4.0
+    # 色設定
+    var skin_color = Color("#ffe4c4")
+    var base_shirt_color = Color("#ab82a8") # grep_simulatorの参考画像風(くすんだ紫/ピンク)
+    var pants_color = Color("#e5d6ba") # 下は肌色に近いベージュ
 
-    # 座標計算
+    # 奥のパーツ用暗めカラー
+    var skin_dark = skin_color.darkened(0.15)
+    var pants_dark = pants_color.darkened(0.15)
+    var shirt_dark = base_shirt_color.darkened(0.15)
+
+    # 太さの算出 (cm -> px)
+    # 横向きの場合は「肩幅」ではなく「体の厚み」として狭くする
+    var width_scale = 0.35 if facing == "side" else 1.0
+    
+    var shoulder_w = (m["shoulder"] if m.has("shoulder") else 35.0) * p * width_scale
+    var hip_w = shoulder_w * 0.95 # やや寸胴気味
+    
+    # 腕・脚の太さ (少しスリムに)
+    var thigh_w = 9.0 * p
+    var shin_w = 6.5 * p
+    var arm_w = 5.5 * p
+    var neck_w = 4.5 * p
+
+    # 座標計算（骨構造の各点）
     var cx = 0.0
     var cy = y_crotch
     
     var hip_ang = waist_angle * 0.5
     var wx = cx + waist_l * sin(hip_ang)
-    var wy = cy - waist_l * cos(hip_ang)
+    var wy = cy - waist_l * cos(hip_ang) # 腰（へそ付近）
     
     var sx = wx + chest_l * sin(waist_angle)
-    var sy = wy - chest_l * cos(waist_angle)
+    var sy = wy - chest_l * cos(waist_angle) # 肩中心
     
     var nx = sx + 2.0 * (m["neck"] * p) * sin(waist_angle)
-    var ny = sy - 2.0 * (m["neck"] * p) * cos(waist_angle)
+    var ny = sy - 2.0 * (m["neck"] * p) * cos(waist_angle) # 顎下
     
     var hx = nx + (head_h / 2) * sin(waist_angle)
-    var hy = ny - (head_h / 2) * cos(waist_angle)
+    var hy = ny - (head_h / 2) * cos(waist_angle) # 頭中心
 
     # Transform設定
     var _t_orig = get_canvas_transform()
     if flip:
         draw_set_transform(Vector2.ZERO, 0, Vector2(-1, 1))
+        
+    # --- 描画順：奥の腕 -> 奥の足 -> 胴体下 -> 胴体上 -> 手前の足 -> 首・頭 -> 手前の腕 ---
 
-    # 奥の足
+    # 1. 奥の腕
+    var arm_len = m["armLength"] * p
+    var u_arm = arm_len * 0.45
+    var l_arm = arm_len * 0.55
+    var shoulder_offset = Vector2(shoulder_w * 0.2, 0).rotated(waist_angle - PI / 2 if dir == 1 else PI / 2)
+    if facing == "side": shoulder_offset = Vector2.ZERO # 真横ならオフセットなし
+    
+    var s_pos_l = Vector2(sx, sy) - shoulder_offset
+    var p_elb_l = _rotated_point(s_pos_l.x, s_pos_l.y, u_arm, _arm_l_angle * PI / 180 + waist_angle + PI / 2)
+    var p_hand_l = _rotated_point(p_elb_l.x, p_elb_l.y, l_arm, _arm_l_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
+    var p_sleeve_l = _rotated_point(s_pos_l.x, s_pos_l.y, u_arm * 0.4, _arm_l_angle * PI / 180 + waist_angle + PI / 2)
+    
+    _draw_limb(s_pos_l, p_elb_l, arm_w, skin_dark)
+    _draw_limb(s_pos_l, p_sleeve_l, arm_w * 1.05, shirt_dark) # 奥の袖
+    _draw_limb(p_elb_l, p_hand_l, arm_w * 0.8, skin_dark)
+
+    # 2. 奥の足
     var p_thigh_l = _rotated_point(cx, cy, thigh_l, leg_l_angle * PI / 180 + PI / 2)
     var p_shin_l = _rotated_point(p_thigh_l.x, p_thigh_l.y, shin_l, leg_l_angle * PI / 180 + PI / 2 + knee_l)
-    draw_line(Vector2(cx, cy), p_thigh_l, Color("#d0a279"), thick)
-    draw_line(p_thigh_l, p_shin_l, Color("#d0a279"), thick)
+    _draw_limb(Vector2(cx, cy), p_thigh_l, thigh_w, pants_dark) # 太もも
+    _draw_limb(p_thigh_l, p_shin_l, shin_w, skin_dark) # すね
 
-    # 手前の足
+    # 3. 胴体（服）
+    # 下部（骨盤〜腰）
+    _draw_trapezoid(Vector2(wx, wy), Vector2(cx, cy), hip_w, hip_w, base_shirt_color, waist_angle * 0.5)
+    # 中部・上部（腰〜肩）
+    _draw_trapezoid(Vector2(sx, sy), Vector2(wx, wy), shoulder_w, hip_w, base_shirt_color, waist_angle)
+
+    # 4. 手前の足
     var p_thigh_r = _rotated_point(cx, cy, thigh_l, leg_r_angle * PI / 180 + PI / 2)
     var p_shin_r = _rotated_point(p_thigh_r.x, p_thigh_r.y, shin_l, leg_r_angle * PI / 180 + PI / 2 + knee_r)
-    draw_line(Vector2(cx, cy), p_thigh_r, color, thick)
-    draw_line(p_thigh_r, p_shin_r, color, thick)
+    _draw_limb(Vector2(cx, cy), p_thigh_r, thigh_w, pants_color) # 太もも
+    _draw_limb(p_thigh_r, p_shin_r, shin_w, skin_color) # すね
     
-    # 胴体・首
-    draw_line(Vector2(cx, cy), Vector2(wx, wy), color, thick)
-    draw_line(Vector2(wx, wy), Vector2(sx, sy), color, thick)
-    draw_line(Vector2(sx, sy), Vector2(nx, ny), color, thick)
+    # 5. 首
+    _draw_limb(Vector2(sx, sy), Vector2(nx, ny), neck_w, skin_color)
 
-    # 腕（今回は簡単のため手前のみ描写）
-    var arm_len = m["armLength"] * p
-    var u_arm = arm_len * 0.5
-    var l_arm = arm_len * 0.5
-    var p_elb = _rotated_point(sx, sy, u_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2)
-    var p_hand = _rotated_point(p_elb.x, p_elb.y, l_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
-    draw_line(Vector2(sx, sy), p_elb, color, thick)
-    draw_line(p_elb, p_hand, color, thick)
+    # 6. 頭
+    var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
+    if facing == "side": head_w *= 0.85 # 横顔は少し幅を狭める
+    
+    _draw_ellipse(Vector2(hx, hy), head_w / 2.0, head_h / 2.0, skin_color)
+    
+    # 目と口（サイドビュー時）
+    if facing == "side":
+        var eye_x = hx + (head_w * 0.25)
+        var eye_y = hy - (head_h * 0.1)
+        draw_circle(Vector2(eye_x, eye_y), 2.5, Color("#333333"))
+        
+        var mouth_x = hx + (head_w * 0.25)
+        var mouth_y = hy + (head_h * 0.15)
+        draw_line(Vector2(mouth_x - 1, mouth_y), Vector2(mouth_x + 3, mouth_y - 2), Color("#c07070"), 2.0)
 
-    # 頭
-    draw_circle(Vector2(hx, hy), head_h / 2, Color("#f5deb3"))
+    # 7. 手前の腕
+    var s_pos_r = Vector2(sx, sy) + shoulder_offset
+    var p_elb_r = _rotated_point(s_pos_r.x, s_pos_r.y, u_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2)
+    var p_hand_r = _rotated_point(p_elb_r.x, p_elb_r.y, l_arm, arm_r_angle * PI / 180 + waist_angle + PI / 2 - 0.1)
+    var p_sleeve_r = _rotated_point(s_pos_r.x, s_pos_r.y, u_arm * 0.4, arm_r_angle * PI / 180 + waist_angle + PI / 2)
+    
+    _draw_limb(s_pos_r, p_elb_r, arm_w, skin_color)
+    _draw_limb(s_pos_r, p_sleeve_r, arm_w * 1.05, base_shirt_color) # 手前の袖
+    _draw_limb(p_elb_r, p_hand_r, arm_w * 0.8, skin_color)
 
     if flip:
         draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+
+# ヘルパー (図形描画用)
+func _draw_ellipse(center: Vector2, rx: float, ry: float, color: Color):
+    var points = PackedVector2Array()
+    var segs = 32
+    for i in range(segs):
+        var ang = PI * 2.0 * i / float(segs)
+        points.append(center + Vector2(cos(ang) * rx, sin(ang) * ry))
+    draw_polygon(points, PackedColorArray([color]))
+
+func _draw_limb(p1: Vector2, p2: Vector2, width: float, color: Color):
+    var d = p2 - p1
+    var length = d.length()
+    if length <= 0.01:
+        return
+    var n = Vector2(-d.y, d.x).normalized() * (width / 2.0)
+    var pts = PackedVector2Array([
+        p1 - n, p1 + n, p2 + n, p2 - n
+    ])
+    draw_polygon(pts, PackedColorArray([color]))
+    draw_circle(p1, width / 2.0, color)
+    draw_circle(p2, width / 2.0, color)
+
+func _draw_trapezoid(p_top: Vector2, p_bottom: Vector2, top_width: float, bottom_width: float, color: Color, angle: float):
+    var d = p_bottom - p_top
+    var length = d.length()
+    if length <= 0.01:
+        return
+    # 接続の法線（左右の拡がり）を計算
+    var n = Vector2(-d.y, d.x).normalized()
+    var nt = n * (top_width / 2.0)
+    var nb = n * (bottom_width / 2.0)
+    
+    var pts = PackedVector2Array([
+        p_top - nt, p_top + nt, p_bottom + nb, p_bottom - nb
+    ])
+    draw_polygon(pts, PackedColorArray([color]))
+    
+    # 継ぎ目を丸める（簡略化版。角度によって楕円にするなど工夫の余地あり）
+    draw_circle(p_top, top_width / 2.0, color)
+    draw_circle(p_bottom, bottom_width / 2.0, color)
+
 
 # ヘルパー (Crouch用)
 func _get_crouch_params(t: float) -> Dictionary:
