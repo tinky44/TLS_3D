@@ -1,13 +1,53 @@
 extends Node2D
 
 @onready var player = $Player
+var preview_camera: Camera2D
+var CM_TO_PX: float = 2.0
 
 func _ready() -> void:
+    var global = get_node_or_null("/root/Global")
+    if global:
+        CM_TO_PX = global.CM_TO_PX
+
+    _setup_camera()
     _setup_ui()
-    # プレビューが見えやすいように初期ポーズを調整（必要なら）
+    # プレビューが見えやすいように初期ポーズを調整
     if player and player.has_method("update_measurements"):
         player.pose = "stand"
         player.update_measurements()
+    _update_camera()
+
+func _setup_camera() -> void:
+    # PlayerのCamera2Dを無効化 or 上書きするため、Playerの子としてカメラを追加
+    # すでにPlayerに古いカメラがあれば削除
+    var old_cam = player.get_node_or_null("Camera2D")
+    if old_cam:
+        old_cam.queue_free()
+
+    preview_camera = Camera2D.new()
+    preview_camera.name = "PreviewCamera"
+    preview_camera.enabled = true
+    preview_camera.position_smoothing_enabled = false
+    # UIサイドバー(400px分)を考慮。画面幅の右側半分にキャラが映るようオフセット
+    preview_camera.offset = Vector2(-200, 0)
+    # キャラ全体が映るようzoomを調整（必要に応じてこの値を変える）
+    preview_camera.zoom = Vector2(0.8, 0.8)
+    player.add_child(preview_camera)
+
+func _update_camera() -> void:
+    if not preview_camera or not player: return
+    var global = get_node_or_null("/root/Global")
+    var height_cm = 180.0
+    if global:
+        height_cm = global.current_params.get("height", 180.0)
+    var char_height_px = height_cm * CM_TO_PX
+    # カメラのYはキャラ中心（足元から身長の半分だけ上 = キャラの胴体中間）
+    # Playerの足元がY=0(PlayerローカルY)、頭がY=-char_height_pxのため
+    preview_camera.position = Vector2(0, -char_height_px * 0.5)
+
+
+func _process(_delta: float) -> void:
+    _update_camera()
 
 func _setup_ui():
     var ui_layer = CanvasLayer.new()
