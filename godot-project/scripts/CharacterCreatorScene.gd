@@ -4,6 +4,10 @@ extends Node2D
 var preview_camera: Camera2D
 var CM_TO_PX: float = 2.0
 
+var h_lbl: Label
+var r_lbl: Label
+var l_lbl: Label
+
 func _ready() -> void:
     var global = get_node_or_null("/root/Global")
     if global:
@@ -112,8 +116,8 @@ func _build_sliders(parent_vbox: VBoxContainer):
     var params = global.current_params
     
     # 身長
-    var h_lbl = Label.new()
-    h_lbl.text = "身長 (100 - 300cm)"
+    h_lbl = Label.new()
+    h_lbl.text = "身長: %.1f cm" % params["height"]
     h_lbl.add_theme_color_override("font_color", Color("#495057"))
     parent_vbox.add_child(h_lbl)
     var h_slider = HSlider.new()
@@ -126,8 +130,8 @@ func _build_sliders(parent_vbox: VBoxContainer):
     parent_vbox.add_child(h_slider)
     
     # 頭身
-    var r_lbl = Label.new()
-    r_lbl.text = "頭身 (5.0 - 10.0)"
+    r_lbl = Label.new()
+    r_lbl.text = "頭身: %.2f" % params["ratio"]
     r_lbl.add_theme_color_override("font_color", Color("#495057"))
     parent_vbox.add_child(r_lbl)
     var r_slider = HSlider.new()
@@ -140,8 +144,8 @@ func _build_sliders(parent_vbox: VBoxContainer):
     parent_vbox.add_child(r_slider)
     
     # 股下
-    var l_lbl = Label.new()
-    l_lbl.text = "股下比率 (30% - 60%)"
+    l_lbl = Label.new()
+    l_lbl.text = "股下比率: %.1f %%" % params["legRatio"]
     l_lbl.add_theme_color_override("font_color", Color("#495057"))
     parent_vbox.add_child(l_lbl)
     var l_slider = HSlider.new()
@@ -154,6 +158,7 @@ func _build_sliders(parent_vbox: VBoxContainer):
     parent_vbox.add_child(l_slider)
 
 func _on_height_changed(val: float):
+    if h_lbl: h_lbl.text = "身長: %.1f cm" % val
     var global = get_node_or_null("/root/Global")
     if global:
         global.current_params["height"] = val
@@ -162,6 +167,7 @@ func _on_height_changed(val: float):
             player.update_measurements()
 
 func _on_ratio_changed(val: float):
+    if r_lbl: r_lbl.text = "頭身: %.2f" % val
     var global = get_node_or_null("/root/Global")
     if global:
         global.current_params["ratio"] = val
@@ -170,6 +176,7 @@ func _on_ratio_changed(val: float):
             player.update_measurements()
 
 func _on_leg_ratio_changed(val: float):
+    if l_lbl: l_lbl.text = "股下比率: %.1f %%" % val
     var global = get_node_or_null("/root/Global")
     if global:
         global.current_params["legRatio"] = val
