@@ -3,12 +3,16 @@ extends RefCounted
 
 # CanvasItem への図形描画をまとめるユーティリティクラス
 
-static func draw_ellipse(canvas: CanvasItem, center: Vector2, rx: float, ry: float, color: Color):
+static func draw_ellipse(canvas: CanvasItem, center: Vector2, rx: float, ry: float, color: Color, angle: float = 0.0):
     var points = PackedVector2Array()
     var segs = 32
     for i in range(segs):
         var ang = PI * 2.0 * i / float(segs)
-        points.append(center + Vector2(cos(ang) * rx, sin(ang) * ry))
+        var px = cos(ang) * rx
+        var py = sin(ang) * ry
+        var rotated_px = center.x + px * cos(angle) - py * sin(angle)
+        var rotated_py = center.y + px * sin(angle) + py * cos(angle)
+        points.append(Vector2(rotated_px, rotated_py))
     canvas.draw_polygon(points, PackedColorArray([color]))
 
 static func draw_limb(canvas: CanvasItem, p1: Vector2, p2: Vector2, width: float, color: Color):
@@ -66,9 +70,9 @@ static func draw_pentagon_lower_torso(canvas: CanvasItem, p_top: Vector2, p_bott
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_hand(canvas: CanvasItem, pos: Vector2, size: float, color: Color):
+static func draw_hand(canvas: CanvasItem, pos: Vector2, size: float, color: Color, angle: float = 0.0):
     # 小さな手（楕円形）
-    draw_ellipse(canvas, pos, size * 1.4, size * 0.9, color)
+    draw_ellipse(canvas, pos, size * 1.4, size * 0.9, color, angle)
 
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
     # 正面: 小さな四角形
@@ -89,21 +93,24 @@ static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, fo
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_side_torso(canvas: CanvasItem, top_cx: float, top_y: float, nipple_y: float, bot_cx: float, bottom_y: float, thickness: float, color: Color):
-    # 側面胴体: 5角形（背面は垂直、前面上部が斜め）
-    # 仕様書: 「直線的な背面に対し、前面上部が斜めにカット」
-    # shoulder_front_x = top_cx + half ≈ hx（脊椎中心）= front_x より内側 → 「\」方向の斜め
+static func draw_side_torso(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2, nipple_ratio: float, thickness: float, color: Color):
+    # 側面胴体: 背骨(p_bottom -> p_top)の角度に追従する5角形
+    var d = p_top - p_bottom
+    if d.length() <= 0.01:
+        return
+    var u = d.normalized()
+    var n_back = Vector2(u.y, -u.x)
+    var n_front = Vector2(-u.y, u.x)
     var half = thickness / 2.0
-    var back_x = bot_cx - half # 背面X（垂直・一定）
-    var front_x = bot_cx + half # 前面X（乳首以下は垂直）
-    var shoulder_front_x = top_cx + half # 肩前端X（hx ≈ 脊椎中心）← 前面の斜め上端
+    
+    var p_nipple = p_bottom + d * nipple_ratio
 
     var pts = PackedVector2Array([
-        Vector2(back_x, top_y), # 1. 肩後端（背面上端）
-        Vector2(back_x, bottom_y), # 2. 股後端（背面下端）← 背面は垂直
-        Vector2(front_x, bottom_y), # 3. 股前端
-        Vector2(front_x, nipple_y), # 4. 乳首前端（折れ点）
-        Vector2(shoulder_front_x, top_y), # 5. 肩前端（斜め線の上端・内側）
+        p_top + n_back * half,          # 1. 肩後端（背面上端）
+        p_bottom + n_back * half,       # 2. 股後端（背面下端）
+        p_bottom + n_front * half,      # 3. 股前端
+        p_nipple + n_front * half,      # 4. 乳首前端（折れ点）
+        p_top + n_front * (half * 0.2), # 5. 肩前端（斜めにカット）
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
@@ -136,11 +143,12 @@ static func draw_limb_part(canvas: CanvasItem, shape: String, p_top: Vector2, p_
         # デフォルトは丸みを帯びた limb
         draw_limb(canvas, p_top, p_bottom, width, color)
 
-static func draw_head_part(canvas: CanvasItem, shape: String, center: Vector2, head_w: float, head_h: float, color: Color):
+static func draw_head_part(canvas: CanvasItem, shape: String, center: Vector2, head_w: float, head_h: float, color: Color, angle: float = 0.0):
     if shape == "rect":
+        # 矩形の回転対応は省略（必要に応じて実装）
         var p_top = center - Vector2(0, head_h / 2)
         var p_bottom = center + Vector2(0, head_h / 2)
         draw_rect(canvas, p_top, p_bottom, head_w, color)
     else:
         # デフォルトは ellipse
-        draw_ellipse(canvas, center, head_w / 2.0, head_h / 2.0, color)
+        draw_ellipse(canvas, center, head_w / 2.0, head_h / 2.0, color, angle)
