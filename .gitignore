@@ -1,5 +1,5 @@
-# Local and environment files
-*.local.md
+# Local and envir.mdonment files
+*.local.*
 .env
 
 # Godot-specific ignores
