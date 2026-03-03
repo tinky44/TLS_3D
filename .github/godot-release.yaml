@@ -6,6 +6,8 @@ on:
       - develop
     paths:
       - "godot-project/**"
+      - ".github/workflows/**" # ワークフロー自体の更新時も実行
+  workflow_dispatch: # GitHubのActionsタブから手動実行できるようにする
 
 # 連続でPushされた場合、古いデプロイ処理をキャンセルする設定
 concurrency:
