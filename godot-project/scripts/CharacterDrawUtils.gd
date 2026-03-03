@@ -89,14 +89,25 @@ static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, fo
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_side_torso(canvas: CanvasItem, back_x: float, top_y: float, nipple_y: float, bottom_y: float, front_x: float, color: Color):
-    # 側面胴体: 背面は直線, 前面上部が斜めにカット（四角形）
-    # top_y から front_x の nipple_y へ向けて斜めのラインになる
+static func draw_side_torso(canvas: CanvasItem, top_cx: float, top_y: float, nipple_y: float, mid_cx: float, mid_y: float, bot_cx: float, bottom_y: float, thickness: float, color: Color):
+    # 側面胴体: 腰の中間頂点を追加してくの字に曲がるようにする
+    # top(肩) → mid(腰) → bot(股) の3中心点それぞれに前後の端点を持つ6頂点ポリゴン
+    # thickness は固定値のため、どの姿勢でも体の前後幅は一定に保たれる
+    var half = thickness / 2.0
+
+    # 乳首の高さ: 肩〜腰の上半分あたりで前面が折れる
+    var nipple_t = clamp((nipple_y - top_y) / (mid_y - top_y + 0.001), 0.0, 1.0)
+    var nipple_front_x = lerp(top_cx + half, mid_cx + half, nipple_t)
+
     var pts = PackedVector2Array([
-        Vector2(back_x, top_y),
-        Vector2(front_x, nipple_y),
-        Vector2(front_x, bottom_y),
-        Vector2(back_x, bottom_y),
+        # 背面 (後ろ側): 肩→腰→股
+        Vector2(top_cx - half, top_y),
+        Vector2(mid_cx - half, mid_y),
+        Vector2(bot_cx - half, bottom_y),
+        # 前面 (前側): 股→腰→乳首折れ→肩（逆順）
+        Vector2(bot_cx + half, bottom_y),
+        Vector2(mid_cx + half, mid_y),
+        Vector2(nipple_front_x, nipple_y),
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
