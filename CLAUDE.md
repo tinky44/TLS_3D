@@ -55,11 +55,14 @@ graph TD
 
 ### 責務分担
 
-| スクリプト | 責務 |
-|---|---|
-| `CharacterPoseCalculator.gd` | 歩行フェーズ・プロポーション(`m`)から関節座標(`cx`,`hy`等)と角度を計算 |
-| `CharacterDrawer.gd` | 骨格データを受け取り `part_shapes` に従ってパーツを描画 |
-| `CharacterDrawUtils.gd` | `draw_polygon` / `draw_circle` 等の純粋な描画ユーティリティ |
+| スクリプト | パス | 責務 |
+|---|---|---|
+| `CharacterPoseCalculator.gd` | `godot-project/scripts/CharacterPoseCalculator.gd` | 歩行フェーズ・プロポーション(`m`)から関節座標(`cx`,`hy`等)と角度を計算 |
+| `CharacterDrawer.gd` | `godot-project/scripts/CharacterDrawer.gd` | 骨格データを受け取り `part_shapes` に従ってパーツを描画 |
+| `CharacterDrawUtils.gd` | `godot-project/scripts/CharacterDrawUtils.gd` | `draw_polygon` / `draw_circle` 等の純粋な描画ユーティリティ |
+| `SkeletalPlayer.gd` | `godot-project/scripts/SkeletalPlayer.gd` | キャラクター制御・入力処理 |
+| `Global.gd` | `godot-project/scripts/Global.gd` | シングルトン・グローバル状態 |
+| `StageBuilder.gd` | `godot-project/scripts/StageBuilder.gd` | ステージ生成ロジック |
 
 ### part_shapes（パーツ形状定義）
 
