@@ -90,20 +90,20 @@ static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, fo
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_side_torso(canvas: CanvasItem, top_cx: float, top_y: float, nipple_y: float, bot_cx: float, bottom_y: float, thickness: float, color: Color):
-    # 側面胴体: 5角形（背面上部が斜め、前面は垂直）
-    # shoulder_back_x = top_cx + half ≈ hx（脊椎中心）で、back_xより前方にある → 「/」方向の斜め
-    # 屈み時は hx が前方に出るので、斜めが大きくなりくの字も自然に表現される
+    # 側面胴体: 5角形（背面は垂直、前面上部が斜め）
+    # 仕様書: 「直線的な背面に対し、前面上部が斜めにカット」
+    # shoulder_front_x = top_cx + half ≈ hx（脊椎中心）= front_x より内側 → 「\」方向の斜め
     var half = thickness / 2.0
-    var front_x = bot_cx + half # 前面X（垂直・一定）
-    var back_x = bot_cx - half # 背面X（乳首以下は垂直・一定）
-    var shoulder_back_x = top_cx + half # 肩後端（乳首折れ点より前方） = hx
+    var back_x = bot_cx - half # 背面X（垂直・一定）
+    var front_x = bot_cx + half # 前面X（乳首以下は垂直）
+    var shoulder_front_x = top_cx + half # 肩前端X（hx ≈ 脊椎中心）← 前面の斜め上端
 
     var pts = PackedVector2Array([
-        Vector2(shoulder_back_x, top_y), # 1. 肩後端（胴の張り）
-        Vector2(front_x, top_y), # 2. 肩前端
-        Vector2(front_x, bottom_y), # 3. 股前端（前面は垂直）
-        Vector2(back_x, bottom_y), # 4. 股後端
-        Vector2(back_x, nipple_y), # 5. 乳首後端（背面の折れ点）
+        Vector2(back_x, top_y), # 1. 肩後端（背面上端）
+        Vector2(back_x, bottom_y), # 2. 股後端（背面下端）← 背面は垂直
+        Vector2(front_x, bottom_y), # 3. 股前端
+        Vector2(front_x, nipple_y), # 4. 乳首前端（折れ点）
+        Vector2(shoulder_front_x, top_y), # 5. 肩前端（斜め線の上端・内側）
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
