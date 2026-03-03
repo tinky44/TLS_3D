@@ -1,0 +1,66 @@
+name: Deploy Godot Web to Pages
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "godot-project/**"
+      - ".github/workflows/**" # ワークフロー自体の更新時も実行
+  workflow_dispatch: # GitHubのActionsタブから手動実行できるようにする
+
+# 連続でPushされた場合、古いデプロイ処理をキャンセルする設定
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    # GitHub Pagesへの直接デプロイに必要な権限
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Godot Engine
+        # v3の方が新しいバージョンのNode.js環境に対応しているためアップデートしています
+        uses: chickensoft-games/setup-godot@v3
+        with:
+          version: 4.3.0
+          use-dotnet: false
+
+      - name: Import Assets
+        run: |
+          cd godot-project
+          godot --headless --editor --quit || exit 0
+
+      - name: Build Web Export
+        run: |
+          # docs/ の代わりに一時ディレクトリにビルドを出力します
+          mkdir -p build/web
+          cd godot-project
+          godot --headless --export-release "Web" ../build/web/index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Artifact
+        # ビルドしたディレクトリをアーティファクト（成果物）としてアップロード
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        # アップロードしたアーティファクトをPagesサーバーへ展開
+        id: deployment
+        uses: actions/deploy-pages@v4
