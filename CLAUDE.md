@@ -49,6 +49,59 @@ graph TD
 
 ---
 
+## キャラクター描画システム
+
+> 詳細仕様: [specs/character_drawing_system.md](specs/character_drawing_system.md)
+
+### 責務分担
+
+| スクリプト | 責務 |
+|---|---|
+| `CharacterPoseCalculator.gd` | 歩行フェーズ・プロポーション(`m`)から関節座標(`cx`,`hy`等)と角度を計算 |
+| `CharacterDrawer.gd` | 骨格データを受け取り `part_shapes` に従ってパーツを描画 |
+| `CharacterDrawUtils.gd` | `draw_polygon` / `draw_circle` 等の純粋な描画ユーティリティ |
+
+### part_shapes（パーツ形状定義）
+
+```gdscript
+var part_shapes = {
+    "head":               "ellipse",
+    "torso_lower":        "trapezoid",
+    "torso_upper":        "trapezoid",
+    "torso_front_lower":  "pentagon",   # 股の表現（下に頂点が突き出た5角形）
+    "torso_front_upper":  "rect",
+    "limb":               "stick",
+    "neck":               "limb",
+}
+```
+
+### パーツ別形状まとめ
+
+```mermaid
+graph LR
+    Head["頭部\nellipse（楕円）"]
+    Torso_F["胴体（正面/背面）\n上: rect 肩→腰\n下: pentagon 腰→股"]
+    Torso_S["胴体（側面）\npentagon（5角形）\n前面が斜めカット構造"]
+    Limb["腕・脚\nstick（線＋両端円）\nor limb / rect / line"]
+    Neck["首\nlimb（カプセル）"]
+    Hand["手\n横長楕円（1.4:0.9）"]
+    Foot_F["足（正面）\n小さな四角形"]
+    Foot_S["足（側面）\nくさび形（三角形）\nつま先が前方向"]
+```
+
+**側面胴体の構造メモ:**
+- 厚み = 頭の横幅 × 0.85（一定）
+- 背面: 垂直直線
+- 前面: 肩前端〜乳首高さまで斜めカット → 以下垂直
+- 関節後端 = 頭部中心縦軸(`hx`)に揃える
+
+### 拡張手順
+
+1. `CharacterDrawUtils.gd` に `draw_***()` 関数を追加
+2. `CharacterDrawer.gd` の描画分岐に `elif shape == "..."` を追加
+
+---
+
 ## ディレクトリ構成
 
 ```
