@@ -37,8 +37,6 @@ static func draw_trapezoid(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2
         p_top - nt, p_top + nt, p_bottom + nb, p_bottom - nb
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
-    canvas.draw_circle(p_top, top_width / 2.0, color)
-    canvas.draw_circle(p_bottom, bottom_width / 2.0, color)
 
 static func draw_rect(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2, width: float, color: Color):
     var d = p_bottom - p_top
@@ -88,6 +86,17 @@ static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, fo
         ankle,
         ankle + Vector2(0.0, foot_h),
         ankle + Vector2(foot_w, foot_h),
+    ])
+    canvas.draw_polygon(pts, PackedColorArray([color]))
+
+static func draw_side_torso(canvas: CanvasItem, back_x: float, top_y: float, nipple_y: float, bottom_y: float, front_x: float, color: Color):
+    # 側面胴体: 背面は直線, 前面上部が斜めにカット（四角形）
+    # top_y から front_x の nipple_y へ向けて斜めのラインになる
+    var pts = PackedVector2Array([
+        Vector2(back_x, top_y),
+        Vector2(front_x, nipple_y),
+        Vector2(front_x, bottom_y),
+        Vector2(back_x, bottom_y),
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 

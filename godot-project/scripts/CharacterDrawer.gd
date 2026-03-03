@@ -148,10 +148,10 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
             draw_line(m_pts[i], m_pts[i + 1], Color("#c07070"), 2.0)
 
 # --- 横向き 描画 ---
-func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _shirt_dark, pants_dark, shoulder_w, hip_w, thigh_w, shin_w, arm_w, neck_w):
-    var cx = d["cx"]
+func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _shirt_dark, pants_dark, _shoulder_w, _hip_w, thigh_w, shin_w, arm_w, neck_w):
+    var _cx = d["cx"]
     var cy = d["cy"]
-    var wx = d["wx"]
+    var _wx = d["wx"]
     var wy = d["wy"]
     var sx = d["sx"]
     var sy = d["sy"]
@@ -159,7 +159,16 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
     var ny = d["ny"]
     var hx = d["hx"]
     var hy = d["hy"]
-    
+
+    # 側面: 胴体の厚み = 頭の幅（仕様書）
+    var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p * 0.85
+
+    # 関節の前端（前方向き）が hx と一致するよう各関節中心を算出
+    var arm_joint_r = arm_w * 0.35
+    var thigh_joint_r = thigh_w * 0.35
+    var s_joint_x = hx - arm_joint_r   # 肩関節中心X（前端 = hx）
+    var hip_joint_x = hx - thigh_joint_r  # 股関節中心X（前端 = hx）
+
     var foot_w = 9.0 * p
     var foot_h = 3.5 * p
     var hand_size = 3.5 * p
@@ -170,7 +179,7 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
     var u_arm = arm_len * 0.45
     var l_arm = arm_len * 0.55
 
-    var s_pos_l = Vector2(sx, sy)
+    var s_pos_l = Vector2(s_joint_x, sy)
     var p_elb_l = CharacterPoseCalculator.rotated_point(s_pos_l.x, s_pos_l.y, u_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
     var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
@@ -179,20 +188,22 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
     CharacterDrawUtils.draw_hand(self, p_hand_l, hand_size, skin_dark)
 
     # 2. 奥の足
-    var p_thigh_l = CharacterPoseCalculator.rotated_point(cx, cy, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
+    var p_thigh_l = CharacterPoseCalculator.rotated_point(hip_joint_x, cy, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
     var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, d["shin_l"], d["leg_l_angle"] * PI / 180 + PI / 2 + d["knee_l"])
-    CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], Vector2(cx, cy), p_thigh_l, thigh_w, pants_dark)
+    CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], Vector2(hip_joint_x, cy), p_thigh_l, thigh_w, pants_dark)
     CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_thigh_l, p_shin_l, shin_w, skin_dark)
     CharacterDrawUtils.draw_foot_side(self, p_shin_l, foot_w, foot_h, shoe_color.darkened(0.15))
 
-    # 3. 胴体（服）
-    CharacterDrawUtils.draw_torso_part(self, part_shapes["torso_lower"], Vector2(wx, wy), Vector2(cx, cy), hip_w, hip_w, base_shirt_color)
-    CharacterDrawUtils.draw_torso_part(self, part_shapes["torso_upper"], Vector2(sx, sy), Vector2(wx, wy), shoulder_w, hip_w, base_shirt_color)
+    # 3. 胴体（服）: 背面直線, 前面上部斜めカット（乳首の高さで折れる）
+    var torso_back_x = hx - head_w / 2.0
+    var torso_front_x = hx + head_w / 2.0
+    var nipple_y = sy + (wy - sy) * 0.5
+    CharacterDrawUtils.draw_side_torso(self, torso_back_x, sy, nipple_y, cy, torso_front_x, base_shirt_color)
 
     # 4. 手前の足
-    var p_thigh_r = CharacterPoseCalculator.rotated_point(cx, cy, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
+    var p_thigh_r = CharacterPoseCalculator.rotated_point(hip_joint_x, cy, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
     var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, d["shin_l"], d["leg_r_angle"] * PI / 180 + PI / 2 + d["knee_r"])
-    CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], Vector2(cx, cy), p_thigh_r, thigh_w, pants_color)
+    CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], Vector2(hip_joint_x, cy), p_thigh_r, thigh_w, pants_color)
     CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_thigh_r, p_shin_r, shin_w, skin_color)
     CharacterDrawUtils.draw_foot_side(self, p_shin_r, foot_w, foot_h, shoe_color)
 
@@ -200,7 +211,6 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
     CharacterDrawUtils.draw_limb_part(self, part_shapes["neck"], Vector2(sx, sy), Vector2(nx, ny), neck_w, skin_color)
 
     # 6. 頭
-    var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p * 0.85
     CharacterDrawUtils.draw_head_part(self, part_shapes["head"], Vector2(hx, hy), head_w, d["head_h"], skin_color)
 
     var eye_x = hx + (head_w * 0.25)
@@ -212,7 +222,7 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
     draw_line(Vector2(mouth_x - 1, mouth_y), Vector2(mouth_x + 3, mouth_y - 2), Color("#c07070"), 2.0)
 
     # 7. 手前の腕（線 + 円関節 + 小さな手）
-    var s_pos_r = Vector2(sx, sy)
+    var s_pos_r = Vector2(s_joint_x, sy)
     var p_elb_r = CharacterPoseCalculator.rotated_point(s_pos_r.x, s_pos_r.y, u_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
     var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
