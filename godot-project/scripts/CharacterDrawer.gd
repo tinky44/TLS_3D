@@ -6,8 +6,10 @@ extends Node2D
 # これらの値を変更することで、矩形ベース等に切り替えることが可能
 @export var part_shapes = {
     "head": "ellipse", # "ellipse", "rect"
-    "torso_lower": "trapezoid", # "trapezoid", "rect", "ellipse"
-    "torso_upper": "trapezoid", # "trapezoid", "rect", "ellipse"
+    "torso_lower": "trapezoid", # 横向き用。"trapezoid", "rect", "ellipse"
+    "torso_upper": "trapezoid", # 横向き用。"trapezoid", "rect", "ellipse"
+    "torso_front_lower": "rect", # 正面・背面用。"rect", "trapezoid", "ellipse"
+    "torso_front_upper": "rect", # 正面・背面用。"rect", "trapezoid", "ellipse"
     "limb": "limb", # 腕や脚の形状。"limb"(カプセル型), "rect", "line"
 }
 
@@ -84,8 +86,8 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
     CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_thigh_r, p_shin_r, shin_w, skin_color)
 
     # 2. 胴体 (シャツ)
-    CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_lower"], Vector2(d["wx"], d["wy"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
-    CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_upper"], Vector2(d["sx"], d["front_sy"]), Vector2(d["wx"], d["wy"]), body_w, body_w, base_shirt_color)
+    CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["wx"], d["wy"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
+    CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["sx"], d["front_sy"]), Vector2(d["wx"], d["wy"]), body_w, body_w, base_shirt_color)
 
     # 3. 首
     CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], Vector2(d["sx"], d["front_sy"]), Vector2(d["nx"], d["ny"]), neck_w, skin_color)
