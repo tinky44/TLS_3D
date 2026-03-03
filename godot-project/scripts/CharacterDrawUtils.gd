@@ -89,25 +89,21 @@ static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, fo
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_side_torso(canvas: CanvasItem, top_cx: float, top_y: float, nipple_y: float, mid_cx: float, mid_y: float, bot_cx: float, bottom_y: float, thickness: float, color: Color):
-    # 側面胴体: 腰の中間頂点を追加してくの字に曲がるようにする
-    # top(肩) → mid(腰) → bot(股) の3中心点それぞれに前後の端点を持つ6頂点ポリゴン
-    # thickness は固定値のため、どの姿勢でも体の前後幅は一定に保たれる
+static func draw_side_torso(canvas: CanvasItem, top_cx: float, top_y: float, nipple_y: float, bot_cx: float, bottom_y: float, thickness: float, color: Color):
+    # 側面胴体: 5角形（背面上部が斜め、前面は垂直）
+    # shoulder_back_x = top_cx + half ≈ hx（脊椎中心）で、back_xより前方にある → 「/」方向の斜め
+    # 屈み時は hx が前方に出るので、斜めが大きくなりくの字も自然に表現される
     var half = thickness / 2.0
-
-    # 乳首の高さ: 肩〜腰の上半分あたりで前面が折れる
-    var nipple_t = clamp((nipple_y - top_y) / (mid_y - top_y + 0.001), 0.0, 1.0)
-    var nipple_front_x = lerp(top_cx + half, mid_cx + half, nipple_t)
+    var front_x = bot_cx + half # 前面X（垂直・一定）
+    var back_x = bot_cx - half # 背面X（乳首以下は垂直・一定）
+    var shoulder_back_x = top_cx + half # 肩後端（乳首折れ点より前方） = hx
 
     var pts = PackedVector2Array([
-        # 背面 (後ろ側): 肩→腰→股
-        Vector2(top_cx - half, top_y),
-        Vector2(mid_cx - half, mid_y),
-        Vector2(bot_cx - half, bottom_y),
-        # 前面 (前側): 股→腰→乳首折れ→肩（逆順）
-        Vector2(bot_cx + half, bottom_y),
-        Vector2(mid_cx + half, mid_y),
-        Vector2(nipple_front_x, nipple_y),
+        Vector2(shoulder_back_x, top_y), # 1. 肩後端（胴の張り）
+        Vector2(front_x, top_y), # 2. 肩前端
+        Vector2(front_x, bottom_y), # 3. 股前端（前面は垂直）
+        Vector2(back_x, bottom_y), # 4. 股後端
+        Vector2(back_x, nipple_y), # 5. 乳首後端（背面の折れ点）
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 

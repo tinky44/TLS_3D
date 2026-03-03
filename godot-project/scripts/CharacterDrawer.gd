@@ -6,7 +6,7 @@ extends Node2D
 # これらの値を変更することで、矩形ベース等に切り替えることが可能
 @export var part_shapes = {
 	"head": "ellipse", # "ellipse", "rect"
-	"torso_lower": "trapezoid", # 横向き用。"trapezoid", "rect", "ellipse"
+	"torso_lower": "trapezoid", # 横向き用。"trapezoid", "rect", "ellipse" // TODO: ５角形であるべき
 	"torso_upper": "trapezoid", # 横向き用。"trapezoid", "rect", "ellipse"
 	"torso_front_lower": "pentagon", # 正面・背面用。"pentagon", "rect", "trapezoid"
 	"torso_front_upper": "rect", # 正面・背面用。"rect", "trapezoid"
@@ -208,10 +208,10 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_thigh_l, p_shin_l, shin_w, skin_dark)
 	CharacterDrawUtils.draw_foot_side(self , p_shin_l, foot_w, foot_h, shoe_color.darkened(0.15))
 
-	# 3. 胴体（服）: 背面直線, 前面上部斜めカット（乳首の高さで折れる）
-	# waist_angle による胴体の傾きを肩・腰・股のX座標に正しく反映させる
+	# 3. 胴体（服）: 背面上部が斜めの5角形（前面は垂直）
+	# nipple_y = 肩と腰の中間 = 背面の折れ点（乳首の高さ）
 	var nipple_y = sy + (wy - sy) * 0.5
-	CharacterDrawUtils.draw_side_torso(self , cx_shoulder, sy, nipple_y, d["wx"], wy, cx_crotch, cy, torso_thickness, base_shirt_color)
+	CharacterDrawUtils.draw_side_torso(self , cx_shoulder, sy, nipple_y, cx_crotch, cy, torso_thickness, base_shirt_color)
 
 	# 4. 手前の足
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(hip_joint_x, cy, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
