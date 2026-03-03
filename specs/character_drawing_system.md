@@ -81,11 +81,11 @@ var part_shapes = {
   [側面胴体: 5角形 (side_torso)]
 
 (背面: back_x) (前端: shoulder_front_x)
-        |      \  
-        |       \ 
-        |        \
-        |         \
+        |        \  
+        |         \ 
         |          ● ← 乳首前端 (front_x / 折れ点)
+        |          | 
+        |          |
         |          |
         |          | ← 乳首以下は垂直
         |          |
