@@ -83,7 +83,10 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	var foot_w = 7.0 * p
 	var foot_h = 3.5 * p
-	var hand_size = 3.5 * p
+	# 手のサイズ: 横幅=肩幅/5, 縦=頭の縦×0.83
+	var shoulder_full = (m["shoulder"] if m.has("shoulder") else 35.0) * p
+	var hand_hw = shoulder_full / 5.0 / 2.0
+	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = pants_color
 
 	# 1. 両足
@@ -127,11 +130,11 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_sh_l, p_elb_l, arm_w, arm_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_l, p_hand_l, arm_w * 0.8, arm_color)
-	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_size, arm_color)
+	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_hw, hand_hh, arm_color)
 
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_sh_r, p_elb_r, arm_w, arm_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_r, p_hand_r, arm_w * 0.8, arm_color)
-	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_size, arm_color)
+	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_hw, hand_hh, arm_color)
 
 	# 6. 顔とディテール
 	if facing == "front":
@@ -164,7 +167,10 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 
 	var foot_w = 9.0 * p
 	var foot_h = 3.5 * p
-	var hand_size = 3.5 * p
+	# 手のサイズ: 横幅=肩幅/5, 縦=頭の縦×0.83
+	var shoulder_full = (m["shoulder"] if m.has("shoulder") else 35.0) * p
+	var hand_hw = shoulder_full / 5.0 / 2.0
+	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = pants_color
 
 	# === 側面用の微調整（ここを書き換えて動作確認します） ===
@@ -186,7 +192,7 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_arm_shoulder, p_elb_l, arm_w, skin_dark)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_l, p_hand_l, arm_w * 0.8, skin_dark)
-	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_size, skin_dark)
+	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_hw, hand_hh, skin_dark)
 
 	# 2. 奥の足
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
@@ -225,4 +231,4 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_arm_shoulder, p_elb_r, arm_w, skin_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_r, p_hand_r, arm_w * 0.8, skin_color)
-	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_size, skin_color)
+	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_hw, hand_hh, skin_color)

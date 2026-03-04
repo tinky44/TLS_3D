@@ -70,9 +70,18 @@ static func draw_pentagon_lower_torso(canvas: CanvasItem, p_top: Vector2, p_bott
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_hand(canvas: CanvasItem, pos: Vector2, size: float, color: Color, angle: float = 0.0):
-    # 小さな手（楕円形）
-    draw_ellipse(canvas, pos, size * 1.4, size * 0.9, color, angle)
+static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, color: Color, angle: float = 0.0):
+    # 手（長方形）: hw=半幅, hh=半高さ
+    var pts = PackedVector2Array()
+    var corners = [
+        Vector2(-hw, -hh), Vector2(hw, -hh),
+        Vector2(hw, hh), Vector2(-hw, hh)
+    ]
+    for c in corners:
+        var rx = c.x * cos(angle) - c.y * sin(angle)
+        var ry = c.x * sin(angle) + c.y * cos(angle)
+        pts.append(pos + Vector2(rx, ry))
+    canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
     # 正面: 小さな四角形
