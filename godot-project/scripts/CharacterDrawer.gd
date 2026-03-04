@@ -69,8 +69,14 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	var p_hip_l = Vector2(d["cx"] - hp_off, d["cy"])
 	var p_hip_r = Vector2(d["cx"] + hp_off, d["cy"])
-	var p_sh_l = Vector2(d["sx"] - sh_off, d["front_sy"])
-	var p_sh_r = Vector2(d["sx"] + sh_off, d["front_sy"])
+		
+	# === 正面用の微調整（ここを書き換えて動作確認します） ===
+	var front_offset_x = 0.0 # プラスにすると腕が外側に広がる、マイナスで内側
+	var front_offset_y = 10.0 # プラスにすると腕が下に下がる、マイナスで上に上がる
+	# Note: 腕の太さ分だけ下に下げたかった
+	
+	var p_sh_l = Vector2(d["sx"] - sh_off + front_offset_x, d["front_sy"] + front_offset_y)
+	var p_sh_r = Vector2(d["sx"] + sh_off + front_offset_x, d["front_sy"] + front_offset_y)
 
 	var f_leg_l_ang = (d["leg_l_angle"] * 0.2) * PI / 180 + PI / 2
 	var f_leg_r_ang = (d["leg_r_angle"] * 0.2) * PI / 180 + PI / 2
@@ -160,6 +166,11 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	var foot_h = 3.5 * p
 	var hand_size = 3.5 * p
 	var shoe_color = pants_color
+
+	# === 側面用の微調整（ここを書き換えて動作確認します） ===
+	var side_offset_x = 0.0 # プラスで右(前)に移動、マイナスで左(後)に移動
+	var side_offset_y = 0.0 # プラスで下に移動、マイナスで上に移動
+	# Note: 腕の太さ分だけ下に下げたかった
 
 	var p_shoulder = Vector2(d["sx"], d["sy"])
 	var p_crotch = Vector2(d["cx"], d["cy"])
