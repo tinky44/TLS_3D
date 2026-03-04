@@ -10,6 +10,8 @@ var current_params: Dictionary = {
     "sex": "female"
 }
 
+var current_stage_id: String = "room"
+
 const SAVE_PATH = "user://settings.cfg"
 
 func _ready():

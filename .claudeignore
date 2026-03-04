@@ -1,0 +1,27 @@
+# .claudeignore — Claude Code がコンテキストに含めないファイル
+
+# Godot キャッシュ・ビルド成果物
+godot-project/.godot/
+godot-project/export_presets.cfg
+*.import
+
+# GitHub Pages ビルド成果物（直接編集しない）
+docs/
+
+# ローカル専用メモ（Git 管理外）
+*.local.md
+*.local.json
+
+# OS・エディタ生成ファイル
+.DS_Store
+Thumbs.db
+*.tmp
+
+# アセットバイナリ（読む必要なし）
+assets/**/*.png
+assets/**/*.jpg
+assets/**/*.wav
+assets/**/*.ogg
+assets/**/*.mp3
+assets/**/*.ttf
+assets/**/*.otf

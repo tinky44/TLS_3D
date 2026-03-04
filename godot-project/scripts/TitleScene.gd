@@ -1,0 +1,41 @@
+extends Control
+
+func _ready() -> void:
+    var bg = ColorRect.new()
+    bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+    bg.color = Color("#2b2b2b")
+    add_child(bg)
+
+    var vbox = VBoxContainer.new()
+    vbox.set_anchors_preset(Control.PRESET_CENTER)
+    vbox.add_theme_constant_override("separation", 40)
+    add_child(vbox)
+    
+    var title_label = Label.new()
+    title_label.text = "Tall Life Simulator"
+    title_label.add_theme_font_size_override("font_size", 64)
+    title_label.add_theme_color_override("font_color", Color("#ffffff"))
+    title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    vbox.add_child(title_label)
+    
+    var start_btn = Button.new()
+    start_btn.text = "Start"
+    start_btn.custom_minimum_size = Vector2(200, 60)
+    start_btn.add_theme_font_size_override("font_size", 32)
+    start_btn.focus_mode = Control.FOCUS_NONE
+    start_btn.pressed.connect(_on_start_pressed)
+    vbox.add_child(start_btn)
+    
+    var exit_btn = Button.new()
+    exit_btn.text = "Exit"
+    exit_btn.custom_minimum_size = Vector2(200, 60)
+    exit_btn.add_theme_font_size_override("font_size", 32)
+    exit_btn.focus_mode = Control.FOCUS_NONE
+    exit_btn.pressed.connect(_on_exit_pressed)
+    vbox.add_child(exit_btn)
+
+func _on_start_pressed() -> void:
+    get_tree().change_scene_to_file("res://scenes/CharacterCreatorScene.tscn")
+
+func _on_exit_pressed() -> void:
+    get_tree().quit()
