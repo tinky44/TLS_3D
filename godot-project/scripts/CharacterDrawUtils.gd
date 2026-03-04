@@ -74,8 +74,8 @@ static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, co
     # 手（長方形）: hw=半幅, hh=半高さ
     var pts = PackedVector2Array()
     var corners = [
-        Vector2(-hw, -hh), Vector2(hw, -hh),
-        Vector2(hw, hh), Vector2(-hw, hh)
+        Vector2(-hw, 0), Vector2(hw, 0),
+        Vector2(hw, hh * 2.0), Vector2(-hw, hh * 2.0)
     ]
     for c in corners:
         var rx = c.x * cos(angle) - c.y * sin(angle)
@@ -171,5 +171,6 @@ static func draw_head_part(canvas: CanvasItem, shape: String, center: Vector2, h
         var p_bottom = center + Vector2(0, head_h / 2)
         draw_rect(canvas, p_top, p_bottom, head_w, color)
     else:
-        # デフォルトは ellipse
-        draw_ellipse(canvas, center, head_w / 2.0, head_h / 2.0, color, angle)
+        # 真円: 半径 = head_h / 2（縦幅を基準）。head_wは内部計算用のみに使い描画には使わない
+        var r = head_h / 2.0
+        draw_ellipse(canvas, center, r, r, color, angle)

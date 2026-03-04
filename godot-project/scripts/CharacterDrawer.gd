@@ -106,9 +106,6 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["front_wx"], d["front_wy"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
 	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_wx"], d["front_wy"]), body_w, body_w, base_shirt_color)
 
-	# 3. 首
-	CharacterDrawUtils.draw_limb_part(self , part_shapes["neck"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_nx"], d["front_ny"]), neck_w, skin_color)
-
 	# 4. 頭
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
 	CharacterDrawUtils.draw_head_part(self , part_shapes["head"], Vector2(d["front_hx"], d["front_hy"]), head_w, d["head_h"], skin_color)
