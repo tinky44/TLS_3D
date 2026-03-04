@@ -39,6 +39,18 @@ jobs:
           version: 4.3.0
           use-dotnet: false
 
+      - name: Install Godot Export Templates
+        run: |
+          GODOT_VERSION="4.3.stable"
+          TEMPLATES_URL="https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz"
+          TEMPLATES_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}"
+          mkdir -p "$TEMPLATES_DIR"
+          wget -q "$TEMPLATES_URL" -O /tmp/export_templates.tpz
+          unzip -q /tmp/export_templates.tpz -d /tmp/godot_templates
+          mv /tmp/godot_templates/templates/* "$TEMPLATES_DIR/"
+          echo "Export templates installed to $TEMPLATES_DIR"
+          ls "$TEMPLATES_DIR"
+
       - name: Import Assets
         run: |
           cd godot-project
