@@ -183,10 +183,10 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_thigh_l, p_shin_l, shin_w, skin_dark)
 	CharacterDrawUtils.draw_foot_side(self , p_shin_l, foot_w, foot_h, shoe_color.darkened(0.15))
 
-	# 3. 胴体（服）: 背面上部が斜めの5角形（前面は垂直）
-	# 仕様: 乳首の高さ = 肩の高さ - (胴体の長さ × 0.25) = 下から0.75の比率
-	var nipple_ratio = 0.75
-	CharacterDrawUtils.draw_side_torso(self , p_shoulder, p_crotch, nipple_ratio, torso_thickness, base_shirt_color)
+	# 3. 胴体（服）: 腰で曲がるように分割
+	var p_waist = Vector2(d["wx"], d["wy"])
+	var nipple_ratio_upper = 0.55 # 上部(胸)の下から55%の高さ
+	CharacterDrawUtils.draw_side_torso(self , p_shoulder, p_waist, p_crotch, nipple_ratio_upper, torso_thickness, base_shirt_color)
 
 	# 4. 手前の足
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)

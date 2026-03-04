@@ -93,24 +93,36 @@ static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, fo
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_side_torso(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2, nipple_ratio: float, thickness: float, color: Color):
-    # 側面胴体: 背骨(p_bottom -> p_top)の角度に追従する5角形
-    var d = p_top - p_bottom
-    if d.length() <= 0.01:
+static func draw_side_torso(canvas: CanvasItem, p_top: Vector2, p_mid: Vector2, p_bottom: Vector2, nipple_ratio_upper: float, thickness: float, color: Color):
+    # 側面胴体: 背骨(p_bottom -> p_mid -> p_top)の角度に追従する7角形
+    var d_upper = p_top - p_mid
+    var d_lower = p_mid - p_bottom
+    if d_upper.length() <= 0.01 or d_lower.length() <= 0.01:
         return
-    var u = d.normalized()
-    var n_back = Vector2(u.y, -u.x)
-    var n_front = Vector2(-u.y, u.x)
-    var half = thickness / 2.0
+        
+    var u_up = d_upper.normalized()
+    var u_low = d_lower.normalized()
     
-    var p_nipple = p_bottom + d * nipple_ratio
-
+    var n_back_up = Vector2(u_up.y, -u_up.x)
+    var n_front_up = Vector2(-u_up.y, u_up.x)
+    
+    var n_back_low = Vector2(u_low.y, -u_low.x)
+    var n_front_low = Vector2(-u_low.y, u_low.x)
+    
+    var n_back_mid = (n_back_up + n_back_low).normalized()
+    var n_front_mid = (n_front_up + n_front_low).normalized()
+    
+    var half = thickness / 2.0
+    var p_nipple = p_mid + d_upper * nipple_ratio_upper
+    
     var pts = PackedVector2Array([
-        p_top + n_back * half,          # 1. 肩後端（背面上端）
-        p_bottom + n_back * half,       # 2. 股後端（背面下端）
-        p_bottom + n_front * half,      # 3. 股前端
-        p_nipple + n_front * half,      # 4. 乳首前端（折れ点）
-        p_top + n_front * (half * 0.2), # 5. 肩前端（斜めにカット）
+        p_top + n_back_up * half, # 1. 肩後端
+        p_mid + n_back_mid * half, # 2. 腰後端
+        p_bottom + n_back_low * half, # 3. 股後端
+        p_bottom + n_front_low * half, # 4. 股前端
+        p_mid + n_front_mid * half, # 5. 腰前端
+        p_nipple + n_front_up * half, # 6. 乳首前端（折れ点）
+        p_top + n_front_up * (half * 0.2), # 7. 肩前端（斜めにカット）
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
