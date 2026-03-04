@@ -54,14 +54,18 @@ jobs:
       - name: Import Assets
         run: |
           cd godot-project
-          godot --headless --editor --quit || exit 0
+          # 1回目: アセットのインポートを開始
+          godot --headless --editor --quit || true
+          # 2回目: インポートが完全に完了するのを待って再実行
+          sleep 5
+          godot --headless --editor --quit || true
 
       - name: Build Web Export
         run: |
           # docs/ の代わりに一時ディレクトリにビルドを出力します
           mkdir -p build/web
           cd godot-project
-          godot --headless --export-release "Web" ../build/web/index.html
+          godot --headless --export-release "Web" ../build/web/index.html --verbose
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
