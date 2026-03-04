@@ -130,11 +130,11 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_sh_l, p_elb_l, arm_w, arm_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_l, p_hand_l, arm_w * 0.8, arm_color)
-	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_hw, hand_hh, arm_color, f_arm_l_ang)
+	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_hw, hand_hh, arm_color, f_arm_l_ang - PI / 2)
 
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_sh_r, p_elb_r, arm_w, arm_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_r, p_hand_r, arm_w * 0.8, arm_color)
-	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_hw, hand_hh, arm_color, f_arm_r_ang)
+	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_hw, hand_hh, arm_color, f_arm_r_ang - PI / 2)
 
 	# 6. 顔とディテール
 	if facing == "front":
@@ -193,7 +193,7 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	var s_arm_l_ang = d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_arm_shoulder, p_elb_l, arm_w, skin_dark)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_l, p_hand_l, arm_w * 0.8, skin_dark)
-	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_hw, hand_hh, skin_dark, s_arm_l_ang)
+	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_hw, hand_hh, skin_dark, s_arm_l_ang - PI / 2)
 
 	# 2. 奥の足
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
@@ -233,4 +233,4 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	var s_arm_r_ang = d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_arm_shoulder, p_elb_r, arm_w, skin_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_r, p_hand_r, arm_w * 0.8, skin_color)
-	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_hw, hand_hh, skin_color, s_arm_r_ang)
+	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_hw, hand_hh, skin_color, s_arm_r_ang - PI / 2)
