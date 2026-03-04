@@ -33,23 +33,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Godot Engine
-        # v3の方が新しいバージョンのNode.js環境に対応しているためアップデートしています
+        # include-templates: true でエクスポートテンプレートも自動インストール
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.3.0
           use-dotnet: false
-
-      - name: Install Godot Export Templates
-        run: |
-          GODOT_VERSION="4.3.stable"
-          TEMPLATES_URL="https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz"
-          TEMPLATES_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}"
-          mkdir -p "$TEMPLATES_DIR"
-          wget -q "$TEMPLATES_URL" -O /tmp/export_templates.tpz
-          unzip -q /tmp/export_templates.tpz -d /tmp/godot_templates
-          mv /tmp/godot_templates/templates/* "$TEMPLATES_DIR/"
-          echo "Export templates installed to $TEMPLATES_DIR"
-          ls "$TEMPLATES_DIR"
+          include-templates: true
 
       - name: Import Assets
         run: |
