@@ -21,3 +21,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 [autoload]
 
 Global="*res://scripts/Global.gd"
+
+[gui]
+
+theme/custom_font="res://fonts/NotoSansCJKjp-Regular.otf"
