@@ -215,11 +215,12 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	var head_angle = d["waist_angle"] * 0.6
 	CharacterDrawUtils.draw_head_part(self , part_shapes["head"], Vector2(hx, hy), head_w, d["head_h"], skin_color, head_angle)
 
-	var eye_offset = Vector2(head_w * 0.25, -d["head_h"] * 0.1)
+	var head_r = d["head_h"] / 2.0 # 真円の半径
+	var eye_offset = Vector2(head_r * 0.5, -head_r * 0.15)
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
 	draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
 
-	var mouth_offset = Vector2(head_w * 0.25, d["head_h"] * 0.15)
+	var mouth_offset = Vector2(head_r * 0.5, head_r * 0.5)
 	var rot_mouth = Vector2(mouth_offset.x * cos(head_angle) - mouth_offset.y * sin(head_angle), mouth_offset.x * sin(head_angle) + mouth_offset.y * cos(head_angle))
 	draw_line(Vector2(hx, hy) + rot_mouth - Vector2(1, 0), Vector2(hx, hy) + rot_mouth + Vector2(3, -2), Color("#c07070"), 2.0)
 
