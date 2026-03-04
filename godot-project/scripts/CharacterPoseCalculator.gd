@@ -92,7 +92,15 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var hx = nx + (head_h / 2.0) * sin(waist_angle)
     var hy = ny - (head_h / 2.0) * cos(waist_angle) # 頭中心
 
-    var front_sy = cy - m["arm"] * p
+    # 正面・背面ビュー用: 背骨のX座標は中心(cx)に固定、Yのみ腰曲げで圧縮
+    var front_wx = cx
+    var front_wy = cy - waist_l * cos(hip_ang)
+    var front_sx = cx
+    var front_sy = front_wy - chest_l * cos(waist_angle)
+    var front_nx = cx
+    var front_ny = front_sy - 2.0 * (m["neck"] * p) * cos(waist_angle)
+    var front_hx = cx
+    var front_hy = front_ny - (head_h / 2.0) * cos(waist_angle * 0.5)
 
     return {
         "leg_l_angle": leg_l_angle,
@@ -113,7 +121,10 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         "sx": sx, "sy": sy,
         "nx": nx, "ny": ny,
         "hx": hx, "hy": hy,
-        "front_sy": front_sy
+        "front_wx": front_wx, "front_wy": front_wy,
+        "front_sx": front_sx, "front_sy": front_sy,
+        "front_nx": front_nx, "front_ny": front_ny,
+        "front_hx": front_hx, "front_hy": front_hy
     }
 
 

@@ -75,8 +75,8 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 	var front_offset_y = 10.0 # プラスにすると腕が下に下がる、マイナスで上に上がる
 	# Note: 腕の太さ分だけ下に下げたかった
 	
-	var p_sh_l = Vector2(d["sx"] - sh_off + front_offset_x, d["front_sy"] + front_offset_y)
-	var p_sh_r = Vector2(d["sx"] + sh_off + front_offset_x, d["front_sy"] + front_offset_y)
+	var p_sh_l = Vector2(d["front_sx"] - sh_off + front_offset_x, d["front_sy"] + front_offset_y)
+	var p_sh_r = Vector2(d["front_sx"] + sh_off + front_offset_x, d["front_sy"] + front_offset_y)
 
 	var f_leg_l_ang = (d["leg_l_angle"] * 0.2) * PI / 180 + PI / 2
 	var f_leg_r_ang = (d["leg_r_angle"] * 0.2) * PI / 180 + PI / 2
@@ -99,16 +99,16 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_thigh_r, p_shin_r, shin_w, skin_color)
 	CharacterDrawUtils.draw_foot_front(self , p_shin_r, foot_w, foot_h, shoe_color)
 
-	# 2. 胴体 (シャツ)
-	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["wx"], d["wy"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
-	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["sx"], d["front_sy"]), Vector2(d["wx"], d["wy"]), body_w, body_w, base_shirt_color)
+	# 2. 胴体 (シャツ) — 正面ビュー用座標を使用
+	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["front_wx"], d["front_wy"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
+	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_wx"], d["front_wy"]), body_w, body_w, base_shirt_color)
 
 	# 3. 首
-	CharacterDrawUtils.draw_limb_part(self , part_shapes["neck"], Vector2(d["sx"], d["front_sy"]), Vector2(d["nx"], d["ny"]), neck_w, skin_color)
+	CharacterDrawUtils.draw_limb_part(self , part_shapes["neck"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_nx"], d["front_ny"]), neck_w, skin_color)
 
 	# 4. 頭
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
-	CharacterDrawUtils.draw_head_part(self , part_shapes["head"], Vector2(d["hx"], d["hy"]), head_w, d["head_h"], skin_color)
+	CharacterDrawUtils.draw_head_part(self , part_shapes["head"], Vector2(d["front_hx"], d["front_hy"]), head_w, d["head_h"], skin_color)
 
 	# 5. 両腕（線 + 円関節 + 小さな手）
 	var arm_len = m["armLength"] * p
@@ -135,8 +135,8 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	# 6. 顔とディテール
 	if facing == "front":
-		var hx = d["hx"]
-		var hy = d["hy"]
+		var hx = d["front_hx"]
+		var hy = d["front_hy"]
 
 		var eye_off_x = head_w * 0.2
 		var eye_y = hy - (d["head_h"] * 0.1)
