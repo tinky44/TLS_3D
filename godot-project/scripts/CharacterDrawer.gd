@@ -168,11 +168,12 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	var shoe_color = pants_color
 
 	# === 側面用の微調整（ここを書き換えて動作確認します） ===
-	var side_offset_x = 0.0 # プラスで右(前)に移動、マイナスで左(後)に移動
-	var side_offset_y = 0.0 # プラスで下に移動、マイナスで上に移動
-	# Note: 腕の太さ分だけ下に下げたかった
+	var side_offset_x = -4.0 # プラスで右(前)に移動、マイナスで左(後)に移動
+	var side_offset_y = 10.0 # プラスで下に移動、マイナスで上に移動
+	# Note: 腕の太さ分だけ下に下げたかった。x軸は、頭の中心あたりを目指した。今後は計算でやりたい
 
 	var p_shoulder = Vector2(d["sx"], d["sy"])
+	var p_arm_shoulder = Vector2(d["sx"] + side_offset_x, d["sy"] + side_offset_y)
 	var p_crotch = Vector2(d["cx"], d["cy"])
 
 	# 1. 奥の腕（線 + 円関節 + 小さな手）
@@ -180,10 +181,10 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	var u_arm = arm_len * 0.45
 	var l_arm = arm_len * 0.55
 
-	var p_elb_l = CharacterPoseCalculator.rotated_point(p_shoulder.x, p_shoulder.y, u_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
+	var p_elb_l = CharacterPoseCalculator.rotated_point(p_arm_shoulder.x, p_arm_shoulder.y, u_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
-	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elb_l, arm_w, skin_dark)
+	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_arm_shoulder, p_elb_l, arm_w, skin_dark)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_l, p_hand_l, arm_w * 0.8, skin_dark)
 	CharacterDrawUtils.draw_hand(self , p_hand_l, hand_size, skin_dark)
 
@@ -219,9 +220,9 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 	draw_line(Vector2(hx, hy) + rot_mouth - Vector2(1, 0), Vector2(hx, hy) + rot_mouth + Vector2(3, -2), Color("#c07070"), 2.0)
 
 	# 7. 手前の腕
-	var p_elb_r = CharacterPoseCalculator.rotated_point(p_shoulder.x, p_shoulder.y, u_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
+	var p_elb_r = CharacterPoseCalculator.rotated_point(p_arm_shoulder.x, p_arm_shoulder.y, u_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
-	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elb_r, arm_w, skin_color)
+	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_arm_shoulder, p_elb_r, arm_w, skin_color)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elb_r, p_hand_r, arm_w * 0.8, skin_color)
 	CharacterDrawUtils.draw_hand(self , p_hand_r, hand_size, skin_color)
