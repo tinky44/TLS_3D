@@ -112,8 +112,8 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	# 5. 両腕（線 + 円関節 + 小さな手）
 	var arm_len = m["armLength"] * p
-	var u_arm = arm_len * 0.45
-	var l_arm = arm_len * 0.55
+	var u_arm = arm_len * 0.5
+	var l_arm = arm_len * 0.5
 
 	var f_arm_l_ang = 0.12 + (d["arm_l_angle"] * 0.3) * PI / 180 + PI / 2
 	var p_elb_l = CharacterPoseCalculator.rotated_point(p_sh_l.x, p_sh_l.y, u_arm, f_arm_l_ang)
@@ -181,8 +181,8 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 
 	# 1. 奥の腕（線 + 円関節 + 小さな手）
 	var arm_len = m["armLength"] * p
-	var u_arm = arm_len * 0.45
-	var l_arm = arm_len * 0.55
+	var u_arm = arm_len * 0.5
+	var l_arm = arm_len * 0.5
 
 	var p_elb_l = CharacterPoseCalculator.rotated_point(p_arm_shoulder.x, p_arm_shoulder.y, u_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
