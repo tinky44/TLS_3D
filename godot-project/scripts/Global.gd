@@ -46,7 +46,7 @@ func get_body_measurements() -> Dictionary:
     var shoulder: float = head * 1.872 if sex == "female" else head * 1.935
     var leg: float = h * leg_ratio / 100.0
     var arm: float = h - leg - head - 2.0 * neck
-    var arm_length: float = head * 3.2
+    var arm_length: float = head * 2.7
     var hand: float = (h / ratio) * 0.83
     
     var landmarks: Dictionary = {
