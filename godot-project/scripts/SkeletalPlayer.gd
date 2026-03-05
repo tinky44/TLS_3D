@@ -29,6 +29,7 @@ var m: Dictionary
 var sensors: Array = []
 
 func _ready() -> void:
+    collision_mask |= 4  # 天井(layer4)にも物理的に当たるように
     update_measurements()
 
 func update_measurements() -> void:

@@ -101,7 +101,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         var ceil_thick_px = 20.0 * cm_to_px
         var ceiling_body = StaticBody2D.new()
         ceiling_body.set_meta("is_stage_obj", true)
-        ceiling_body.collision_layer = 2
+        ceiling_body.collision_layer = 4  # センサー(layer2)に検知されないよう別レイヤー
         var ceil_col_shape = CollisionShape2D.new()
         var ceil_col_rect = RectangleShape2D.new()
         ceil_col_rect.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
