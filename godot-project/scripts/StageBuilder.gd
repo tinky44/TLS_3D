@@ -11,8 +11,11 @@ const STAGES = {
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 215, "type": "overhead"},
             {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
             {"id": "range_hood", "x": 490, "x2": 560, "height": 180, "type": "overhead"},
+            {"id": "wall_clock", "x": 650, "x2": 690, "height": 200, "type": "background"},
             {"id": "chair", "x": 700, "x2": 740, "height": 45, "type": "ground"},
             {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
+            {"id": "window_1", "x": 920, "x2": 1050, "height": 160, "type": "background"},
+            {"id": "poster", "x": 1080, "x2": 1130, "height": 170, "type": "background"},
             {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
             {"id": "shower", "x": 1450, "x2": 1550, "height": 190, "type": "background"},
@@ -87,13 +90,56 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     floor_shape.position = Vector2(stage_data["width"] * cm_to_px / 2.0, 50)
     floor_body.add_child(floor_shape)
     
+    # 床の描画 (フローリング風の少し明るい茶色)
     var floor_rect = ColorRect.new()
-    floor_rect.color = Color(0.2, 0.2, 0.2)
+    if stage_id == "room":
+        floor_rect.color = Color(0.65, 0.52, 0.40) # フローリング風
+    else:
+        floor_rect.color = Color(0.2, 0.2, 0.2)
     floor_rect.position = Vector2(0, 0)
     floor_rect.size = Vector2(stage_data["width"] * cm_to_px, 100)
     floor_body.add_child(floor_rect)
     
     parent_node.add_child(floor_body)
+
+    # 部屋（room）の場合、背景を壁紙風にする
+    if stage_id == "room" and stage_data.get("ceiling_height") != null:
+        var wall_bg = Node2D.new()
+        wall_bg.set_meta("is_stage_obj", true)
+        wall_bg.z_index = -5 # 一番奥に配置する
+        
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var stage_w_px = stage_data["width"] * cm_to_px
+        
+        # 壁紙 上半分（薄いクリーム色）
+        var wall_top = ColorRect.new()
+        wall_top.color = Color(0.96, 0.94, 0.90)
+        wall_top.position = Vector2(0, -ceil_h_px)
+        wall_top.size = Vector2(stage_w_px, ceil_h_px * 0.5)
+        wall_bg.add_child(wall_top)
+        
+        # 壁紙 下半分（やや暖かみのあるベージュ、ツートンカラー）
+        var wall_btm = ColorRect.new()
+        wall_btm.color = Color(0.92, 0.88, 0.82)
+        wall_btm.position = Vector2(0, -ceil_h_px * 0.5)
+        wall_btm.size = Vector2(stage_w_px, ceil_h_px * 0.5)
+        wall_bg.add_child(wall_btm)
+        
+        # 見切り材（上下の壁紙の境界の帯）
+        var molding = ColorRect.new()
+        molding.color = Color(0.85, 0.78, 0.70)
+        molding.position = Vector2(0, -ceil_h_px * 0.5 - 4)
+        molding.size = Vector2(stage_w_px, 8)
+        wall_bg.add_child(molding)
+        
+        # 巾木（床と壁の境界の板）
+        var baseboard = ColorRect.new()
+        baseboard.color = Color(0.35, 0.24, 0.18) # 暗めの茶色
+        baseboard.position = Vector2(0, -15)
+        baseboard.size = Vector2(stage_w_px, 15)
+        wall_bg.add_child(baseboard)
+        
+        parent_node.add_child(wall_bg)
 
     # 天井の生成
     if stage_data.get("ceiling_height") != null:
@@ -303,6 +349,109 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         ring_hole.position = ring.position + Vector2(5, 5)
         node.add_child(ring_hole)
 
+    elif "window" in o_id:
+        cr.color = Color(0.85, 0.9, 0.95, 0.3) # 窓ガラスを透けるように
+        
+        # 窓枠（サッシ）外枠
+        var frame = ReferenceRect.new()
+        frame.editor_only = false
+        frame.border_color = Color(0.7, 0.7, 0.75) # シルバー系
+        frame.border_width = 4.0
+        frame.position = cr.position
+        frame.size = cr.size
+        node.add_child(frame)
+        
+        # 窓の中央スタッド（2枚引き違い窓風）
+        var center_bar = ColorRect.new()
+        center_bar.color = Color(0.7, 0.7, 0.75)
+        center_bar.position = Vector2(cr.position.x + w_px * 0.5 - 2, cr.position.y)
+        center_bar.size = Vector2(4, h_draw_px)
+        node.add_child(center_bar)
+        
+        # 風景（空と地面）少し透明にして窓ガラスっぽさを出す
+        var sky = ColorRect.new()
+        sky.color = Color(0.4, 0.7, 1.0, 0.5) # 青空
+        sky.position = cr.position
+        sky.size = Vector2(w_px, h_draw_px * 0.6)
+        # sky.z_index = -2 # 窓枠の後ろ
+        node.add_child(sky)
+        
+        var ground = ColorRect.new()
+        ground.color = Color(0.3, 0.6, 0.3, 0.5) # 緑地
+        ground.position = Vector2(cr.position.x, cr.position.y + h_draw_px * 0.6)
+        ground.size = Vector2(w_px, h_draw_px * 0.4)
+        node.add_child(ground)
+
+    elif o_id == "poster":
+        # ポスターの枠
+        var poster_bg = ColorRect.new()
+        poster_bg.color = Color(0.9, 0.9, 0.9) # 白い余白
+        poster_bg.position = cr.position
+        poster_bg.size = cr.size
+        node.add_child(poster_bg)
+        
+        var poster_content = ColorRect.new()
+        poster_content.color = Color(0.3, 0.6, 0.8) # 青っぽい絵
+        poster_content.position = cr.position + Vector2(4, 4)
+        poster_content.size = cr.size - Vector2(8, 8)
+        node.add_child(poster_content)
+        
+        # ポスター内の適当な図形（太陽？）
+        var sun = ColorRect.new()
+        sun.color = Color(1.0, 0.8, 0.3)
+        sun.position = poster_content.position + Vector2(10, 10)
+        sun.size = Vector2(15, 15)
+        node.add_child(sun)
+
+    elif o_id == "wall_clock":
+        cr.color = Color(0, 0, 0, 0) # 背景を透明に
+        # 時計のベース（丸が作りにくいので角丸のパネル）
+        var clock_panel = Panel.new()
+        var style = StyleBoxFlat.new()
+        style.bg_color = Color(0.95, 0.95, 0.95)
+        style.border_color = Color(0.3, 0.3, 0.3)
+        style.border_width_left = 3
+        style.border_width_right = 3
+        style.border_width_top = 3
+        style.border_width_bottom = 3
+        style.corner_radius_top_left = int(w_px / 2.0)
+        style.corner_radius_top_right = int(w_px / 2.0)
+        style.corner_radius_bottom_left = int(w_px / 2.0)
+        style.corner_radius_bottom_right = int(w_px / 2.0)
+        clock_panel.add_theme_stylebox_override("panel", style)
+        # 指定高さから40cm分を下に向けて描画
+        var clock_size = w_px
+        clock_panel.position = cr.position
+        clock_panel.size = Vector2(clock_size, clock_size)
+        node.add_child(clock_panel)
+        
+        # 時計の針
+        var cx = cr.position.x + clock_size * 0.5
+        var cy = cr.position.y + clock_size * 0.5
+        
+        # 長針
+        var min_hand = Line2D.new()
+        min_hand.add_point(Vector2(cx, cy))
+        min_hand.add_point(Vector2(cx, cy - clock_size * 0.35))
+        min_hand.width = 3
+        min_hand.default_color = Color(0.2, 0.2, 0.2)
+        node.add_child(min_hand)
+        
+        # 短針
+        var hour_hand = Line2D.new()
+        hour_hand.add_point(Vector2(cx, cy))
+        hour_hand.add_point(Vector2(cx + clock_size * 0.2, cy))
+        hour_hand.width = 4
+        hour_hand.default_color = Color(0.2, 0.2, 0.2)
+        node.add_child(hour_hand)
+
+        # 中心点
+        var dot = ColorRect.new()
+        dot.color = Color(0.1, 0.1, 0.1)
+        dot.position = Vector2(cx - 3, cy - 3)
+        dot.size = Vector2(6, 6)
+        node.add_child(dot)
+
     elif o_id == "washstand":
         # 鏡らしく、内側を明るい水色にする
         var glass = ColorRect.new()
@@ -433,6 +582,18 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "テーブル（%dcm）です。" % oh
         "chair":
             return "椅子（%dcm）。" % oh
+        "window_1":
+            if h > oh:
+                return "窓（上端%dcm）。外を見るにはかがむ必要があります（身長%dcm）。" % [oh, h]
+            else:
+                return "窓です。外の景色が見えます。"
+        "poster":
+            if h > oh + 20:
+                return "ポスター（%dcm）。かなり下の方に貼ってあります。" % oh
+            else:
+                return "ポスターです。"
+        "wall_clock":
+            return "壁掛け時計。今は...何時でしょう？"
         "washstand":
             if h > 180:
                 return "洗面台の鏡。かがまないと顔が見えません（身長%dcm）。" % h
