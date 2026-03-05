@@ -1,0 +1,7 @@
+feat: 家ステージの拡充（キッチン台、テーブル、椅子、照明）
+
+- レンジフードの下に80cmのキッチン台（ground）を追加
+- ダイニングテーブル（70cm）と椅子（45cm）を追加
+- 天井照明（215cm）を追加し、各家具の描画ロジックとメッセージを実装
+
+Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>

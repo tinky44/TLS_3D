@@ -8,11 +8,15 @@ const STAGES = {
         "ceiling_height": 240,
         "obstacles": [
             {"id": "door_left", "x": 80, "x2": 160, "height": 200, "type": "overhead"},
+            {"id": "ceiling_light", "x": 280, "x2": 380, "height": 215, "type": "overhead"},
+            {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
+            {"id": "range_hood", "x": 490, "x2": 560, "height": 180, "type": "overhead"},
+            {"id": "chair", "x": 700, "x2": 740, "height": 45, "type": "ground"},
+            {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
             {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
             {"id": "shower", "x": 1450, "x2": 1550, "height": 190, "type": "background"},
-            {"id": "door_right", "x": 1840, "x2": 1920, "height": 200, "type": "overhead"},
-            {"id": "range_hood", "x": 490, "x2": 540, "height": 180, "type": "overhead"},
+            {"id": "door_right", "x": 1840, "x2": 1920, "height": 200, "type": "overhead"}
         ]
     },
     "train": {
@@ -238,6 +242,64 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         hole.size = Vector2(w_px - 10, 20)
         hole.position = Vector2(cr.position.x + 5, cr.position.y + h_draw_px - 25)
         node.add_child(hole)
+
+    elif o_id == "ceiling_light":
+        var light_cr = ColorRect.new()
+        light_cr.color = Color(1.0, 1.0, 0.7, 0.9)
+        light_cr.size = Vector2(w_px * 0.8, 16)
+        light_cr.position = Vector2(cr.position.x + w_px * 0.1, cr.position.y + h_draw_px - 16)
+        node.add_child(light_cr)
+
+    elif o_id == "kitchen_counter":
+        # 扉の線を引いてキッチンっぽくする
+        var line1 = Line2D.new()
+        line1.add_point(Vector2(cr.position.x + w_px * 0.33, cr.position.y + 10))
+        line1.add_point(Vector2(cr.position.x + w_px * 0.33, cr.position.y + h_draw_px))
+        line1.width = 2
+        line1.default_color = Color(0.2, 0.4, 0.2, 0.5)
+        node.add_child(line1)
+        var line2 = Line2D.new()
+        line2.add_point(Vector2(cr.position.x + w_px * 0.66, cr.position.y + 10))
+        line2.add_point(Vector2(cr.position.x + w_px * 0.66, cr.position.y + h_draw_px))
+        line2.width = 2
+        line2.default_color = Color(0.2, 0.4, 0.2, 0.5)
+        node.add_child(line2)
+
+    elif o_id == "table":
+        cr.color = Color(0, 0, 0, 0)
+        var top = ColorRect.new()
+        top.color = Color(0.6, 0.4, 0.2)
+        top.size = Vector2(w_px, 16)
+        top.position = cr.position
+        node.add_child(top)
+        var leg1 = ColorRect.new()
+        leg1.color = Color(0.4, 0.2, 0.1)
+        leg1.size = Vector2(10, h_draw_px - 16)
+        leg1.position = cr.position + Vector2(10, 16)
+        node.add_child(leg1)
+        var leg2 = ColorRect.new()
+        leg2.color = Color(0.4, 0.2, 0.1)
+        leg2.size = Vector2(10, h_draw_px - 16)
+        leg2.position = cr.position + Vector2(w_px - 20, 16)
+        node.add_child(leg2)
+
+    elif "chair" in o_id:
+        cr.color = Color(0, 0, 0, 0)
+        var seat = ColorRect.new()
+        seat.color = Color(0.7, 0.5, 0.3)
+        seat.size = Vector2(w_px, 10)
+        seat.position = cr.position
+        node.add_child(seat)
+        var leg_c = ColorRect.new()
+        leg_c.color = Color(0.5, 0.3, 0.1)
+        leg_c.size = Vector2(w_px * 0.6, h_draw_px - 10)
+        leg_c.position = cr.position + Vector2(w_px * 0.2, 10)
+        node.add_child(leg_c)
+        var back = ColorRect.new()
+        back.color = Color(0.6, 0.4, 0.2)
+        back.size = Vector2(8, 40)
+        back.position = Vector2(cr.position.x + w_px - 8, cr.position.y - 40)
+        node.add_child(back)
     # ---------------------------------------------------------
 
     
@@ -278,6 +340,23 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "レンジフード（高さ%dcm）に頭がぶつかります！\n%dcmかがまないと通れません。" % [oh, round(h - oh)]
             else:
                 return "レンジフード（高さ%dcm）はあなたの頭より%dcm上にあります。" % [oh, round(oh - h)]
+        "ceiling_light":
+            if h > oh:
+                return "シーリングライト（高さ%dcm）。\nあなた（%dcm）は頭がぶつかってしまいます！" % [oh, h]
+            else:
+                return "シーリングライト。頭上まであと%dcmです。" % round(oh - h)
+        "kitchen_counter":
+            if h > 170:
+                return "キッチン台（80cm）。少し低くて腰が痛くなりそうです。"
+            else:
+                return "キッチン台（80cm）。丁度良い高さですね。"
+        "table":
+            if h > 170:
+                return "テーブル（%dcm）。少し低く感じるかもしれません。" % oh
+            else:
+                return "テーブル（%dcm）です。" % oh
+        "chair":
+            return "椅子（%dcm）。" % oh
         "washstand":
             if h > 180:
                 return "洗面台の鏡。かがまないと顔が見えません（身長%dcm）。" % h
