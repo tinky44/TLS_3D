@@ -18,6 +18,13 @@ config/name="Tall Life Simulator"
 run/main_scene="res://scenes/TitleScene.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
 [autoload]
 
 Global="*res://scripts/Global.gd"
