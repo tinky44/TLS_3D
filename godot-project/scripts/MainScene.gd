@@ -163,8 +163,6 @@ func _update_ui():
     text += "Stage: %s\n" % stage_name
     text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
     text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
-    if player.pose == "crouch":
-        text += "  ↳ 目標高さ: %.1f cm\n" % player.target_crouch_cm
     
     text += "\n【操作方法】\n"
     text += "矢印キー左右: 移動\n"

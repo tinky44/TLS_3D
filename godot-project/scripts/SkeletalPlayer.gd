@@ -169,8 +169,8 @@ func _handle_auto_crouch():
 
     if should_crouch:
         pose = "crouch"
-        # 2cm余裕を持たせる
-        target_crouch_cm = min_obs_h_cm - 2.0
+        # めり込み防止のため8cm余裕を持たせる
+        target_crouch_cm = min_obs_h_cm - 8.0
     else:
         # 天井が塞がっていなければ立つ
         sensors[4].force_raycast_update() # ceiling
@@ -214,6 +214,6 @@ func _mock_measurements() -> Dictionary:
     var arm = h - leg - ht - 2 * n
     return {
         "height": h, "head": ht, "headWidth": ht * 0.702, "neck": n,
-        "shoulder": ht * 1.872, "arm": arm, "armLength": ht * 2.7, "leg": leg,
+        "shoulder": ht * 1.872, "arm": arm, "armLength": ht * 3.2, "leg": leg,
         "landmarks": {"top": h, "eye": h - ht * 0.5, "shoulder": h - ht - 2 * n}
     }

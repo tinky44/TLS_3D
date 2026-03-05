@@ -3,7 +3,7 @@ class_name StageBuilder
 
 const STAGES = {
     "room": {
-        "name": "🏠 家の中",
+        "name": "家の中",
         "width": 2000,
         "ceiling_height": 240,
         "obstacles": [
@@ -16,7 +16,7 @@ const STAGES = {
         ]
     },
     "train": {
-        "name": "🚃 電車の中",
+        "name": "電車の中",
         "width": 2000,
         "ceiling_height": 230,
         "obstacles": [
@@ -30,7 +30,7 @@ const STAGES = {
         ]
     },
     "outdoor": {
-        "name": "🏙️ 屋外",
+        "name": "屋外",
         "width": 5000,
         "ceiling_height": null,
         "obstacles": [
@@ -47,7 +47,7 @@ const STAGES = {
         ]
     },
     "school": {
-        "name": "🏫 学校",
+        "name": "学校",
         "width": 2500,
         "ceiling_height": 300,
         "obstacles": [
