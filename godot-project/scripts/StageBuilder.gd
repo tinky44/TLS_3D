@@ -108,7 +108,16 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     var type = obs["type"]
     var node: Node2D
     
-    if type == "overhead" or type == "ground":
+    var global = parent.get_node_or_null("/root/Global")
+    var enable_ground_col = global.enable_ground_collision if global else false
+    
+    var is_solid = false
+    if type == "overhead":
+        is_solid = true
+    elif type == "ground" and enable_ground_col:
+        is_solid = true
+    
+    if is_solid:
         var body = StaticBody2D.new()
         
         # collision layer 設定 (ground=1, overhead=2)
@@ -133,12 +142,16 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         shape.shape = rect
         body.add_child(shape)
         node = body
-    else: # background
+    else: # background や 衝突無効のground
         var area = Area2D.new()
         area.position = Vector2(0, 0)
         node = area
         
     node.set_meta("is_stage_obj", true)
+    
+    # ソリッドではない背景オブジェクトはキャラクター(-1か0)の奥に描画する
+    if not is_solid:
+        node.z_index = -1
     node.set_meta("obs_id", obs["id"])
     node.set_meta("obs_height_cm", h_cm)
     node.set_meta("obs_x", obs["x"])
