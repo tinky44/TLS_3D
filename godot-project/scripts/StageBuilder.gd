@@ -101,7 +101,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         var ceil_thick_px = 20.0 * cm_to_px
         var ceiling_body = StaticBody2D.new()
         ceiling_body.set_meta("is_stage_obj", true)
-        ceiling_body.collision_layer = 4  # センサー(layer2)に検知されないよう別レイヤー
+        ceiling_body.collision_layer = 4 # センサー(layer2)に検知されないよう別レイヤー
         var ceil_col_shape = CollisionShape2D.new()
         var ceil_col_rect = RectangleShape2D.new()
         ceil_col_rect.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
@@ -189,20 +189,10 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         y_pos = - h_px - thick_cm * cm_to_px
         h_draw_px = thick_cm * cm_to_px
         
-        # ドアフレーム（柱）はドアのみ描画する
+        # ドアの場合は別で背景側に本格的な描画を行うため、ここでは何もしない
         if "door" in obs["id"]:
-            var pillar_w = 12.0
-            var p_left = ColorRect.new()
-            p_left.color = Color(0.6, 0.3, 0.3, 0.8)
-            p_left.position = Vector2(obs["x"] * cm_to_px, -h_px)
-            p_left.size = Vector2(pillar_w, h_px)
-            node.add_child(p_left)
+            pass
 
-            var p_right = ColorRect.new()
-            p_right.color = Color(0.6, 0.3, 0.3, 0.8)
-            p_right.position = Vector2(obs["x2"] * cm_to_px - pillar_w, -h_px)
-            p_right.size = Vector2(pillar_w, h_px)
-            node.add_child(p_right)
         
     elif type == "ground":
         main_color = Color(0.4, 0.8, 0.4, 0.8) # 緑っぽく
@@ -225,20 +215,72 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     # ---------------------------------------------------------
     var o_id = obs["id"]
     if "door" in o_id:
-        # ドアの場合は、横に取っ手を描く
-        var knob = ColorRect.new()
-        knob.color = Color(0.2, 0.2, 0.2, 0.8)
-        var is_right_door = ("right" in o_id or "2" in o_id or "4" in o_id) # 奇数左、偶数右みたいな簡易判定
-        var knob_x = cr.position.x + (20.0 if not is_right_door else w_px - 30.0)
-        knob.position = Vector2(knob_x, cr.position.y + h_draw_px * 0.5)
-        knob.size = Vector2(10.0, 40.0)
-        node.add_child(knob)
-        # ドアの窓
-        var win = ColorRect.new()
-        win.color = Color(0.7, 0.8, 0.9, 0.6)
-        win.size = Vector2(w_px * 0.6, h_draw_px * 0.4)
-        win.position = Vector2(cr.position.x + w_px * 0.2, cr.position.y + 20)
-        node.add_child(win)
+        # 元の梁（上枠）の色をドアの枠色に合わせる
+        cr.color = Color(0.24, 0.16, 0.12)
+        
+        # 本格的なドアの描画 (背景側に描画)
+        # ドア全体のベース枠
+        var door_frame = ColorRect.new()
+        door_frame.color = Color(0.24, 0.16, 0.12) # 暗い茶色
+        door_frame.position = Vector2(obs["x"] * cm_to_px, -h_px)
+        door_frame.size = Vector2(w_px, h_px)
+        door_frame.z_index = -1
+        node.add_child(door_frame)
+        
+        # ドアの内側パネル
+        var panel_margin = 8.0
+        var door_panel = ColorRect.new()
+        door_panel.color = Color(0.36, 0.25, 0.20)
+        door_panel.position = door_frame.position + Vector2(panel_margin, panel_margin)
+        door_panel.size = Vector2(w_px - panel_margin * 2, h_px - panel_margin * 2)
+        door_panel.z_index = -1
+        node.add_child(door_panel)
+        
+        # パネルの飾り枠（上下2段）
+        var inset_margin = 12.0
+        var border_color = Color(0.45, 0.32, 0.25)
+        
+        # 上段枠
+        var top_box_h = h_px * 0.45
+        var top_box = ReferenceRect.new()
+        top_box.editor_only = false
+        top_box.border_color = border_color
+        top_box.border_width = 2.0
+        top_box.position = door_panel.position + Vector2(inset_margin, inset_margin)
+        top_box.size = Vector2(door_panel.size.x - inset_margin * 2, top_box_h)
+        top_box.z_index = -1
+        node.add_child(top_box)
+        
+        # 下段枠
+        var btm_box_y = panel_margin + inset_margin + top_box_h + inset_margin
+        var btm_box_h = h_px - btm_box_y - panel_margin - inset_margin
+        var btm_box = ReferenceRect.new()
+        btm_box.editor_only = false
+        btm_box.border_color = border_color
+        btm_box.border_width = 2.0
+        btm_box.position = Vector2(door_panel.position.x + inset_margin, door_frame.position.y + btm_box_y)
+        btm_box.size = Vector2(door_panel.size.x - inset_margin * 2, btm_box_h)
+        btm_box.z_index = -1
+        node.add_child(btm_box)
+        
+        # ドアノブ
+        var knob_radius = 8.0
+        var is_right_door = ("right" in o_id or "2" in o_id or "4" in o_id)
+        var knob_cx = door_panel.position.x + (25.0 if not is_right_door else door_panel.size.x - 25.0)
+        var knob_cy = - h_px * 0.5
+        
+        var knob_panel = Panel.new()
+        var style = StyleBoxFlat.new()
+        style.bg_color = Color(0.85, 0.65, 0.1) # ゴールド
+        style.corner_radius_top_left = 8
+        style.corner_radius_top_right = 8
+        style.corner_radius_bottom_left = 8
+        style.corner_radius_bottom_right = 8
+        knob_panel.add_theme_stylebox_override("panel", style)
+        knob_panel.position = Vector2(knob_cx - 8, knob_cy - 8)
+        knob_panel.size = Vector2(16, 16)
+        knob_panel.z_index = -1
+        node.add_child(knob_panel)
         
     elif "strap" in o_id:
         # 吊り革の場合は、上のバーから伸びる紐と輪っかを描く
