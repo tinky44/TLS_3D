@@ -148,6 +148,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         var ceiling_body = StaticBody2D.new()
         ceiling_body.set_meta("is_stage_obj", true)
         ceiling_body.collision_layer = 4 # センサー(layer2)に検知されないよう別レイヤー
+        ceiling_body.z_index = -1 # ラベル・コメントより奥に描画する
         var ceil_col_shape = CollisionShape2D.new()
         var ceil_col_rect = RectangleShape2D.new()
         ceil_col_rect.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
@@ -534,6 +535,8 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     line.add_point(Vector2(obs["x2"] * cm_to_px, -h_px))
     line.width = 3.0
     line.default_color = Color(1.0, 1.0, 0.2, 0.9) # やや明るい黄色
+    line.z_as_relative = false
+    line.z_index = 10 # 全てのビジュアルより手前
     node.add_child(line)
 
     # ラベル（名前と高さ）
@@ -549,6 +552,8 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     # 表示位置の調整
     label.size = Vector2(w_px, 40)
     label.position = Vector2(obs["x"] * cm_to_px, -h_px - 45)
+    label.z_as_relative = false
+    label.z_index = 10 # 全てのビジュアルより手前
     
     node.add_child(label)
     parent.add_child(node)
