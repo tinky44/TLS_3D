@@ -94,7 +94,27 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     floor_body.add_child(floor_rect)
     
     parent_node.add_child(floor_body)
-    
+
+    # 天井の生成
+    if stage_data.get("ceiling_height") != null:
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var ceil_thick_px = 20.0 * cm_to_px
+        var ceiling_body = StaticBody2D.new()
+        ceiling_body.set_meta("is_stage_obj", true)
+        ceiling_body.collision_layer = 2
+        var ceil_col_shape = CollisionShape2D.new()
+        var ceil_col_rect = RectangleShape2D.new()
+        ceil_col_rect.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
+        ceil_col_shape.shape = ceil_col_rect
+        ceil_col_shape.position = Vector2(stage_data["width"] * cm_to_px / 2.0, -ceil_h_px - ceil_thick_px / 2.0)
+        ceiling_body.add_child(ceil_col_shape)
+        var ceil_visual = ColorRect.new()
+        ceil_visual.color = Color(0.85, 0.82, 0.78)
+        ceil_visual.position = Vector2(0, -ceil_h_px - ceil_thick_px)
+        ceil_visual.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
+        ceiling_body.add_child(ceil_visual)
+        parent_node.add_child(ceiling_body)
+
     # 障害物の生成
     for obs in stage_data["obstacles"]:
         _build_obstacle(obs, parent_node, cm_to_px)
@@ -169,19 +189,20 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         y_pos = - h_px - thick_cm * cm_to_px
         h_draw_px = thick_cm * cm_to_px
         
-        # ドアフレーム（柱）を描画して、空中に浮かないようにする
-        var pillar_w = 12.0
-        var p_left = ColorRect.new()
-        p_left.color = Color(0.6, 0.3, 0.3, 0.8)
-        p_left.position = Vector2(obs["x"] * cm_to_px, -h_px)
-        p_left.size = Vector2(pillar_w, h_px)
-        node.add_child(p_left)
+        # ドアフレーム（柱）はドアのみ描画する
+        if "door" in obs["id"]:
+            var pillar_w = 12.0
+            var p_left = ColorRect.new()
+            p_left.color = Color(0.6, 0.3, 0.3, 0.8)
+            p_left.position = Vector2(obs["x"] * cm_to_px, -h_px)
+            p_left.size = Vector2(pillar_w, h_px)
+            node.add_child(p_left)
 
-        var p_right = ColorRect.new()
-        p_right.color = Color(0.6, 0.3, 0.3, 0.8)
-        p_right.position = Vector2(obs["x2"] * cm_to_px - pillar_w, -h_px)
-        p_right.size = Vector2(pillar_w, h_px)
-        node.add_child(p_right)
+            var p_right = ColorRect.new()
+            p_right.color = Color(0.6, 0.3, 0.3, 0.8)
+            p_right.position = Vector2(obs["x2"] * cm_to_px - pillar_w, -h_px)
+            p_right.size = Vector2(pillar_w, h_px)
+            node.add_child(p_right)
         
     elif type == "ground":
         main_color = Color(0.4, 0.8, 0.4, 0.8) # 緑っぽく
