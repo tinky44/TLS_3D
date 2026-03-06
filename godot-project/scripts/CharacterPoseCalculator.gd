@@ -25,8 +25,8 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
 
     var y_crotch = -m["leg"] * p
     var head_h = m["head"] * p
-    var waist_l = (m["arm"] * 0.45) * p
-    var chest_l = (m["arm"] * 0.55) * p
+    var waist_l = (m["arm"] * 0.40) * p # へそ〜股下 (胴体下部 40%)
+    var chest_l = (m["arm"] * 0.60) * p # 肩〜へそ (胴体上部 60%)
     var thigh_l = (m["leg"] * 0.55) * p
     var shin_l = (m["leg"] * 0.45) * p
 
