@@ -90,6 +90,73 @@ func _draw_sleeve_arm(p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
 
 	CharacterDrawUtils.draw_hand(self, p_hand, hand_hw, hand_hh, skin, hand_angle)
 
+# 髪型描画ヘルパー
+# 後髪 → 頭（肌色） → 前髪 の順で描画する
+func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
+		hair_style: String, hair_color: Color, skin_color: Color,
+		facing: String, head_angle: float = 0.0) -> void:
+	var hr = head_r  # 頭の半径
+
+	if facing == "front":
+		# 後髪（頭の裏側に少し大きめの髪色円）
+		CharacterDrawUtils.draw_ellipse(self, head_center, hr * 1.08, hr * 1.08, hair_color)
+		# 顔（肌色の円）
+		CharacterDrawUtils.draw_ellipse(self, head_center, hr, hr, skin_color)
+		# 前髪（額にかかるポリゴン）
+		_draw_bangs_front(head_center, hr, head_w, hair_style, hair_color)
+
+	elif facing == "back":
+		# 背面: 髪全体が見える
+		CharacterDrawUtils.draw_ellipse(self, head_center, hr * 1.08, hr * 1.08, hair_color)
+		if hair_style == "long":
+			# ロングヘア: 肩まで垂れる
+			var hair_bottom = head_center + Vector2(0, hr * 2.0)
+			CharacterDrawUtils.draw_trapezoid(self, head_center + Vector2(0, hr * 0.3), hair_bottom, head_w * 0.9, head_w * 0.6, hair_color)
+
+	else: # side
+		# 後髪（後頭部側に膨らむ楕円）
+		var back_offset = Vector2(-hr * 0.1, 0).rotated(head_angle)
+		CharacterDrawUtils.draw_ellipse(self, head_center + back_offset, hr * 1.1, hr * 1.08, hair_color, head_angle)
+		# 顔（肌色の円）
+		CharacterDrawUtils.draw_ellipse(self, head_center, hr, hr, skin_color, head_angle)
+		# 前髪（前方に突き出す）
+		_draw_bangs_side(head_center, hr, hair_style, hair_color, head_angle)
+		# ロングヘア: 後ろに垂れる
+		if hair_style == "long":
+			var down_dir = Vector2(0, 1).rotated(head_angle)
+			var back_dir = Vector2(-1, 0).rotated(head_angle)
+			var hair_start = head_center + back_dir * hr * 0.3 + down_dir * hr * 0.5
+			var hair_end = hair_start + down_dir * hr * 1.8
+			CharacterDrawUtils.draw_trapezoid(self, hair_start, hair_end, hr * 0.7, hr * 0.4, hair_color)
+
+# 正面の前髪
+func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_style: String, hair_color: Color) -> void:
+	var top_y = head_center.y - hr
+	var bangs_bottom_y = head_center.y - hr * 0.2  # 額の下あたり
+	var half_w = head_w * 0.55
+
+	# 前髪ポリゴン（台形 - 上が広く下がやや狭い）
+	var pts = PackedVector2Array([
+		Vector2(head_center.x - half_w, top_y - hr * 0.05),
+		Vector2(head_center.x + half_w, top_y - hr * 0.05),
+		Vector2(head_center.x + half_w * 0.9, bangs_bottom_y),
+		Vector2(head_center.x - half_w * 0.9, bangs_bottom_y),
+	])
+	draw_polygon(pts, PackedColorArray([hair_color]))
+
+# 側面の前髪
+func _draw_bangs_side(head_center: Vector2, hr: float, hair_style: String, hair_color: Color, head_angle: float) -> void:
+	var forward = Vector2(1, 0).rotated(head_angle)
+	var up = Vector2(0, -1).rotated(head_angle)
+
+	# 前髪: 頭頂部から前方に突き出す三角形
+	var p1 = head_center + up * hr * 0.9 + forward * hr * 0.1  # 頭頂やや前
+	var p2 = head_center + up * hr * 0.3 + forward * hr * 0.95  # 前方に突き出す先端
+	var p3 = head_center + up * hr * 0.1 + forward * hr * 0.3   # 額の下端
+
+	var pts = PackedVector2Array([p1, p2, p3])
+	draw_polygon(pts, PackedColorArray([hair_color]))
+
 # スカート描画ヘルパー
 func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float) -> void:
 	var waist_to_crotch = d["cy"] - waist_pos.y
@@ -163,9 +230,12 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	if is_skirt:
 		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["front_wx"], d["front_wy"]), body_w)
 
-	# 4. 頭
+	# 4. 頭 + 髪
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
-	CharacterDrawUtils.draw_head_part(self , part_shapes["head"], Vector2(d["front_hx"], d["front_hy"]), head_w, d["head_h"], skin_color)
+	var head_r = d["head_h"] / 2.0
+	var hair_style = appearance.get("hair_style", "short")
+	var hair_color = Color(appearance.get("hair_color", "#4a3c31"))
+	_draw_hair(Vector2(d["front_hx"], d["front_hy"]), head_r, head_w, hair_style, hair_color, skin_color, facing)
 
 	# 5. 両腕（台形袖の描画）
 	var arm_len = m["armLength"] * p
@@ -273,11 +343,13 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	if is_skirt:
 		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["wx"], d["wy"]), torso_thickness)
 
-	# 6. 頭
+	# 6. 頭 + 髪
 	var head_angle = d["waist_angle"] * 0.6
-	CharacterDrawUtils.draw_head_part(self , part_shapes["head"], Vector2(hx, hy), head_w, d["head_h"], skin_color, head_angle)
+	var head_r = d["head_h"] / 2.0
+	var hair_style = appearance.get("hair_style", "short")
+	var hair_color = Color(appearance.get("hair_color", "#4a3c31"))
+	_draw_hair(Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
-	var head_r = d["head_h"] / 2.0 # 真円の半径
 	var eye_offset = Vector2(head_r * 0.5, 0.0) # 高さオフセットなし
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
 	draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
