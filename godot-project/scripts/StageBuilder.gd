@@ -20,13 +20,11 @@ const STAGES = {
             {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
             {"id": "bathroom_wall", "x": 1610, "x2": 1630, "height": 240, "type": "background"},
-            {"id": "bathroom_slope", "x": 1600, "x2": 1640, "height": 30, "type": "special"},
             {"id": "bathroom_bg", "x": 1640, "x2": 1950, "height": 240, "type": "background"},
-            {"id": "bathroom_step", "x": 1640, "x2": 1950, "height": 30, "type": "ground"},
             {"id": "bathroom_ceiling", "x": 1640, "x2": 1950, "height": 200, "type": "overhead"},
-            {"id": "bathtub", "x": 1640, "x2": 1820, "height": 90, "type": "ground"},
-            {"id": "bath_stool", "x": 1850, "x2": 1890, "height": 60, "type": "ground"},
-            {"id": "shower_nozzle", "x": 1900, "x2": 1940, "height": 210, "type": "overhead"}
+            {"id": "bathtub", "x": 1640, "x2": 1820, "height": 60, "type": "ground"},
+            {"id": "bath_stool", "x": 1850, "x2": 1890, "height": 30, "type": "ground"},
+            {"id": "shower_nozzle", "x": 1900, "x2": 1940, "height": 180, "type": "overhead"}
         ]
     },
     "train": {
@@ -174,11 +172,6 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         _build_obstacle(obs, parent_node, cm_to_px)
 
 static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) -> void:
-    # 特殊処理: bathroom_slope はスロープの物理判定が必要
-    if obs["id"] == "bathroom_slope":
-        _build_bathroom_slope(obs, parent, cm_to_px)
-        return
-
     var w_cm = obs["x2"] - obs["x"]
     var w_px = w_cm * cm_to_px
     var h_cm = obs["height"]
@@ -682,9 +675,6 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         ceiling_fill.z_index = -1
         node.add_child(ceiling_fill)
 
-    elif o_id == "bathroom_step":
-        cr.color = Color(0, 0, 0, 0)  # 透明（見た目は bathroom_bg に任せる）
-
     # ---------------------------------------------------------
 
     
@@ -716,38 +706,6 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     
     node.add_child(label)
     parent.add_child(node)
-
-static func _build_bathroom_slope(obs: Dictionary, parent: Node2D, cm_to_px: float) -> void:
-    var x1 = obs["x"] * cm_to_px
-    var x2 = obs["x2"] * cm_to_px
-    var h_px = obs["height"] * cm_to_px
-
-    # 物理判定（三角形スロープ）
-    var body = StaticBody2D.new()
-    body.collision_layer = 1
-    body.set_meta("is_stage_obj", true)
-    var col_poly = CollisionPolygon2D.new()
-    col_poly.polygon = PackedVector2Array([
-        Vector2(x1, 0),
-        Vector2(x2, 0),
-        Vector2(x2, -h_px),
-    ])
-    body.add_child(col_poly)
-    parent.add_child(body)
-
-    # 視覚（Polygon2D の三角形）
-    var vis = Node2D.new()
-    vis.set_meta("is_stage_obj", true)
-    vis.z_index = -1
-    var poly = Polygon2D.new()
-    poly.polygon = PackedVector2Array([
-        Vector2(x1, 0),
-        Vector2(x2, 0),
-        Vector2(x2, -h_px),
-    ])
-    poly.color = Color(0.55, 0.75, 0.85)
-    vis.add_child(poly)
-    parent.add_child(vis)
 
 static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
     match obs_id:
@@ -818,7 +776,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
             return "風呂スツール（%dcm）。\n背が高いと低くてかがむのが大変です。" % oh
         "bathroom_wall":
             return "浴室の仕切り壁です。"
-        "bathroom_slope", "bathroom_bg", "bathroom_step":
+        "bathroom_bg":
             return ""  # コメントなし（背景要素）
         "bathroom_ceiling":
             if h > oh:
