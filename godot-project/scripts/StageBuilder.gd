@@ -8,7 +8,7 @@ const STAGES = {
         "ceiling_height": 240,
         "obstacles": [
             {"id": "door_exit", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
-            {"id": "ceiling_light", "x": 280, "x2": 380, "height": 215, "type": "overhead"},
+            {"id": "ceiling_light", "x": 280, "x2": 380, "height": 200, "type": "overhead"},
             {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
             {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
             {"id": "range_hood", "x": 490, "x2": 560, "height": 180, "type": "overhead"},
@@ -500,11 +500,45 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node.add_child(hole)
 
     elif o_id == "ceiling_light":
-        var light_cr = ColorRect.new()
-        light_cr.color = Color(1.0, 1.0, 0.7, 0.9)
-        light_cr.size = Vector2(w_px * 0.8, 16)
-        light_cr.position = Vector2(cr.position.x + w_px * 0.1, cr.position.y + h_draw_px - 16)
-        node.add_child(light_cr)
+        cr.color = Color(0, 0, 0, 0)
+        var cx = obs["x"] * cm_to_px + w_px * 0.5
+        var bot_y = -h_px                        # ライト下端 y（200cmライン）
+        var ceil_y = -240.0 * cm_to_px          # 天井 y（240cmライン）
+        var cord_h = 4.0 * cm_to_px
+        var shade_top_y = ceil_y + cord_h        # シェード上端（コード下端）
+        var glow_h = 3.0 * cm_to_px
+        var shade_bot_y = bot_y - glow_h         # シェード下端（発光面の上 = 203cmライン）
+
+        # コード（天井から吊り下げ）
+        var cord = Line2D.new()
+        cord.add_point(Vector2(cx, ceil_y))
+        cord.add_point(Vector2(cx, shade_top_y))
+        cord.width = 3.0
+        cord.default_color = Color(0.45, 0.45, 0.50)
+        cord.z_index = -1
+        node.add_child(cord)
+
+        # 台形シェード（上が細く、下が広い）
+        var top_hw = w_px * 0.15
+        var bot_hw = w_px * 0.44
+        var shade = Polygon2D.new()
+        shade.polygon = PackedVector2Array([
+            Vector2(cx - top_hw, shade_top_y),
+            Vector2(cx + top_hw, shade_top_y),
+            Vector2(cx + bot_hw, shade_bot_y),
+            Vector2(cx - bot_hw, shade_bot_y),
+        ])
+        shade.color = Color(0.80, 0.77, 0.73)
+        shade.z_index = -1
+        node.add_child(shade)
+
+        # 発光面（シェード底面）
+        var glow = ColorRect.new()
+        glow.color = Color(1.0, 0.97, 0.82, 0.95)
+        glow.position = Vector2(cx - bot_hw, shade_bot_y)
+        glow.size = Vector2(bot_hw * 2.0, glow_h)
+        glow.z_index = -1
+        node.add_child(glow)
 
     elif o_id == "kitchen_counter":
         # 扉の線を引いてキッチンっぽくする
@@ -595,20 +629,55 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
 
     elif o_id == "shower_nozzle":
         cr.color = Color(0, 0, 0, 0)
-        # 縦ポール
+        var pole_cx = obs["x"] * cm_to_px + w_px * 0.5
+
+        # シャワーヘッド本体（丸型ディスク）- 上端を180cmラインに合わせる
+        var head_d = min(w_px * 0.75, 20.0 * cm_to_px)
+        var head_x = pole_cx - head_d * 0.5
+        var head_y = -h_px  # 上端を180cmラインに合わせる
+
+        # 縦ポール（ヘッド下端から床方向へ）
         var pole = ColorRect.new()
-        pole.color = Color(0.8, 0.8, 0.85)
-        pole.position = Vector2(obs["x"] * cm_to_px + w_px * 0.5 - 3, y_pos + h_draw_px)
-        pole.size = Vector2(6, h_px - h_draw_px)
+        pole.color = Color(0.78, 0.78, 0.82)
+        pole.position = Vector2(pole_cx - 3, head_y + head_d)
+        pole.size = Vector2(6, -20.0 * cm_to_px - (head_y + head_d))
         pole.z_index = -1
         node.add_child(pole)
-        # ヘッド（横）
-        var head = ColorRect.new()
-        head.color = Color(0.75, 0.75, 0.8)
-        head.position = Vector2(obs["x"] * cm_to_px + w_px * 0.1, y_pos + h_draw_px - 4)
-        head.size = Vector2(w_px * 0.8, 14)
-        head.z_index = -1
-        node.add_child(head)
+
+        var head_panel = Panel.new()
+        var style = StyleBoxFlat.new()
+        style.bg_color = Color(0.82, 0.82, 0.88)
+        style.border_color = Color(0.60, 0.60, 0.68)
+        style.border_width_left = 2
+        style.border_width_right = 2
+        style.border_width_top = 2
+        style.border_width_bottom = 2
+        var r = int(head_d * 0.5)
+        style.corner_radius_top_left = r
+        style.corner_radius_top_right = r
+        style.corner_radius_bottom_left = r
+        style.corner_radius_bottom_right = r
+        head_panel.add_theme_stylebox_override("panel", style)
+        head_panel.position = Vector2(head_x, head_y)
+        head_panel.size = Vector2(head_d, head_d)
+        head_panel.z_index = -1
+        node.add_child(head_panel)
+
+        # 散水面（内側の暗い円）
+        var face_d = head_d * 0.65
+        var face_panel = Panel.new()
+        var face_style = StyleBoxFlat.new()
+        face_style.bg_color = Color(0.50, 0.50, 0.58)
+        var fr = int(face_d * 0.5)
+        face_style.corner_radius_top_left = fr
+        face_style.corner_radius_top_right = fr
+        face_style.corner_radius_bottom_left = fr
+        face_style.corner_radius_bottom_right = fr
+        face_panel.add_theme_stylebox_override("panel", face_style)
+        face_panel.position = Vector2(pole_cx - face_d * 0.5, head_y + (head_d - face_d) * 0.5)
+        face_panel.size = Vector2(face_d, face_d)
+        face_panel.z_index = -1
+        node.add_child(face_panel)
 
     elif o_id == "bath_stool":
         cr.color = Color(0, 0, 0, 0)
