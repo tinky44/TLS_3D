@@ -7,8 +7,9 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 240,
         "obstacles": [
-            {"id": "door_left", "x": 80, "x2": 160, "height": 200, "type": "overhead"},
+            {"id": "door_exit", "x": 0, "x2": 80, "height": 200, "type": "overhead"},
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 215, "type": "overhead"},
+            {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
             {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
             {"id": "range_hood", "x": 490, "x2": 560, "height": 180, "type": "overhead"},
             {"id": "wall_clock", "x": 650, "x2": 690, "height": 200, "type": "background"},
@@ -19,7 +20,10 @@ const STAGES = {
             {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
             {"id": "shower", "x": 1450, "x2": 1550, "height": 190, "type": "background"},
-            {"id": "door_right", "x": 1840, "x2": 1920, "height": 200, "type": "overhead"}
+            {"id": "bathroom_wall", "x": 1610, "x2": 1630, "height": 240, "type": "background"},
+            {"id": "bathtub", "x": 1640, "x2": 1820, "height": 60, "type": "ground"},
+            {"id": "shower_nozzle", "x": 1700, "x2": 1740, "height": 180, "type": "overhead"},
+            {"id": "bath_stool", "x": 1840, "x2": 1880, "height": 30, "type": "ground"}
         ]
     },
     "train": {
@@ -261,7 +265,32 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     # IDに応じた装飾の追加 (ドアの取っ手、吊り革の丸、鏡の枠など)
     # ---------------------------------------------------------
     var o_id = obs["id"]
-    if "door" in o_id:
+    if o_id == "door_exit":
+        # 横から見た出入口
+        cr.color = Color(0, 0, 0, 0)
+        # 暗い外の空間
+        var outside = ColorRect.new()
+        outside.color = Color(0.08, 0.08, 0.12)
+        outside.position = Vector2(0, -h_px)
+        outside.size = Vector2(obs["x2"] * cm_to_px, h_px + 50)
+        outside.z_index = -2
+        node.add_child(outside)
+        # 右縦フレーム（壁端の柱）
+        var post = ColorRect.new()
+        post.color = Color(0.24, 0.16, 0.12)
+        post.position = Vector2(obs["x"] * cm_to_px + w_px * 0.7, -h_px)
+        post.size = Vector2(w_px * 0.3, h_px)
+        post.z_index = -1
+        node.add_child(post)
+        # 上部の梁（出入口上の壁）
+        var top_wall = ColorRect.new()
+        top_wall.color = Color(0.85, 0.82, 0.78)
+        top_wall.position = Vector2(0, y_pos)
+        top_wall.size = Vector2(obs["x2"] * cm_to_px, h_draw_px + 40)
+        top_wall.z_index = -1
+        node.add_child(top_wall)
+
+    elif "door" in o_id:
         # 元の梁（上枠）の色をドアの枠色に合わせる
         cr.color = Color(0.24, 0.16, 0.12)
         
@@ -526,6 +555,89 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         back.size = Vector2(8, 40)
         back.position = Vector2(cr.position.x + w_px - 8, cr.position.y - 40)
         node.add_child(back)
+
+    elif o_id == "refrigerator":
+        cr.color = Color(0.9, 0.9, 0.92)  # 白
+        # 冷凍庫と冷蔵庫の仕切り線（上から30%）
+        var divider = ColorRect.new()
+        divider.color = Color(0.6, 0.6, 0.65)
+        divider.position = Vector2(cr.position.x, cr.position.y + h_draw_px * 0.3)
+        divider.size = Vector2(w_px, 4)
+        node.add_child(divider)
+        # 上部ハンドル（冷凍庫）
+        var handle1 = ColorRect.new()
+        handle1.color = Color(0.7, 0.7, 0.75)
+        handle1.position = Vector2(cr.position.x + w_px * 0.75, cr.position.y + h_draw_px * 0.1)
+        handle1.size = Vector2(8, h_draw_px * 0.15)
+        node.add_child(handle1)
+        # 下部ハンドル（冷蔵庫）
+        var handle2 = ColorRect.new()
+        handle2.color = Color(0.7, 0.7, 0.75)
+        handle2.position = Vector2(cr.position.x + w_px * 0.75, cr.position.y + h_draw_px * 0.4)
+        handle2.size = Vector2(8, h_draw_px * 0.25)
+        node.add_child(handle2)
+
+    elif o_id == "bathtub":
+        cr.color = Color(0.85, 0.9, 0.95)  # 水色
+        var rim = ReferenceRect.new()
+        rim.editor_only = false
+        rim.border_color = Color(0.7, 0.8, 0.85)
+        rim.border_width = 6.0
+        rim.position = cr.position
+        rim.size = cr.size
+        node.add_child(rim)
+        var water = ColorRect.new()
+        water.color = Color(0.6, 0.8, 0.9, 0.5)
+        water.position = cr.position + Vector2(8, 8)
+        water.size = Vector2(w_px - 16, h_draw_px * 0.55)
+        node.add_child(water)
+
+    elif o_id == "shower_nozzle":
+        cr.color = Color(0, 0, 0, 0)
+        # 縦ポール
+        var pole = ColorRect.new()
+        pole.color = Color(0.8, 0.8, 0.85)
+        pole.position = Vector2(obs["x"] * cm_to_px + w_px * 0.5 - 3, y_pos + h_draw_px)
+        pole.size = Vector2(6, h_px - h_draw_px)
+        pole.z_index = -1
+        node.add_child(pole)
+        # ヘッド（横）
+        var head = ColorRect.new()
+        head.color = Color(0.75, 0.75, 0.8)
+        head.position = Vector2(obs["x"] * cm_to_px + w_px * 0.1, y_pos + h_draw_px - 4)
+        head.size = Vector2(w_px * 0.8, 14)
+        head.z_index = -1
+        node.add_child(head)
+
+    elif o_id == "bath_stool":
+        cr.color = Color(0, 0, 0, 0)
+        var seat = ColorRect.new()
+        seat.color = Color(0.85, 0.92, 0.95)
+        seat.position = cr.position
+        seat.size = Vector2(w_px, 8)
+        node.add_child(seat)
+        var leg1 = ColorRect.new()
+        leg1.color = Color(0.75, 0.85, 0.88)
+        leg1.position = cr.position + Vector2(5, 8)
+        leg1.size = Vector2(6, h_draw_px - 8)
+        node.add_child(leg1)
+        var leg2 = ColorRect.new()
+        leg2.color = Color(0.75, 0.85, 0.88)
+        leg2.position = cr.position + Vector2(w_px - 11, 8)
+        leg2.size = Vector2(6, h_draw_px - 8)
+        node.add_child(leg2)
+
+    elif o_id == "bathroom_wall":
+        cr.color = Color(0.82, 0.88, 0.93)
+        # タイル模様（横線）
+        for i in range(0, int(h_draw_px), 30):
+            var tl = Line2D.new()
+            tl.add_point(Vector2(cr.position.x, cr.position.y + i))
+            tl.add_point(Vector2(cr.position.x + w_px, cr.position.y + i))
+            tl.width = 1
+            tl.default_color = Color(0.65, 0.75, 0.82, 0.6)
+            node.add_child(tl)
+
     # ---------------------------------------------------------
 
     
@@ -560,6 +672,11 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
 
 static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
     match obs_id:
+        "door_exit":
+            if h > oh:
+                return "出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "外への出入口（%dcm）。余裕でくぐれます。" % oh
         "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4":
             if h > oh:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
@@ -606,6 +723,22 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "洗面台の鏡。ちょうど顔が映ります。"
         "shower":
             return "シャワー（%dcm）から頭上へお湯が降り注ぎます。" % oh
+        "refrigerator":
+            if h > 170:
+                return "冷蔵庫（%dcm）。\n上の棚に楽々手が届いて便利ですね。" % oh
+            else:
+                return "冷蔵庫（%dcm）。" % oh
+        "bathtub":
+            return "浴槽（%dcm）。\n背が高いと浴槽の縁をまたぐのが少し大変です。" % oh
+        "shower_nozzle":
+            if h > oh:
+                return "シャワーヘッド（%dcm）。\nあなた（%dcm）より低い！肩にしかお湯が当たりません。" % [oh, h]
+            else:
+                return "シャワーヘッド（%dcm）。丁度いい高さですね。" % oh
+        "bath_stool":
+            return "風呂スツール（%dcm）。\n背が高いと低くてかがむのが大変です。" % oh
+        "bathroom_wall":
+            return "浴室の仕切り壁です。"
         "strap_1", "strap_2", "strap_3":
             if h >= oh:
                 return "吊り革バー（%dcm）が目の前！楽々手が届きます！" % oh
