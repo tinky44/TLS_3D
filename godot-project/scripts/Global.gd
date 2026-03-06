@@ -11,6 +11,7 @@ var current_params: Dictionary = {
 }
 
 var current_stage_id: String = "room"
+var enable_ground_collision: bool = false
 
 const SAVE_PATH = "user://settings.cfg"
 
@@ -25,6 +26,7 @@ func load_settings():
         current_params["ratio"] = config.get_value("Player", "ratio", current_params["ratio"])
         current_params["legRatio"] = config.get_value("Player", "legRatio", current_params["legRatio"])
         current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
+        enable_ground_collision = config.get_value("System", "enable_ground_collision", enable_ground_collision)
 
 func save_settings():
     var config = ConfigFile.new()
@@ -32,6 +34,7 @@ func save_settings():
     config.set_value("Player", "ratio", current_params["ratio"])
     config.set_value("Player", "legRatio", current_params["legRatio"])
     config.set_value("Player", "sex", current_params["sex"])
+    config.set_value("System", "enable_ground_collision", enable_ground_collision)
     config.save(SAVE_PATH)
 
 func get_body_measurements() -> Dictionary:

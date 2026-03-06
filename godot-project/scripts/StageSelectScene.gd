@@ -6,10 +6,13 @@ func _ready() -> void:
     bg.color = Color("#2b2b2b")
     add_child(bg)
 
+    var center = CenterContainer.new()
+    center.set_anchors_preset(Control.PRESET_FULL_RECT)
+    add_child(center)
+
     var vbox = VBoxContainer.new()
-    vbox.set_anchors_preset(Control.PRESET_CENTER)
     vbox.add_theme_constant_override("separation", 30)
-    add_child(vbox)
+    center.add_child(vbox)
     
     var title_label = Label.new()
     title_label.text = "ステージセレクト"

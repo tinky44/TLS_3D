@@ -70,9 +70,18 @@ static func draw_pentagon_lower_torso(canvas: CanvasItem, p_top: Vector2, p_bott
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
-static func draw_hand(canvas: CanvasItem, pos: Vector2, size: float, color: Color, angle: float = 0.0):
-    # 小さな手（楕円形）
-    draw_ellipse(canvas, pos, size * 1.4, size * 0.9, color, angle)
+static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, color: Color, angle: float = 0.0):
+    # 手（長方形）: hw=半幅, hh=半高さ
+    var pts = PackedVector2Array()
+    var corners = [
+        Vector2(-hw, 0), Vector2(hw, 0),
+        Vector2(hw, hh * 2.0), Vector2(-hw, hh * 2.0)
+    ]
+    for c in corners:
+        var rx = c.x * cos(angle) - c.y * sin(angle)
+        var ry = c.x * sin(angle) + c.y * cos(angle)
+        pts.append(pos + Vector2(rx, ry))
+    canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
     # 正面: 小さな四角形
@@ -162,5 +171,6 @@ static func draw_head_part(canvas: CanvasItem, shape: String, center: Vector2, h
         var p_bottom = center + Vector2(0, head_h / 2)
         draw_rect(canvas, p_top, p_bottom, head_w, color)
     else:
-        # デフォルトは ellipse
-        draw_ellipse(canvas, center, head_w / 2.0, head_h / 2.0, color, angle)
+        # 真円: 半径 = head_h / 2（縦幅を基準）。head_wは内部計算用のみに使い描画には使わない
+        var r = head_h / 2.0
+        draw_ellipse(canvas, center, r, r, color, angle)

@@ -53,7 +53,8 @@ func _setup_bubble():
     bubble_label.custom_minimum_size = Vector2(200, 0)
     
     bubble_panel.add_child(bubble_label)
-    add_child(bubble_panel)
+    # CanvasLayer (ui_layer) に追加することで、2DのZ順に影響されず常に最前面に描画
+    ui_layer.add_child(bubble_panel)
     bubble_panel.hide()
 
 
@@ -93,9 +94,15 @@ func _update_bubble():
         bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
         bubble_panel.show()
         
-        # プレイヤーの少し上、画面から見切れない位置にパネルを配置
+        # プレイヤーの2D座標をCanvasLayer上のスクリーン座標に変換して配置
+        var cam = player.get_node_or_null("Camera2D")
+        var screen_pos: Vector2
+        if cam:
+            screen_pos = player.global_position - cam.get_screen_center_position() + get_viewport().get_visible_rect().size / 2.0
+        else:
+            screen_pos = player.global_position
         var offset_y = player.visual_height_cm * p + 80
-        bubble_panel.global_position = player.global_position + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
+        bubble_panel.position = screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
     else:
         bubble_panel.hide()
     
@@ -135,6 +142,23 @@ func _setup_ui():
     var sep = HSeparator.new()
     vbox.add_child(sep)
     
+    # コリジョン切り替えチェックボックス
+    var col_check = CheckBox.new()
+    col_check.text = "家具の当たり判定を有効にする"
+    col_check.add_theme_color_override("font_color", Color("#212529"))
+    var global_node = get_node_or_null("/root/Global")
+    if global_node:
+        col_check.button_pressed = global_node.enable_ground_collision
+    col_check.toggled.connect(func(toggled_on: bool):
+        var g = get_node_or_null("/root/Global")
+        if g:
+            g.enable_ground_collision = toggled_on
+            g.save_settings()
+            _load_stage()
+    )
+    col_check.focus_mode = Control.FOCUS_NONE
+    vbox.add_child(col_check)
+    
     # ステージ選択画面に戻るボタンなどを追加
     var back_btn = Button.new()
     back_btn.text = "ステージ選択に戻る"
@@ -146,6 +170,7 @@ func _setup_ui():
 
     ui_layer.add_child(sidebar)
     add_child(ui_layer)
+    # ui_layerはsidebar追加後に子として登録するため、_setup_bubble()より先に呼ぶ必要がある
 
 
 func _update_ui():
@@ -163,8 +188,6 @@ func _update_ui():
     text += "Stage: %s\n" % stage_name
     text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
     text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
-    if player.pose == "crouch":
-        text += "  ↳ 目標高さ: %.1f cm\n" % player.target_crouch_cm
     
     text += "\n【操作方法】\n"
     text += "矢印キー左右: 移動\n"
