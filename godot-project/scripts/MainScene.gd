@@ -180,6 +180,10 @@ func _load_stage():
     
     # 床や障害物を生成
     StageBuilder.build_stage(stage_id, self , p)
+
+    # 自動セーブ（スロット選択済みの場合）
+    if global and global.current_slot >= 1:
+        global.save_slot(global.current_slot)
     
     # プレイヤーの初期位置をリセット
     if player:

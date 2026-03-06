@@ -29,6 +29,14 @@ func _ready() -> void:
     start_btn.pressed.connect(_on_start_pressed)
     vbox.add_child(start_btn)
     
+    var continue_btn = Button.new()
+    continue_btn.text = "続きから"
+    continue_btn.custom_minimum_size = Vector2(200, 60)
+    continue_btn.add_theme_font_size_override("font_size", 32)
+    continue_btn.focus_mode = Control.FOCUS_NONE
+    continue_btn.pressed.connect(_on_continue_pressed)
+    vbox.add_child(continue_btn)
+
     var exit_btn = Button.new()
     exit_btn.text = "Exit"
     exit_btn.custom_minimum_size = Vector2(200, 60)
@@ -38,7 +46,16 @@ func _ready() -> void:
     vbox.add_child(exit_btn)
 
 func _on_start_pressed() -> void:
+    var global = get_node_or_null("/root/Global")
+    if global:
+        global.slot_select_mode = "save"
     get_tree().change_scene_to_file("res://scenes/CharacterCreatorScene.tscn")
+
+func _on_continue_pressed() -> void:
+    var global = get_node_or_null("/root/Global")
+    if global:
+        global.slot_select_mode = "load"
+    get_tree().change_scene_to_file("res://scenes/SaveSlotSelectScene.tscn")
 
 func _on_exit_pressed() -> void:
     get_tree().quit()
