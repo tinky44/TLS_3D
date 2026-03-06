@@ -113,8 +113,10 @@
 |----|-------|----|------|------|------------|
 | `door_left` | 80 ~ 160 | 80cm | **200cm** | overhead | 左側の出入り口のドア（本格的なデザイン） |
 | `ceiling_light`| 280 ~ 380 | 100cm | **215cm** | overhead | 天井照明（シーリングライト）。 |
-| `kitchen_counter`| 450 ~ 600 | 150cm | **80cm** | ground | キッチン台。 |
-| `range_hood` | 490 ~ 560 | 70cm | **180cm** | overhead | キッチン上の換気扇。 |
+| `refrigerator` | 380 ~ 440 | 60cm | **180cm** | background | 冷蔵庫。 |
+| `kitchen_cabinet`| 440 ~ 550 | 110cm | **180cm** | background | 吊り戸棚。 |
+| `kitchen_counter`| 440 ~ 640 | 200cm | **80cm** | ground | キッチン台。 |
+| `range_hood` | 550 ~ 640 | 90cm | **180cm** | overhead | キッチン上の換気扇。 |
 | `wall_clock` | 650 ~ 690 | 40cm | **200cm** | background | 壁掛けの時計。 |
 | `chair`     | 700 ~ 740 | 40cm | **45cm** | ground | テーブル前の椅子。 |
 | `table`     | 760 ~ 900 | 140cm | **70cm** | ground | ダイニングテーブル。 |

@@ -10,8 +10,9 @@ const STAGES = {
             {"id": "door_exit", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 200, "type": "overhead"},
             {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
-            {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
-            {"id": "range_hood", "x": 490, "x2": 560, "height": 180, "type": "overhead"},
+            {"id": "kitchen_cabinet", "x": 440, "x2": 550, "height": 180, "type": "background"},
+            {"id": "kitchen_counter", "x": 440, "x2": 640, "height": 80, "type": "ground"},
+            {"id": "range_hood", "x": 550, "x2": 640, "height": 180, "type": "overhead"},
             {"id": "wall_clock", "x": 650, "x2": 690, "height": 200, "type": "background"},
             {"id": "chair", "x": 700, "x2": 740, "height": 45, "type": "ground"},
             {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
@@ -492,22 +493,64 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node.add_child(glass)
 
     elif o_id == "range_hood":
-        # 換気扇の吸い込み口（斜めに見えるよう下部に暗い色）
+        # 天井まで届く四角形（180cm〜240cm）
+        cr.color = Color(0.62, 0.62, 0.67)
+        cr.position = Vector2(obs["x"] * cm_to_px, -240.0 * cm_to_px)
+        cr.size = Vector2(w_px, 60.0 * cm_to_px)
+        # 吸気口（底面の暗い帯）
         var hole = ColorRect.new()
-        hole.color = Color(0.2, 0.2, 0.2, 0.8)
-        hole.size = Vector2(w_px - 10, 20)
-        hole.position = Vector2(cr.position.x + 5, cr.position.y + h_draw_px - 25)
+        hole.color = Color(0.20, 0.20, 0.22, 0.90)
+        hole.size = Vector2(w_px - 8, 14)
+        hole.position = Vector2(obs["x"] * cm_to_px + 4, -h_px - 14)
         node.add_child(hole)
+
+    elif o_id == "kitchen_cabinet":
+        # 吊り戸棚（180cm〜240cm の範囲に描画）
+        cr.color = Color(0, 0, 0, 0)
+        var cab_bot_y = - h_px # 180cmライン（下端）
+        var cab_h_px = 60.0 * cm_to_px # 60cm高さ
+        var cab_top_y = cab_bot_y - cab_h_px # 240cmライン（上端）
+        # キャビネット本体
+        var cab = ColorRect.new()
+        cab.color = Color(0.80, 0.72, 0.60)
+        cab.position = Vector2(obs["x"] * cm_to_px, cab_top_y)
+        cab.size = Vector2(w_px, cab_h_px)
+        cab.z_index = -1
+        node.add_child(cab)
+        # 扉の仕切り線（中央）
+        var divider = ColorRect.new()
+        divider.color = Color(0.58, 0.50, 0.40)
+        divider.position = Vector2(obs["x"] * cm_to_px + w_px * 0.5 - 1, cab_top_y)
+        divider.size = Vector2(2, cab_h_px)
+        divider.z_index = -1
+        node.add_child(divider)
+        # 外枠
+        var cab_frame = ReferenceRect.new()
+        cab_frame.editor_only = false
+        cab_frame.border_color = Color(0.55, 0.47, 0.38)
+        cab_frame.border_width = 2.0
+        cab_frame.position = cab.position
+        cab_frame.size = cab.size
+        cab_frame.z_index = -1
+        node.add_child(cab_frame)
+        # ドアハンドル（2つ）
+        for knob_x_ratio in [0.25, 0.75]:
+            var knob = ColorRect.new()
+            knob.color = Color(0.75, 0.65, 0.20)
+            knob.position = Vector2(obs["x"] * cm_to_px + w_px * knob_x_ratio - 3, cab_top_y + cab_h_px * 0.55 - 5)
+            knob.size = Vector2(6, 10)
+            knob.z_index = -1
+            node.add_child(knob)
 
     elif o_id == "ceiling_light":
         cr.color = Color(0, 0, 0, 0)
         var cx = obs["x"] * cm_to_px + w_px * 0.5
-        var bot_y = -h_px                        # ライト下端 y（200cmライン）
-        var ceil_y = -240.0 * cm_to_px          # 天井 y（240cmライン）
+        var bot_y = - h_px # ライト下端 y（200cmライン）
+        var ceil_y = -240.0 * cm_to_px # 天井 y（240cmライン）
         var cord_h = 4.0 * cm_to_px
-        var shade_top_y = ceil_y + cord_h        # シェード上端（コード下端）
+        var shade_top_y = ceil_y + cord_h # シェード上端（コード下端）
         var glow_h = 3.0 * cm_to_px
-        var shade_bot_y = bot_y - glow_h         # シェード下端（発光面の上 = 203cmライン）
+        var shade_bot_y = bot_y - glow_h # シェード下端（発光面の上 = 203cmライン）
 
         # コード（天井から吊り下げ）
         var cord = Line2D.new()
@@ -592,7 +635,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node.add_child(back)
 
     elif o_id == "refrigerator":
-        cr.color = Color(0.9, 0.9, 0.92)  # 白
+        cr.color = Color(0.9, 0.9, 0.92) # 白
         # 冷凍庫と冷蔵庫の仕切り線（上から30%）
         var divider = ColorRect.new()
         divider.color = Color(0.6, 0.6, 0.65)
@@ -613,7 +656,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node.add_child(handle2)
 
     elif o_id == "bathtub":
-        cr.color = Color(0.85, 0.9, 0.95)  # 水色
+        cr.color = Color(0.85, 0.9, 0.95) # 水色
         var rim = ReferenceRect.new()
         rim.editor_only = false
         rim.border_color = Color(0.7, 0.8, 0.85)
@@ -634,7 +677,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         # シャワーヘッド本体（丸型ディスク）- 上端を180cmラインに合わせる
         var head_d = min(w_px * 0.75, 20.0 * cm_to_px)
         var head_x = pole_cx - head_d * 0.5
-        var head_y = -h_px  # 上端を180cmラインに合わせる
+        var head_y = - h_px # 上端を180cmラインに合わせる
 
         # 縦ポール（ヘッド下端から床方向へ）
         var pole = ColorRect.new()
@@ -709,7 +752,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
             node.add_child(tl)
 
     elif o_id == "bathroom_bg":
-        cr.color = Color(0, 0, 0, 0)  # ベース透明
+        cr.color = Color(0, 0, 0, 0) # ベース透明
         # 壁面（青系タイル）
         var wall = ColorRect.new()
         wall.color = Color(0.6, 0.8, 0.9, 0.85)
@@ -788,6 +831,11 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "ドア（高さ%dcm）を余裕でくぐれます（余裕%dcm）。" % [oh, round(oh - h)]
+        "kitchen_cabinet":
+            if h > oh:
+                return "吊り戸棚（下端%dcm）。\nあなた（%dcm）は頭が当たってしまいます！" % [oh, h]
+            else:
+                return "吊り戸棚（下端%dcm）。\nあなたの身長なら丁度良く手が届きますね。" % oh
         "range_hood":
             if h > oh:
                 return "レンジフード（高さ%dcm）に頭がぶつかります！\n%dcmかがまないと通れません。" % [oh, round(h - oh)]
@@ -846,7 +894,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
         "bathroom_wall":
             return "浴室の仕切り壁です。"
         "bathroom_bg":
-            return ""  # コメントなし（背景要素）
+            return "" # コメントなし（背景要素）
         "bathroom_ceiling":
             if h > oh:
                 return "浴室の天井（%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
