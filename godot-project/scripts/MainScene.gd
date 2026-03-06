@@ -143,14 +143,8 @@ func _setup_ui():
     vbox.add_child(sep)
     
     # ここにあった「家具の当たり判定を有効にする」ボタンを削除
-    # ステージ選択画面に戻るボタンなどを追加
-    var back_btn = Button.new()
-    back_btn.text = "ステージ選択に戻る"
-    back_btn.custom_minimum_size = Vector2(0, 50)
-    back_btn.add_theme_font_size_override("font_size", 16)
-    back_btn.focus_mode = Control.FOCUS_NONE
-    back_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/StageSelectScene.tscn"))
-    vbox.add_child(back_btn)
+    # ここにあった「ステージ選択画面に戻るボタンなどを追加」を削除
+    # 代わりに「キャラ作成に戻る」などを追加する場合はここに記述
 
     ui_layer.add_child(sidebar)
     add_child(ui_layer)
