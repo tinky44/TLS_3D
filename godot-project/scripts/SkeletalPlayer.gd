@@ -29,7 +29,7 @@ var m: Dictionary
 var sensors: Array = []
 
 func _ready() -> void:
-    collision_mask |= 4  # 天井(layer4)にも物理的に当たるように
+    collision_mask |= 4 # 天井(layer4)にも物理的に当たるように
     update_measurements()
 
 func update_measurements() -> void:
@@ -123,7 +123,7 @@ func _setup_sensors():
         ray.position = Vector2(0, -h_cm * CM_TO_PX)
         ray.target_position = Vector2(look_ahead_px, 0)
         # 障害物はレイヤー2に配置する想定（頭上のみレイヤー2等）
-        ray.collision_mask = 2 | 1
+        ray.collision_mask = 1 | 2 | 4
         ray.hit_from_inside = true # 薄いColliderの内部からでも拾えるように
         add_child(ray)
         sensors.append(ray)
@@ -133,7 +133,7 @@ func _setup_sensors():
     ceil_ray.position = Vector2(0, -m["height"] * 0.5 * CM_TO_PX)
     # 真上に向かって、身長の1.2倍くらいまでチェック
     ceil_ray.target_position = Vector2(0, -m["height"] * 0.7 * CM_TO_PX)
-    ceil_ray.collision_mask = 2 | 1
+    ceil_ray.collision_mask = 1 | 2 | 4
     ceil_ray.hit_from_inside = true
     add_child(ceil_ray)
     sensors.append(ceil_ray) # index 4
@@ -168,14 +168,25 @@ func _handle_auto_crouch():
             if obs_cm < min_obs_h_cm:
                 min_obs_h_cm = obs_cm
 
+    # 天井の高さもチェック
+    sensors[4].force_raycast_update()
+    if sensors[4].is_colliding():
+        var hit_point = sensors[4].get_collision_point()
+        var ceil_y_px = global_position.y - hit_point.y
+        var ceil_h_cm = ceil_y_px / CM_TO_PX
+        # 天井が身長より低い（または余裕がない）場合
+        if ceil_h_cm <= m["landmarks"]["top"] + 2.0:
+            should_crouch = true
+            if ceil_h_cm < min_obs_h_cm:
+                min_obs_h_cm = ceil_h_cm
+
     if should_crouch:
         pose = "crouch"
         # めり込み防止のため8cm余裕を持たせる
         target_crouch_cm = min_obs_h_cm - 8.0
     else:
         # 天井が塞がっていなければ立つ
-        sensors[4].force_raycast_update() # ceiling
-        if not sensors[4].is_colliding() and not Input.is_key_pressed(KEY_S):
+        if not Input.is_key_pressed(KEY_S):
             pose = "stand"
             target_crouch_cm = -1.0
 
@@ -195,6 +206,16 @@ func _update_visual_height(delta: float):
         else:
             target_h_cm *= 0.8
             
+    # 天井の高さでキャップする (reachポーズ等でも天井に引っかからないように)
+    sensors[4].force_raycast_update()
+    if sensors[4].is_colliding():
+        var hit_point = sensors[4].get_collision_point()
+        var ceil_y_px = global_position.y - hit_point.y
+        var ceil_h_cm = ceil_y_px / CM_TO_PX
+        # 天井の高さ - 8cm (めり込み防止マージン) を上限とする
+        if target_h_cm > ceil_h_cm - 8.0:
+            target_h_cm = ceil_h_cm - 8.0
+
     # 補間の速さ (15.0 くらいだとヌルっとしつつキビキビ動く)
     visual_height_cm = lerp(visual_height_cm, target_h_cm, 15.0 * delta)
 
