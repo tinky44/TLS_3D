@@ -68,57 +68,96 @@ func _draw() -> void:
 func _draw_sleeve_arm(p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
 		arm_w: float, hand_hw: float, hand_hh: float, hand_angle: float,
 		tops_type: String, skin: Color, shirt: Color) -> void:
-	var sleeve_top_w = arm_w * 1.4   # 袖の肩側の太さ
-	var sleeve_bot_w = arm_w * 1.15   # 袖口の太さ
+	var sleeve_top_w = arm_w * 1.4 # 袖の肩側の太さ
+	var sleeve_bot_w = arm_w * 1.15 # 袖口の太さ
 
 	if tops_type == "sweater" or tops_type == "blouse":
 		# 長袖: 肩→肘 台形、肘→手首 台形（やや細め）
-		CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
-		CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
-		CharacterDrawUtils.draw_trapezoid(self, p_shoulder, p_elbow, sleeve_top_w, sleeve_bot_w, shirt)
-		CharacterDrawUtils.draw_trapezoid(self, p_elbow, p_hand, sleeve_bot_w, arm_w * 1.0, shirt)
+		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
+		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
+		CharacterDrawUtils.draw_trapezoid(self , p_shoulder, p_elbow, sleeve_top_w, sleeve_bot_w, shirt)
+		CharacterDrawUtils.draw_trapezoid(self , p_elbow, p_hand, sleeve_bot_w, arm_w * 1.0, shirt)
 	elif tops_type == "t_shirt":
 		# 半袖: 肩→上腕60%地点まで台形袖、残りは肌色limb
 		var sleeve_end = p_shoulder.lerp(p_elbow, 0.6)
-		CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
-		CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
-		CharacterDrawUtils.draw_trapezoid(self, p_shoulder, sleeve_end, sleeve_top_w, sleeve_bot_w, shirt)
+		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
+		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
+		CharacterDrawUtils.draw_trapezoid(self , p_shoulder, sleeve_end, sleeve_top_w, sleeve_bot_w, shirt)
 	else:
 		# ノースリーブ等: 通常の腕描画のみ
-		CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
-		CharacterDrawUtils.draw_limb_part(self, part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
+		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
+		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
 
-	CharacterDrawUtils.draw_hand(self, p_hand, hand_hw, hand_hh, skin, hand_angle)
+	CharacterDrawUtils.draw_hand(self , p_hand, hand_hw, hand_hh, skin, hand_angle)
 
 # 髪型描画ヘルパー
 # 後髪 → 頭（肌色） → 前髪 の順で描画する
 func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		hair_style: String, hair_color: Color, skin_color: Color,
 		facing: String, head_angle: float = 0.0) -> void:
-	var hr = head_r  # 頭の半径
+	var hr = head_r # 頭の半径
 
 	if facing == "front":
-		# 後髪（頭の裏側に少し大きめの髪色円）
-		CharacterDrawUtils.draw_ellipse(self, head_center, hr * 1.08, hr * 1.08, hair_color)
-		# 顔（肌色の円）
-		CharacterDrawUtils.draw_ellipse(self, head_center, hr, hr, skin_color)
-		# 前髪（額にかかるポリゴン）
+		var hair_outer_w = hr * 1.35
+		var hair_top_h = hr * 1.25
+		
+		var hair_bottom_y = head_center.y + hr * 1.8 # 短い場合
+		if hair_style == "long":
+			hair_bottom_y = head_center.y + hr * 3.5 # ロングの場合
+		
+		# 1. 後ろ髪（顔の背面に描画）
+		# 頭頂部を丸く覆うドーム
+		CharacterDrawUtils.draw_ellipse(self , head_center + Vector2(0, -hr * 0.1), hair_outer_w, hair_top_h, hair_color)
+		# そこから下へ落ちるベース
+		var back_pts = PackedVector2Array([
+			Vector2(head_center.x - hair_outer_w, head_center.y),
+			Vector2(head_center.x + hair_outer_w, head_center.y),
+			Vector2(head_center.x + hair_outer_w * 0.95, hair_bottom_y),
+			Vector2(head_center.x - hair_outer_w * 0.95, hair_bottom_y)
+		])
+		draw_polygon(back_pts, PackedColorArray([hair_color]))
+
+		# 2. 顔（肌色の円）
+		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color)
+
+		# 3. サイドヘア（顔の左右の手前にかぶせる髪）
+		# これにより、顔の左右に垂直な髪のラインができ、イラストのようなシルエットになります。
+		var side_inner_w = hr * 0.85 # 顔が出る幅（小さいほど髪が顔に迫る）
+		var side_top_y = head_center.y - hr * 0.5
+		
+		var left_side_pts = PackedVector2Array([
+			Vector2(head_center.x - hair_outer_w, side_top_y),
+			Vector2(head_center.x - side_inner_w, side_top_y),
+			Vector2(head_center.x - side_inner_w, hair_bottom_y),
+			Vector2(head_center.x - hair_outer_w * 0.95, hair_bottom_y)
+		])
+		draw_polygon(left_side_pts, PackedColorArray([hair_color]))
+		
+		var right_side_pts = PackedVector2Array([
+			Vector2(head_center.x + side_inner_w, side_top_y),
+			Vector2(head_center.x + hair_outer_w, side_top_y),
+			Vector2(head_center.x + hair_outer_w * 0.95, hair_bottom_y),
+			Vector2(head_center.x + side_inner_w, hair_bottom_y)
+		])
+		draw_polygon(right_side_pts, PackedColorArray([hair_color]))
+
+		# 4. 前髪（額にかかるポリゴン）
 		_draw_bangs_front(head_center, hr, head_w, hair_style, hair_color)
 
 	elif facing == "back":
 		# 背面: 髪全体が見える
-		CharacterDrawUtils.draw_ellipse(self, head_center, hr * 1.08, hr * 1.08, hair_color)
+		CharacterDrawUtils.draw_ellipse(self , head_center, hr * 1.08, hr * 1.08, hair_color)
 		if hair_style == "long":
 			# ロングヘア: 肩まで垂れる
 			var hair_bottom = head_center + Vector2(0, hr * 2.0)
-			CharacterDrawUtils.draw_trapezoid(self, head_center + Vector2(0, hr * 0.3), hair_bottom, head_w * 0.9, head_w * 0.6, hair_color)
+			CharacterDrawUtils.draw_trapezoid(self , head_center + Vector2(0, hr * 0.3), hair_bottom, head_w * 0.9, head_w * 0.6, hair_color)
 
 	else: # side
 		# 後髪（後頭部側に膨らむ楕円）
 		var back_offset = Vector2(-hr * 0.1, 0).rotated(head_angle)
-		CharacterDrawUtils.draw_ellipse(self, head_center + back_offset, hr * 1.1, hr * 1.08, hair_color, head_angle)
+		CharacterDrawUtils.draw_ellipse(self , head_center + back_offset, hr * 1.1, hr * 1.08, hair_color, head_angle)
 		# 顔（肌色の円）
-		CharacterDrawUtils.draw_ellipse(self, head_center, hr, hr, skin_color, head_angle)
+		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color, head_angle)
 		# 前髪（前方に突き出す）
 		_draw_bangs_side(head_center, hr, hair_style, hair_color, head_angle)
 		# ロングヘア: 後ろに垂れる
@@ -127,20 +166,22 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			var back_dir = Vector2(-1, 0).rotated(head_angle)
 			var hair_start = head_center + back_dir * hr * 0.3 + down_dir * hr * 0.5
 			var hair_end = hair_start + down_dir * hr * 1.8
-			CharacterDrawUtils.draw_trapezoid(self, hair_start, hair_end, hr * 0.7, hr * 0.4, hair_color)
+			CharacterDrawUtils.draw_trapezoid(self , hair_start, hair_end, hr * 0.7, hr * 0.4, hair_color)
 
 # 正面の前髪
 func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_style: String, hair_color: Color) -> void:
-	var top_y = head_center.y - hr
-	var bangs_bottom_y = head_center.y - hr * 0.2  # 額の下あたり
+	var top_y = head_center.y - hr * 0.9
+	var bangs_bottom_y = head_center.y - hr * 0.2 # 額の下あたり
 	var half_w = head_w * 0.55
 
-	# 前髪ポリゴン（台形 - 上が広く下がやや狭い）
+	# 添付画像を参考に、向かって左側を少し長くし、右側に分け目を入れる形状
 	var pts = PackedVector2Array([
-		Vector2(head_center.x - half_w, top_y - hr * 0.05),
-		Vector2(head_center.x + half_w, top_y - hr * 0.05),
-		Vector2(head_center.x + half_w * 0.9, bangs_bottom_y),
-		Vector2(head_center.x - half_w * 0.9, bangs_bottom_y),
+		Vector2(head_center.x - half_w, top_y), # 左上
+		Vector2(head_center.x + half_w, top_y), # 右上
+		Vector2(head_center.x + half_w * 0.8, bangs_bottom_y), # 右下端
+		Vector2(head_center.x + half_w * 0.3, bangs_bottom_y - hr * 0.15), # 分け目の切れ込み
+		Vector2(head_center.x - half_w * 0.2, bangs_bottom_y), # 前髪中央付近
+		Vector2(head_center.x - half_w * 0.8, bangs_bottom_y + hr * 0.6), # 左側の少し長いサイドバング
 	])
 	draw_polygon(pts, PackedColorArray([hair_color]))
 
@@ -150,9 +191,9 @@ func _draw_bangs_side(head_center: Vector2, hr: float, hair_style: String, hair_
 	var up = Vector2(0, -1).rotated(head_angle)
 
 	# 前髪: 頭頂部から前方に突き出す三角形
-	var p1 = head_center + up * hr * 0.9 + forward * hr * 0.1  # 頭頂やや前
-	var p2 = head_center + up * hr * 0.3 + forward * hr * 0.95  # 前方に突き出す先端
-	var p3 = head_center + up * hr * 0.1 + forward * hr * 0.3   # 額の下端
+	var p1 = head_center + up * hr * 0.9 + forward * hr * 0.1 # 頭頂やや前
+	var p2 = head_center + up * hr * 0.3 + forward * hr * 0.95 # 前方に突き出す先端
+	var p3 = head_center + up * hr * 0.1 + forward * hr * 0.3 # 額の下端
 
 	var pts = PackedVector2Array([p1, p2, p3])
 	draw_polygon(pts, PackedColorArray([hair_color]))

@@ -22,8 +22,8 @@ var current_appearance: Dictionary = {
 }
 
 var current_stage_id: String = "room"
-var current_slot: int = -1        # 現在使用中のスロット番号 (-1 = 未選択)
-var slot_select_mode: String = "save"  # "save" or "load"
+var current_slot: int = -1 # 現在使用中のスロット番号 (-1 = 未選択)
+var slot_select_mode: String = "save" # "save" or "load"
 
 const SAVE_PATH = "user://settings.cfg"
 const SLOTS_PATH = "user://save_slots.cfg"
@@ -55,7 +55,7 @@ func save_settings():
 
 func save_slot(slot: int) -> void:
     var config = ConfigFile.new()
-    config.load(SLOTS_PATH)  # 既存スロットを保持したまま上書き
+    config.load(SLOTS_PATH) # 既存スロットを保持したまま上書き
     var section = "slot_%d" % slot
     config.set_value(section, "saved", true)
     config.set_value(section, "height", current_params["height"])
