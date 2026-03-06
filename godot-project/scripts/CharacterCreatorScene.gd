@@ -92,7 +92,7 @@ func _setup_ui():
     vbox.add_child(sep2)
     
     var next_btn = Button.new()
-    next_btn.text = "次へ (ステージ選択)"
+    next_btn.text = "このキャラで始める"
     next_btn.custom_minimum_size = Vector2(0, 60)
     next_btn.add_theme_font_size_override("font_size", 20)
     next_btn.focus_mode = Control.FOCUS_NONE
@@ -185,7 +185,10 @@ func _on_leg_ratio_changed(val: float):
             player.update_measurements()
 
 func _on_next_pressed() -> void:
-    get_tree().change_scene_to_file("res://scenes/StageSelectScene.tscn")
+    var global = get_node_or_null("/root/Global")
+    if global:
+        global.current_stage_id = "room" # 最初は必ず家から始まる
+    get_tree().change_scene_to_file("res://Main.tscn")
 
 func _on_back_pressed() -> void:
     get_tree().change_scene_to_file("res://scenes/TitleScene.tscn")
