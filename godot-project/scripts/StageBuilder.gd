@@ -7,7 +7,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 240,
         "obstacles": [
-            {"id": "door_exit", "x": 0, "x2": 80, "height": 200, "type": "overhead"},
+            {"id": "door_exit", "x": 200, "x2": 280, "height": 200, "type": "overhead"},
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 215, "type": "overhead"},
             {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
             {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
@@ -19,11 +19,14 @@ const STAGES = {
             {"id": "poster", "x": 1080, "x2": 1130, "height": 170, "type": "background"},
             {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
-            {"id": "shower", "x": 1450, "x2": 1550, "height": 190, "type": "background"},
             {"id": "bathroom_wall", "x": 1610, "x2": 1630, "height": 240, "type": "background"},
-            {"id": "bathtub", "x": 1640, "x2": 1820, "height": 60, "type": "ground"},
-            {"id": "shower_nozzle", "x": 1700, "x2": 1740, "height": 180, "type": "overhead"},
-            {"id": "bath_stool", "x": 1840, "x2": 1880, "height": 30, "type": "ground"}
+            {"id": "bathroom_slope", "x": 1600, "x2": 1640, "height": 30, "type": "special"},
+            {"id": "bathroom_bg", "x": 1640, "x2": 1950, "height": 240, "type": "background"},
+            {"id": "bathroom_step", "x": 1640, "x2": 1950, "height": 30, "type": "ground"},
+            {"id": "bathroom_ceiling", "x": 1640, "x2": 1950, "height": 200, "type": "overhead"},
+            {"id": "bathtub", "x": 1640, "x2": 1820, "height": 90, "type": "ground"},
+            {"id": "bath_stool", "x": 1850, "x2": 1890, "height": 60, "type": "ground"},
+            {"id": "shower_nozzle", "x": 1900, "x2": 1940, "height": 210, "type": "overhead"}
         ]
     },
     "train": {
@@ -171,11 +174,16 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         _build_obstacle(obs, parent_node, cm_to_px)
 
 static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) -> void:
+    # 特殊処理: bathroom_slope はスロープの物理判定が必要
+    if obs["id"] == "bathroom_slope":
+        _build_bathroom_slope(obs, parent, cm_to_px)
+        return
+
     var w_cm = obs["x2"] - obs["x"]
     var w_px = w_cm * cm_to_px
     var h_cm = obs["height"]
     var h_px = h_cm * cm_to_px
-    
+
     var type = obs["type"]
     var node: Node2D
     
@@ -638,6 +646,45 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
             tl.default_color = Color(0.65, 0.75, 0.82, 0.6)
             node.add_child(tl)
 
+    elif o_id == "bathroom_bg":
+        cr.color = Color(0, 0, 0, 0)  # ベース透明
+        # 壁面（青系タイル）
+        var wall = ColorRect.new()
+        wall.color = Color(0.6, 0.8, 0.9, 0.85)
+        wall.position = Vector2(obs["x"] * cm_to_px, -h_draw_px)
+        wall.size = Vector2(w_px, h_draw_px)
+        wall.z_index = -2
+        node.add_child(wall)
+        # タイル模様（横線）
+        for i in range(0, int(h_draw_px), 40):
+            var tl = Line2D.new()
+            tl.add_point(Vector2(obs["x"] * cm_to_px, -h_draw_px + i))
+            tl.add_point(Vector2(obs["x2"] * cm_to_px, -h_draw_px + i))
+            tl.width = 1
+            tl.default_color = Color(0.45, 0.65, 0.75, 0.6)
+            node.add_child(tl)
+        # 浴室の床（段差の上、青系）
+        var floor_rect = ColorRect.new()
+        floor_rect.color = Color(0.5, 0.72, 0.82)
+        floor_rect.position = Vector2(obs["x"] * cm_to_px, -30 * cm_to_px)
+        floor_rect.size = Vector2(w_px, 30 * cm_to_px + 100)
+        floor_rect.z_index = -2
+        node.add_child(floor_rect)
+
+    elif o_id == "bathroom_ceiling":
+        # overhead の cr（梁）は既に描画されているが、天井が低く見えるよう追加描画
+        cr.color = Color(0.7, 0.85, 0.9)
+        # 240cm から 200cm の差分（40cm）を天井として塗る
+        var ceiling_fill = ColorRect.new()
+        ceiling_fill.color = Color(0.7, 0.85, 0.9)
+        ceiling_fill.position = Vector2(obs["x"] * cm_to_px, -240 * cm_to_px)
+        ceiling_fill.size = Vector2(w_px, 40 * cm_to_px)
+        ceiling_fill.z_index = -1
+        node.add_child(ceiling_fill)
+
+    elif o_id == "bathroom_step":
+        cr.color = Color(0, 0, 0, 0)  # 透明（見た目は bathroom_bg に任せる）
+
     # ---------------------------------------------------------
 
     
@@ -669,6 +716,38 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     
     node.add_child(label)
     parent.add_child(node)
+
+static func _build_bathroom_slope(obs: Dictionary, parent: Node2D, cm_to_px: float) -> void:
+    var x1 = obs["x"] * cm_to_px
+    var x2 = obs["x2"] * cm_to_px
+    var h_px = obs["height"] * cm_to_px
+
+    # 物理判定（三角形スロープ）
+    var body = StaticBody2D.new()
+    body.collision_layer = 1
+    body.set_meta("is_stage_obj", true)
+    var col_poly = CollisionPolygon2D.new()
+    col_poly.polygon = PackedVector2Array([
+        Vector2(x1, 0),
+        Vector2(x2, 0),
+        Vector2(x2, -h_px),
+    ])
+    body.add_child(col_poly)
+    parent.add_child(body)
+
+    # 視覚（Polygon2D の三角形）
+    var vis = Node2D.new()
+    vis.set_meta("is_stage_obj", true)
+    vis.z_index = -1
+    var poly = Polygon2D.new()
+    poly.polygon = PackedVector2Array([
+        Vector2(x1, 0),
+        Vector2(x2, 0),
+        Vector2(x2, -h_px),
+    ])
+    poly.color = Color(0.55, 0.75, 0.85)
+    vis.add_child(poly)
+    parent.add_child(vis)
 
 static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
     match obs_id:
@@ -739,6 +818,13 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
             return "風呂スツール（%dcm）。\n背が高いと低くてかがむのが大変です。" % oh
         "bathroom_wall":
             return "浴室の仕切り壁です。"
+        "bathroom_slope", "bathroom_bg", "bathroom_step":
+            return ""  # コメントなし（背景要素）
+        "bathroom_ceiling":
+            if h > oh:
+                return "浴室の天井（%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "浴室の天井（%dcm）。低めの天井ですね。" % oh
         "strap_1", "strap_2", "strap_3":
             if h >= oh:
                 return "吊り革バー（%dcm）が目の前！楽々手が届きます！" % oh
