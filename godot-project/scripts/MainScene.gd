@@ -8,6 +8,7 @@ var p: float = 2.0
 # UI用
 var ui_layer: CanvasLayer
 var status_label: Label
+var save_btn_label: Label
 var bubble_panel: PanelContainer
 var bubble_label: Label
 
@@ -142,31 +143,19 @@ func _setup_ui():
     var sep = HSeparator.new()
     vbox.add_child(sep)
     
-    # コリジョン切り替えチェックボックス
-    var col_check = CheckBox.new()
-    col_check.text = "家具の当たり判定を有効にする"
-    col_check.add_theme_color_override("font_color", Color("#212529"))
-    var global_node = get_node_or_null("/root/Global")
-    if global_node:
-        col_check.button_pressed = global_node.enable_ground_collision
-    col_check.toggled.connect(func(toggled_on: bool):
-        var g = get_node_or_null("/root/Global")
-        if g:
-            g.enable_ground_collision = toggled_on
-            g.save_settings()
-            _load_stage()
-    )
-    col_check.focus_mode = Control.FOCUS_NONE
-    vbox.add_child(col_check)
-    
-    # ステージ選択画面に戻るボタンなどを追加
-    var back_btn = Button.new()
-    back_btn.text = "ステージ選択に戻る"
-    back_btn.custom_minimum_size = Vector2(0, 50)
-    back_btn.add_theme_font_size_override("font_size", 16)
-    back_btn.focus_mode = Control.FOCUS_NONE
-    back_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/StageSelectScene.tscn"))
-    vbox.add_child(back_btn)
+    var save_btn = Button.new()
+    save_btn.text = "セーブ"
+    save_btn.custom_minimum_size = Vector2(0, 50)
+    save_btn.add_theme_font_size_override("font_size", 18)
+    save_btn.focus_mode = Control.FOCUS_NONE
+    save_btn.pressed.connect(_on_save_pressed)
+    vbox.add_child(save_btn)
+
+    save_btn_label = Label.new()
+    save_btn_label.add_theme_color_override("font_color", Color("#28a745"))
+    save_btn_label.add_theme_font_size_override("font_size", 13)
+    save_btn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    vbox.add_child(save_btn_label)
 
     ui_layer.add_child(sidebar)
     add_child(ui_layer)
@@ -202,6 +191,10 @@ func _load_stage():
     
     # 床や障害物を生成
     StageBuilder.build_stage(stage_id, self , p)
+
+    # 自動セーブ（スロット選択済みの場合）
+    if global and global.current_slot >= 1:
+        global.save_slot(global.current_slot)
     
     # プレイヤーの初期位置をリセット
     if player:
@@ -218,3 +211,16 @@ func _load_stage():
                 cam.offset = Vector2(-160, -m["height"] * p * 0.4)
             # 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
             cam.limit_bottom = 250
+
+func _on_save_pressed() -> void:
+    var global = get_node_or_null("/root/Global")
+    if not global: return
+    if global.current_slot < 1:
+        if save_btn_label:
+            save_btn_label.text = "スロット未選択"
+        return
+    global.save_slot(global.current_slot)
+    if save_btn_label:
+        save_btn_label.text = "セーブしました (SLOT %02d)" % global.current_slot
+        await get_tree().create_timer(2.0).timeout
+        save_btn_label.text = ""

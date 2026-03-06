@@ -11,9 +11,12 @@ var current_params: Dictionary = {
 }
 
 var current_stage_id: String = "room"
-var enable_ground_collision: bool = false
+var current_slot: int = -1        # 現在使用中のスロット番号 (-1 = 未選択)
+var slot_select_mode: String = "save"  # "save" or "load"
 
 const SAVE_PATH = "user://settings.cfg"
+const SLOTS_PATH = "user://save_slots.cfg"
+const SLOT_COUNT: int = 20
 
 func _ready():
     load_settings()
@@ -26,16 +29,57 @@ func load_settings():
         current_params["ratio"] = config.get_value("Player", "ratio", current_params["ratio"])
         current_params["legRatio"] = config.get_value("Player", "legRatio", current_params["legRatio"])
         current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
-        enable_ground_collision = config.get_value("System", "enable_ground_collision", enable_ground_collision)
-
 func save_settings():
     var config = ConfigFile.new()
     config.set_value("Player", "height", current_params["height"])
     config.set_value("Player", "ratio", current_params["ratio"])
     config.set_value("Player", "legRatio", current_params["legRatio"])
     config.set_value("Player", "sex", current_params["sex"])
-    config.set_value("System", "enable_ground_collision", enable_ground_collision)
     config.save(SAVE_PATH)
+
+func save_slot(slot: int) -> void:
+    var config = ConfigFile.new()
+    config.load(SLOTS_PATH)  # 既存スロットを保持したまま上書き
+    var section = "slot_%d" % slot
+    config.set_value(section, "saved", true)
+    config.set_value(section, "height", current_params["height"])
+    config.set_value(section, "ratio", current_params["ratio"])
+    config.set_value(section, "legRatio", current_params["legRatio"])
+    config.set_value(section, "sex", current_params["sex"])
+    config.set_value(section, "stage_id", current_stage_id)
+    config.set_value(section, "age", 0)
+    config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
+    config.save(SLOTS_PATH)
+    current_slot = slot
+
+func load_slot(slot: int) -> bool:
+    var config = ConfigFile.new()
+    if config.load(SLOTS_PATH) != OK:
+        return false
+    var section = "slot_%d" % slot
+    if not config.get_value(section, "saved", false):
+        return false
+    current_params["height"] = config.get_value(section, "height", 180.0)
+    current_params["ratio"] = config.get_value(section, "ratio", 7.5)
+    current_params["legRatio"] = config.get_value(section, "legRatio", 48.0)
+    current_params["sex"] = config.get_value(section, "sex", "female")
+    current_stage_id = config.get_value(section, "stage_id", "room")
+    current_slot = slot
+    return true
+
+func get_slot_info(slot: int) -> Dictionary:
+    var config = ConfigFile.new()
+    if config.load(SLOTS_PATH) != OK:
+        return {}
+    var section = "slot_%d" % slot
+    if not config.get_value(section, "saved", false):
+        return {}
+    return {
+        "height": config.get_value(section, "height", 180.0),
+        "stage_id": config.get_value(section, "stage_id", "room"),
+        "timestamp": config.get_value(section, "timestamp", ""),
+        "age": config.get_value(section, "age", 0),
+    }
 
 func get_body_measurements() -> Dictionary:
     var h: float = current_params["height"]
