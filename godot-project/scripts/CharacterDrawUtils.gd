@@ -77,11 +77,9 @@ static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, co
         Vector2(-hw, 0), Vector2(hw, 0),
         Vector2(hw, hh * 2.0), Vector2(-hw, hh * 2.0)
     ]
-    var r_offset_x = 0
-    var r_offset_y = hh
     for c in corners:
-        var rx = (c.x + r_offset_x) * cos(angle) - (c.y + r_offset_y) * sin(angle)
-        var ry = (c.x + r_offset_x) * sin(angle) + (c.y + r_offset_y) * cos(angle)
+        var rx = c.x * cos(angle) - c.y * sin(angle)
+        var ry = c.x * sin(angle) + c.y * cos(angle)
         pts.append(pos + Vector2(rx, ry))
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
