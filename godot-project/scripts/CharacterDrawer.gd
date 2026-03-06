@@ -52,17 +52,18 @@ func _draw() -> void:
 
 	# --- 描画ユーティリティ呼び出し ---
 	if facing == "front" or facing == "back":
-		_draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, pants_dark, shoulder_w, thigh_w, shin_w, arm_w, neck_w)
+		var front_torso_w = shoulder_w * 0.70
+		_draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, pants_dark, shoulder_w, front_torso_w, thigh_w, shin_w, arm_w, neck_w)
 	else:
-		_draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, pants_dark, shoulder_w, hip_w, thigh_w, shin_w, arm_w, neck_w)
+		var side_torso_w = shoulder_w * 0.70
+		_draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, pants_dark, shoulder_w, side_torso_w, thigh_w, shin_w, arm_w, neck_w)
 
 	if flip:
 		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 # --- 正面・背面 描画 ---
-func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _shirt_dark, _pants_dark, shoulder_w, thigh_w, shin_w, arm_w, neck_w):
+func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _shirt_dark, _pants_dark, shoulder_w, body_w, thigh_w, shin_w, arm_w, _neck_w):
 	var facing = player.facing
-	var body_w = shoulder_w * 0.6
 	var body_w_half = body_w / 2.0
 	var sh_off = shoulder_w * 0.5 - arm_w * 0.5
 	var hp_off = body_w_half * 0.6
@@ -83,9 +84,8 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 
 	var foot_w = 7.0 * p
 	var foot_h = 3.5 * p
-	# 正面の手: 縦=頭の縦×0.83、横=肩幅/5（側面の1/4相当）
-	var shoulder_full = (m["shoulder"] if m.has("shoulder") else 35.0) * p
-	var hand_hw = shoulder_full / 5.0 / 4.0 / 2.0
+	# 正面の手: 縦=頭の縦×0.83、横=腕の太さと同じ
+	var hand_hw = arm_w / 2.0
 	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = pants_color
 
@@ -103,8 +103,8 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 	CharacterDrawUtils.draw_foot_front(self , p_shin_r, foot_w, foot_h, shoe_color)
 
 	# 2. 胴体 (シャツ) — 正面ビュー用座標を使用
-	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["front_wx"], d["front_wy"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
-	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_wx"], d["front_wy"]), body_w, body_w, base_shirt_color)
+	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["front_wx"], d["front_wy"]), Vector2(d["cx"], d["cy"]), shoulder_w * 0.85, body_w, base_shirt_color)
+	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_wx"], d["front_wy"]), shoulder_w, shoulder_w * 0.85, base_shirt_color)
 
 	# 4. 頭
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
@@ -154,7 +154,7 @@ func _draw_front_back(m, p, d, skin_color, base_shirt_color, pants_color, skin_d
 			draw_line(m_pts[i], m_pts[i + 1], Color("#c07070"), 2.0)
 
 # --- 横向き 描画 ---
-func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _shirt_dark, pants_dark, _shoulder_w, _hip_w, thigh_w, shin_w, arm_w, _neck_w):
+func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _shirt_dark, pants_dark, _shoulder_w, _body_w, thigh_w, shin_w, arm_w, _neck_w):
 	var hx = d["hx"]
 	var hy = d["hy"]
 
@@ -164,9 +164,8 @@ func _draw_side(m, p, d, skin_color, base_shirt_color, pants_color, skin_dark, _
 
 	var foot_w = 9.0 * p
 	var foot_h = 3.5 * p
-	# 側面の手: 縦=頭の縦×0.83、横=肩幅/5（正面の4倍）
-	var shoulder_full = (m["shoulder"] if m.has("shoulder") else 35.0) * p
-	var hand_hw = shoulder_full / 5.0 / 2.0
+	# 側面の手: 縦=頭の縦×0.83、横=腕の太さと同じ
+	var hand_hw = arm_w / 2.0
 	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = pants_color
 
