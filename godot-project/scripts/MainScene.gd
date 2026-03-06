@@ -86,6 +86,27 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	)
 	bottoms_row.add_child(bottoms_opt)
 
+	# 髪型選択
+	var hair_row = HBoxContainer.new()
+	vbox.add_child(hair_row)
+	var hair_label = Label.new()
+	hair_label.text = "髪型:"
+	hair_label.custom_minimum_size = Vector2(90, 0)
+	hair_row.add_child(hair_label)
+	var hair_opt = OptionButton.new()
+	hair_opt.focus_mode = Control.FOCUS_NONE
+	hair_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var hair_values = ["short", "long"]
+	hair_opt.add_item("ショート", 0)
+	hair_opt.add_item("ロング", 1)
+	hair_opt.selected = hair_values.find(Global.current_appearance.get("hair_style", "short"))
+	hair_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["hair_style"] = hair_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	hair_row.add_child(hair_opt)
+
 func _setup_bubble():
 	bubble_panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
