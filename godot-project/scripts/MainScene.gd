@@ -35,6 +35,57 @@ func _ready() -> void:
 	_setup_bubble()
 	_load_stage()
 
+func _setup_appearance_debug(vbox: VBoxContainer) -> void:
+	var section_label = Label.new()
+	section_label.text = "【服装デバッグ】"
+	section_label.add_theme_font_size_override("font_size", 14)
+	section_label.add_theme_color_override("font_color", Color("#6c757d"))
+	vbox.add_child(section_label)
+
+	# トップス選択
+	var tops_row = HBoxContainer.new()
+	vbox.add_child(tops_row)
+	var tops_label = Label.new()
+	tops_label.text = "トップス:"
+	tops_label.custom_minimum_size = Vector2(90, 0)
+	tops_row.add_child(tops_label)
+	var tops_opt = OptionButton.new()
+	tops_opt.focus_mode = Control.FOCUS_NONE
+	tops_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tops_values = ["t_shirt", "sweater", "blouse"]
+	tops_opt.add_item("Tシャツ", 0)
+	tops_opt.add_item("セーター(長袖)", 1)
+	tops_opt.add_item("ブラウス(長袖)", 2)
+	tops_opt.selected = tops_values.find(Global.current_appearance.get("tops_type", "t_shirt"))
+	tops_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["tops_type"] = tops_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	tops_row.add_child(tops_opt)
+
+	# ボトムス選択
+	var bottoms_row = HBoxContainer.new()
+	vbox.add_child(bottoms_row)
+	var bottoms_label = Label.new()
+	bottoms_label.text = "ボトムス:"
+	bottoms_label.custom_minimum_size = Vector2(90, 0)
+	bottoms_row.add_child(bottoms_label)
+	var bottoms_opt = OptionButton.new()
+	bottoms_opt.focus_mode = Control.FOCUS_NONE
+	bottoms_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bottoms_values = ["pants", "skirt_short", "skirt_long"]
+	bottoms_opt.add_item("パンツ", 0)
+	bottoms_opt.add_item("ミニスカート", 1)
+	bottoms_opt.add_item("ロングスカート", 2)
+	bottoms_opt.selected = bottoms_values.find(Global.current_appearance.get("bottoms_type", "pants"))
+	bottoms_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["bottoms_type"] = bottoms_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	bottoms_row.add_child(bottoms_opt)
+
 func _setup_bubble():
 	bubble_panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
@@ -146,8 +197,9 @@ func _setup_ui():
 	status_label.add_theme_color_override("font_color", Color("#212529"))
 	status_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(status_label)
-	
-	# 線のセパレータ（不要であればこちらも削除して構いませんが、見た目のために残します...あ、ボタン下にあったものなので削除します）
+
+	vbox.add_child(HSeparator.new())
+	_setup_appearance_debug(vbox)
 
 	ui_layer.add_child(sidebar)
 	add_child(ui_layer)

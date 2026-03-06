@@ -10,6 +10,17 @@ var current_params: Dictionary = {
     "sex": "female"
 }
 
+var current_appearance: Dictionary = {
+    "hair_style": "short",
+    "hair_color": "#4a3c31",
+    "tops_type": "t_shirt",
+    "tops_color": "#ab82a8",
+    "bottoms_type": "pants",
+    "bottoms_color": "#e5d6ba",
+    "shoes_type": "sneakers",
+    "shoes_color": "#e5d6ba"
+}
+
 var current_stage_id: String = "room"
 var current_slot: int = -1        # 現在使用中のスロット番号 (-1 = 未選択)
 var slot_select_mode: String = "save"  # "save" or "load"
@@ -29,12 +40,17 @@ func load_settings():
         current_params["ratio"] = config.get_value("Player", "ratio", current_params["ratio"])
         current_params["legRatio"] = config.get_value("Player", "legRatio", current_params["legRatio"])
         current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
+        for key in current_appearance.keys():
+            current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
+
 func save_settings():
     var config = ConfigFile.new()
     config.set_value("Player", "height", current_params["height"])
     config.set_value("Player", "ratio", current_params["ratio"])
     config.set_value("Player", "legRatio", current_params["legRatio"])
     config.set_value("Player", "sex", current_params["sex"])
+    for key in current_appearance.keys():
+        config.set_value("Appearance", key, current_appearance[key])
     config.save(SAVE_PATH)
 
 func save_slot(slot: int) -> void:
@@ -49,6 +65,8 @@ func save_slot(slot: int) -> void:
     config.set_value(section, "stage_id", current_stage_id)
     config.set_value(section, "age", 0)
     config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
+    for key in current_appearance.keys():
+        config.set_value(section, "appearance_" + key, current_appearance[key])
     config.save(SLOTS_PATH)
     current_slot = slot
 
@@ -64,6 +82,8 @@ func load_slot(slot: int) -> bool:
     current_params["legRatio"] = config.get_value(section, "legRatio", 48.0)
     current_params["sex"] = config.get_value(section, "sex", "female")
     current_stage_id = config.get_value(section, "stage_id", "room")
+    for key in current_appearance.keys():
+        current_appearance[key] = config.get_value(section, "appearance_" + key, current_appearance[key])
     current_slot = slot
     return true
 
