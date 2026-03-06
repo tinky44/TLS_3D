@@ -7,7 +7,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 240,
         "obstacles": [
-            {"id": "door_exit", "x": 200, "x2": 280, "height": 200, "type": "overhead"},
+            {"id": "door_exit", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 215, "type": "overhead"},
             {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
             {"id": "kitchen_counter", "x": 450, "x2": 600, "height": 80, "type": "ground"},
