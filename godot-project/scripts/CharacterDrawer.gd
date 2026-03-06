@@ -153,20 +153,44 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			CharacterDrawUtils.draw_trapezoid(self , head_center + Vector2(0, hr * 0.3), hair_bottom, head_w * 0.9, head_w * 0.6, hair_color)
 
 	else: # side
-		# 後髪（後頭部側に膨らむ楕円）
-		var back_offset = Vector2(-hr * 0.1, 0).rotated(head_angle)
-		CharacterDrawUtils.draw_ellipse(self , head_center + back_offset, hr * 1.1, hr * 1.08, hair_color, head_angle)
-		# 顔（肌色の円）
-		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color, head_angle)
-		# 前髪（前方に突き出す）
-		_draw_bangs_side(head_center, hr, hair_style, hair_color, head_angle)
-		# ロングヘア: 後ろに垂れる
+		var down_dir = Vector2(0, 1).rotated(head_angle)
+		var back_dir = Vector2(-1, 0).rotated(head_angle)
+		var up_dir = Vector2(0, -1).rotated(head_angle)
+		
+		# 後ろ髪の長さ決定
+		var hair_bottom_len = hr * 1.8 # ショートヘアのデフォルト
 		if hair_style == "long":
-			var down_dir = Vector2(0, 1).rotated(head_angle)
-			var back_dir = Vector2(-1, 0).rotated(head_angle)
-			var hair_start = head_center + back_dir * hr * 0.3 + down_dir * hr * 0.5
-			var hair_end = hair_start + down_dir * hr * 1.8
-			CharacterDrawUtils.draw_trapezoid(self , hair_start, hair_end, hr * 0.7, hr * 0.4, hair_color)
+			hair_bottom_len = hr * 3.5
+
+		# 1. 顔（肌色の円を先に描画する）
+		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color, head_angle)
+		
+		# 2. 横髪〜後ろ髪（顔の後ろ半分を覆い隠し、下へストレートに落ちるポリゴン）
+		var R = hr * 1.05 # 髪のボリューム（頭より少し大きい）
+		var hair_pts = PackedVector2Array()
+		var cut_dist = hr * 0.15 # 顔にかかる縦のライン（中心からどれくらい後ろか）
+		
+		# (A) 下部・顔側の頂点
+		hair_pts.append(head_center + back_dir * cut_dist + down_dir * hair_bottom_len)
+		
+		# (B) 頭頂部〜後頭部の丸みを生成 (Arc)
+		var steps = 15
+		var min_ang = asin(cut_dist / R)
+		var max_ang = PI / 2.0
+		for i in range(steps + 1):
+			var t = float(i) / steps
+			var ang = lerp(min_ang, max_ang, t)
+			var l_back = R * sin(ang)
+			var l_up = R * cos(ang)
+			hair_pts.append(head_center + back_dir * l_back + up_dir * l_up)
+			
+		# (C) 下部・後ろ側の頂点
+		hair_pts.append(head_center + back_dir * R + down_dir * hair_bottom_len)
+		
+		draw_polygon(hair_pts, PackedColorArray([hair_color]))
+		
+		# 3. 前髪（前方に突き出す）
+		_draw_bangs_side(head_center, hr, hair_style, hair_color, head_angle)
 
 # 正面の前髪
 func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_style: String, hair_color: Color) -> void:
