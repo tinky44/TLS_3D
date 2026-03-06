@@ -181,13 +181,8 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     var type = obs["type"]
     var node: Node2D
     
-    var global = parent.get_node_or_null("/root/Global")
-    var enable_ground_col = global.enable_ground_collision if global else false
-    
     var is_solid = false
     if type == "overhead":
-        is_solid = true
-    elif type == "ground" and enable_ground_col:
         is_solid = true
     
     if is_solid:

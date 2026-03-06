@@ -142,23 +142,7 @@ func _setup_ui():
     var sep = HSeparator.new()
     vbox.add_child(sep)
     
-    # コリジョン切り替えチェックボックス
-    var col_check = CheckBox.new()
-    col_check.text = "家具の当たり判定を有効にする"
-    col_check.add_theme_color_override("font_color", Color("#212529"))
-    var global_node = get_node_or_null("/root/Global")
-    if global_node:
-        col_check.button_pressed = global_node.enable_ground_collision
-    col_check.toggled.connect(func(toggled_on: bool):
-        var g = get_node_or_null("/root/Global")
-        if g:
-            g.enable_ground_collision = toggled_on
-            g.save_settings()
-            _load_stage()
-    )
-    col_check.focus_mode = Control.FOCUS_NONE
-    vbox.add_child(col_check)
-    
+    # ここにあった「家具の当たり判定を有効にする」ボタンを削除
     # ステージ選択画面に戻るボタンなどを追加
     var back_btn = Button.new()
     back_btn.text = "ステージ選択に戻る"
