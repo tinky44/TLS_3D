@@ -11,7 +11,7 @@ var dir: int = 1 # 1: right, -1: left
 var is_walking: bool = false
 var walk_phase: float = 0.0
 var walk_speed: float = 12.0 # 位相の進行速度
-var pose: String = "stand" # "stand", "reach", "squat", "sit", "crouch", "chair_sit"
+var pose: String = "normal" # "normal", "taiiku_suwari"
 
 var auto_crouch: bool = true
 var target_crouch_cm: float = -1.0
@@ -99,18 +99,8 @@ func _handle_input():
         facing = "front"
 
     # 数字キー等で基本ポーズ手動切り替え
-    if Input.is_key_pressed(KEY_1): pose = "stand"
-    elif Input.is_key_pressed(KEY_2): pose = "reach"
-    elif Input.is_key_pressed(KEY_3): pose = "squat"
-    elif Input.is_key_pressed(KEY_4): pose = "sit"
-    elif Input.is_key_pressed(KEY_5): pose = "chair_sit"
-
-    # 手動屈み
-    if Input.is_key_pressed(KEY_S) and pose == "stand":
-        pose = "crouch"
-        target_crouch_cm = -1.0 # default 80%
-    elif not Input.is_key_pressed(KEY_S) and pose == "crouch" and not _is_ceiling_blocked():
-        pose = "stand"
+    if Input.is_key_pressed(KEY_1): pose = "normal"
+    elif Input.is_key_pressed(KEY_2): pose = "taiiku_suwari"
 
 func _setup_sensors():
     # 進行方向の前方 40cm に RayCast を複数配置
@@ -140,7 +130,7 @@ func _setup_sensors():
 
 func _handle_auto_crouch():
     if not auto_crouch: return
-    if pose != "stand" and pose != "crouch": return
+    if pose != "normal": return
 
     # センサーの向き更新
     var look_px = 40.0 * CM_TO_PX * dir
@@ -181,14 +171,11 @@ func _handle_auto_crouch():
                 min_obs_h_cm = ceil_h_cm
 
     if should_crouch:
-        pose = "crouch"
         # めり込み防止のため8cm余裕を持たせる
         target_crouch_cm = min_obs_h_cm - 8.0
     else:
         # 天井が塞がっていなければ立つ
-        if not Input.is_key_pressed(KEY_S):
-            pose = "stand"
-            target_crouch_cm = -1.0
+        target_crouch_cm = -1.0
 
 func _is_ceiling_blocked() -> bool:
     sensors[4].force_raycast_update()
@@ -197,13 +184,12 @@ func _is_ceiling_blocked() -> bool:
 func _update_visual_height(delta: float):
     var target_h_cm = m["height"]
     
-    if pose == "squat": target_h_cm *= 0.65
-    elif pose == "sit": target_h_cm *= 0.55
-    elif pose == "chair_sit": target_h_cm = 45.0 + m["height"] * 0.55
-    elif pose == "crouch":
+    if pose == "taiiku_suwari":
+        target_h_cm = m["height"] * 0.5
+    elif pose == "normal":
         if target_crouch_cm > 0:
             target_h_cm = target_crouch_cm
-        else:
+        elif Input.is_key_pressed(KEY_S):
             target_h_cm *= 0.8
             
     # 天井の高さでキャップする (reachポーズ等でも天井に引っかからないように)

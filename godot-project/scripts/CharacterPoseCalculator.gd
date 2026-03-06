@@ -30,9 +30,18 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var thigh_l = (m["leg"] * 0.55) * p
     var shin_l = (m["leg"] * 0.45) * p
 
-    var is_crouching = (pose == "crouch") or (visual_height_cm < m["height"] - 0.1)
+    var is_crouching = (pose == "normal" and visual_height_cm < m["height"] - 0.1)
     
-    if is_crouching:
+    if pose == "taiiku_suwari":
+        waist_angle = 0.3
+        leg_l_angle = -130
+        leg_r_angle = -130
+        knee_l = PI * 0.72
+        knee_r = PI * 0.72
+        arm_l_angle = -60
+        arm_r_angle = -60
+        y_crotch = -15.0 * p
+    elif is_crouching:
         var target_px = visual_height_cm * p
         var min_t = 0.0
         var max_t = 2.0
@@ -64,17 +73,6 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         var dy1 = thigh_l * cos(leg_l_angle * PI / 180) + shin_l * cos(leg_l_angle * PI / 180 + knee_l)
         var dy2 = thigh_l * cos(leg_r_angle * PI / 180) + shin_l * cos(leg_r_angle * PI / 180 + knee_r)
         y_crotch = - max(dy1, dy2)
-    elif pose == "squat":
-        waist_angle = 0.5
-        leg_l_angle = -100
-        leg_r_angle = -100
-        knee_l = PI * 0.7
-        knee_r = PI * 0.7
-        arm_l_angle = 30
-        arm_r_angle = 30
-        var rad = leg_l_angle * PI / 180
-        var dy = thigh_l * cos(rad) + shin_l * cos(rad + knee_l)
-        y_crotch = - dy
 
     var cx = 0.0
     var cy = y_crotch
