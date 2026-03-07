@@ -235,8 +235,7 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			head_center + fwd_dir * hr * 0.1 + up_dir * hr * 0.1,
 			
 			# ④ 横髪の顔側ラインと接触する点（③の高さに合わせるのが基本です）
-			#head_center + back_dir * cut_dist + up_dir * hr * 0.1
-			(head_center + back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang))) * 0.2 + up_dir * hr * 0.1
+			head_center + (back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang))) * 0.2
 		])
 		draw_polygon(bangs_pts, PackedColorArray([hair_color]))
 
