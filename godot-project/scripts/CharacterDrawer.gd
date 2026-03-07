@@ -155,6 +155,7 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 	else: # side
 		var down_dir = Vector2(0, 1).rotated(head_angle)
 		var back_dir = Vector2(-1, 0).rotated(head_angle)
+		var fwd_dir = Vector2(1, 0).rotated(head_angle)
 		var up_dir = Vector2(0, -1).rotated(head_angle)
 		
 		# 後ろ髪の長さ決定
@@ -165,16 +166,19 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		# 1. 顔（肌色の円を先に描画する）
 		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color, head_angle)
 		
-		# 2. 横髪〜後ろ髪（顔の後ろ半分を覆い隠し、下へストレートに落ちるポリゴン）
-		var R = hr * 1.05 # 髪のボリューム（頭より少し大きい）
+		# 2. 横髪〜後ろ髪（顔の側面〜後頭部を覆う）
+		var R = hr * 1.05 # 髪の丸みの半径
 		var hair_pts = PackedVector2Array()
-		var cut_dist = hr * 0.15 # 顔にかかる縦のライン（中心からどれくらい後ろか）
+		# 顔にかかる縦のライン（中心より少し前、耳の少し前あたりを起点とする）
+		var cut_dist = - hr * 0.1 # マイナス＝中心より前
 		
 		# (A) 下部・顔側の頂点
-		hair_pts.append(head_center + back_dir * cut_dist + down_dir * hair_bottom_len)
+		var p_face_bottom = head_center + back_dir * cut_dist + down_dir * hair_bottom_len
+		hair_pts.append(p_face_bottom)
 		
-		# (B) 頭頂部〜後頭部の丸みを生成 (Arc)
+		# (B) 頭頂部〜後頭部の丸み
 		var steps = 15
+		# cut_dist がマイナスなので、起点の角度はマイナス（前寄り）になるように asin の中身を変える
 		var min_ang = asin(cut_dist / R)
 		var max_ang = PI / 2.0
 		for i in range(steps + 1):
@@ -185,12 +189,25 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			hair_pts.append(head_center + back_dir * l_back + up_dir * l_up)
 			
 		# (C) 下部・後ろ側の頂点
-		hair_pts.append(head_center + back_dir * R + down_dir * hair_bottom_len)
+		var p_back_bottom = head_center + back_dir * R + down_dir * hair_bottom_len
+		hair_pts.append(p_back_bottom)
 		
 		draw_polygon(hair_pts, PackedColorArray([hair_color]))
 		
-		# 3. 前髪（前方に突き出す）
-		_draw_bangs_side(head_center, hr, hair_style, hair_color, head_angle)
+		# 3. 前髪
+		# 額を覆うように、横髪の最前部から前方に突き出し、顔の前面をカバーする
+		var bangs_pts = PackedVector2Array([
+			# 横髪のラインの一番上のあたり（頭頂部の少し前）
+			head_center + back_dir * cut_dist + up_dir * (R * cos(min_ang)),
+			# 額の前方に突き出す先端
+			head_center + fwd_dir * hr * 1.0 + up_dir * hr * 0.6,
+			# 額の下端（目尻の少し上あたり）
+			head_center + fwd_dir * hr * 0.7 + down_dir * hr * 0.1,
+			# 横髪の顔側ライン上の、前髪下端と同じ高さの点
+			head_center + back_dir * cut_dist + down_dir * hr * 0.1
+		])
+		draw_polygon(bangs_pts, PackedColorArray([hair_color]))
+
 
 # 正面の前髪
 func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_style: String, hair_color: Color) -> void:
