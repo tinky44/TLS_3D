@@ -268,7 +268,7 @@ func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_styl
 		# 【調整用】前髪中央付近。-0.2を変えると中央の位置が左右にずれる
 		Vector2(head_center.x - half_w * 0.2, bangs_bottom_y),
 		# 【調整用】左サイドバング。0.8=横位置、0.6=下への伸び（大きいほど長い）
-		Vector2(head_center.x - half_w * 0.8, bangs_bottom_y + hr * 0.6),
+		Vector2(head_center.x - half_w * 1.1, bangs_bottom_y + hr * 0.3),
 	])
 	draw_polygon(pts, PackedColorArray([hair_color]))
 
