@@ -167,9 +167,12 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color, head_angle)
 		
 		# 2. 横髪〜後ろ髪（顔の側面〜後頭部を覆う）
-		var R = hr * 1.05 # 髪の丸みの半径
+		# 【調整用】髪の後頭部のボリューム（1.2などで膨らむ、0.9などで平らに）
+		var R = hr * 1.05
 		var hair_pts = PackedVector2Array()
-		# 顔にかかる縦のライン（中心より少し前、耳の少し前あたりを起点とする）
+		# 【調整用】顔にかかる縦のライン（横髪が来る位置）
+		# 数値を 0.0 や +hr*0.1 などに増やすと、髪が後ろに下がって顔が広く見え、目への干渉が減ります。
+		# -hr*0.2 などマイナスを強めると、髪が前進して顔が隠れます。
 		var cut_dist = - hr * 0.1 # マイナス＝中心より前
 		
 		# (A) 下部・顔側の頂点
@@ -196,14 +199,21 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		
 		# 3. 前髪
 		# 額を覆うように、横髪の最前部から前方に突き出し、顔の前面をカバーする
+		# 【調整用】各頂点の座標を変えることで、前髪のシルエットを作れます。目の位置に合わせて微調整してください。
 		var bangs_pts = PackedVector2Array([
-			# 横髪のラインの一番上のあたり（頭頂部の少し前）
+			# ① 横髪のラインの一番上のあたり（頭上の起点）
 			head_center + back_dir * cut_dist + up_dir * (R * cos(min_ang)),
-			# 額の前方に突き出す先端
+			
+			# ② 前方に突き出す先端 (ここをいじって長さを調整)
 			head_center + fwd_dir * hr * 1.0 + up_dir * hr * 0.6,
-			# 額の下端（目尻の少し上あたり）
+			
+			# ③ 前髪の毛先 / 額・目の上のライン 
+			#   ※ 目が隠れてしまう場合は、ここの `down_dir * hr * 0.1` を 
+			#      `up_dir * hr * 0.1` などに変更して上に持ち上げるか、 `0.0` に寄せてください。
+			#   ※ `fwd_dir * hr * 0.7` の 0.7 を小さくすると、おでこ側へ後退します。
 			head_center + fwd_dir * hr * 0.7 + down_dir * hr * 0.1,
-			# 横髪の顔側ライン上の、前髪下端と同じ高さの点
+			
+			# ④ 横髪の顔側ラインと接触する点（③の高さに合わせるのが基本です）
 			head_center + back_dir * cut_dist + down_dir * hr * 0.1
 		])
 		draw_polygon(bangs_pts, PackedColorArray([hair_color]))
