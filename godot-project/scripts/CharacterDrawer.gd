@@ -146,7 +146,35 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		])
 		draw_polygon(right_side_pts, PackedColorArray([hair_color]))
 
-		# 4. 前髪（額にかかるポリゴン）
+		# 4. 中間髪（ドームと前髪の間の額を埋めるドーナツ弧）
+		# 【調整用】弧の中心。ドームの中心と合わせるのが基本
+		var arc_center = head_center + Vector2(0, dome_offset_y)
+		# 【調整用】弧の外側半径。ドームに合わせる（大きいほど外に広がる）
+		var arc_outer_r = hr * 1.10
+		# 【調整用】弧の太さ。大きいほど額を広くカバーする
+		var arc_thickness = hr * 0.35
+		var arc_inner_r = arc_outer_r - arc_thickness
+		# 【調整用】弧の開始角度と終了角度（度）。180=左端、270=真上、360=右端
+		# 180→360 で上半分180度をカバー。狭めたい場合は例えば 200→340 など
+		var arc_start_deg = 180.0
+		var arc_end_deg = 360.0
+		# 【調整用】ステップ数。多いほど滑らか
+		var arc_steps = 16
+
+		var arc_pts = PackedVector2Array()
+		# 外側の弧（左→上→右）
+		for i in range(arc_steps + 1):
+			var t = float(i) / arc_steps
+			var a = deg_to_rad(lerp(arc_start_deg, arc_end_deg, t))
+			arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_outer_r)
+		# 内側の弧（右→上→左、逆順で閉じる）
+		for i in range(arc_steps + 1):
+			var t = float(i) / arc_steps
+			var a = deg_to_rad(lerp(arc_end_deg, arc_start_deg, t))
+			arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_inner_r)
+		draw_polygon(arc_pts, PackedColorArray([hair_color]))
+
+		# 5. 前髪（額にかかるポリゴン）
 		_draw_bangs_front(head_center, hr, head_w, hair_style, hair_color)
 
 	elif facing == "back":
