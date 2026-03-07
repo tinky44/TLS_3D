@@ -104,20 +104,20 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		var hair_top_h = hr * 1.08
 
 		# 【調整用】髪の下端位置（ショート/ロング）。値を大きくすると髪が長くなる
-		var hair_bottom_y = head_center.y + hr * 1.8 # 短い場合
+		var hair_bottom_y = head_center.y + hr * 1.3 # 短い場合
 		if hair_style == "long":
 			hair_bottom_y = head_center.y + hr * 3.5 # ロングの場合
 
 		# 1. 後ろ髪（顔の背面に描画）
 		# 【調整用】ドーム中心のYオフセット。マイナスで上にずれる
-		var dome_offset_y = -hr * 0.1
+		var dome_offset_y = - hr * 0.1
 		CharacterDrawUtils.draw_ellipse(self , head_center + Vector2(0, dome_offset_y), hair_outer_w, hair_top_h, hair_color)
-		# そこから下へ落ちるベース（0.95で下端がわずかに内側にすぼまる）
+		# そこから下へ落ちるベース
 		var back_pts = PackedVector2Array([
 			Vector2(head_center.x - hair_outer_w, head_center.y),
 			Vector2(head_center.x + hair_outer_w, head_center.y),
-			Vector2(head_center.x + hair_outer_w * 0.95, hair_bottom_y),
-			Vector2(head_center.x - hair_outer_w * 0.95, hair_bottom_y)
+			Vector2(head_center.x + hair_outer_w * 1.0, hair_bottom_y),
+			Vector2(head_center.x - hair_outer_w * 1.0, hair_bottom_y)
 		])
 		draw_polygon(back_pts, PackedColorArray([hair_color]))
 
@@ -126,9 +126,9 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 
 		# 3. サイドヘア（顔の左右の手前にかぶせる髪）
 		# 【調整用】顔が見える幅。小さいほど髪が顔に迫り、大きいほど顔が広く見える
-		var side_inner_w = hr * 0.85
+		var side_inner_w = hr * 0.75
 		# 【調整用】サイドヘアの上端位置。マイナスを大きくすると上から始まる
-		var side_top_y = head_center.y - hr * 0.5
+		var side_top_y = head_center.y - hr * 0.3
 		
 		var left_side_pts = PackedVector2Array([
 			Vector2(head_center.x - hair_outer_w, side_top_y),
@@ -164,7 +164,7 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		var up_dir = Vector2(0, -1).rotated(head_angle)
 		
 		# 後ろ髪の長さ決定
-		var hair_bottom_len = hr * 1.8 # ショートヘアのデフォルト
+		var hair_bottom_len = hr * 1.3 # ショートヘアのデフォルト
 		if hair_style == "long":
 			hair_bottom_len = hr * 3.5
 
@@ -259,8 +259,8 @@ func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_styl
 
 	# 向かって左側を少し長くし、右側に分け目を入れる形状
 	var pts = PackedVector2Array([
-		Vector2(head_center.x - half_w, top_y),                            # 左上
-		Vector2(head_center.x + half_w, top_y),                            # 右上
+		Vector2(head_center.x - half_w, top_y), # 左上
+		Vector2(head_center.x + half_w, top_y), # 右上
 		# 【調整用】右下端。0.8を変えると右端の角度が変わる
 		Vector2(head_center.x + half_w * 0.8, bangs_bottom_y),
 		# 【調整用】分け目の切れ込み。0.3=横位置、0.15=切れ込みの深さ
