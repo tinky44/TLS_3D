@@ -283,7 +283,7 @@ func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_styl
 	# ドーム上端に合わせて前髪の上端を設定（隙間を防ぐ）
 	var dome_top_y = head_center.y - hr * 0.1 - hr * 1.08
 	# 【調整用】ドーム上端からのオフセット。小さいほど前髪がドームに密着する
-	var top_y = dome_top_y + hr * 0.15
+	var top_y = dome_top_y + hr * 0.25
 
 	# 向かって左側を少し長くし、右側に分け目を入れる形状
 	var pts = PackedVector2Array([
@@ -292,11 +292,11 @@ func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_styl
 		# 【調整用】右下端。0.8を変えると右端の角度が変わる
 		Vector2(head_center.x + half_w * 0.8, bangs_bottom_y),
 		# 【調整用】分け目の切れ込み。0.3=横位置、0.15=切れ込みの深さ
-		Vector2(head_center.x + half_w * 0.3, bangs_bottom_y - hr * 0.15),
-		# 【調整用】前髪中央付近。-0.2を変えると中央の位置が左右にずれる
+		Vector2(head_center.x + half_w * 0.00, bangs_bottom_y - hr * 0.0),
+		# 【調整用】前髪中央付近。magic number: 中央の位置が左右にずれる
 		Vector2(head_center.x - half_w * 0.2, bangs_bottom_y),
-		# 【調整用】左サイドバング。0.8=横位置、0.6=下への伸び（大きいほど長い）
-		Vector2(head_center.x - half_w * 1.1, bangs_bottom_y + hr * 0.3),
+		# 【調整用】左サイドバング。magic number: 横位置、下への伸び（大きいほど長い）
+		Vector2(head_center.x - half_w * 0.8, bangs_bottom_y + hr * 0.1),
 	])
 	draw_polygon(pts, PackedColorArray([hair_color]))
 
