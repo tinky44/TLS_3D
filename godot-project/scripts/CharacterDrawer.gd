@@ -98,17 +98,21 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 	var hr = head_r # 頭の半径
 
 	if facing == "front":
-		var hair_outer_w = hr * 1.35
-		var hair_top_h = hr * 1.25
-		
+		# 【調整用】髪の横幅。大きいほど頭が横に膨らむ（側面1.05、背面1.08に合わせた値）
+		var hair_outer_w = hr * 1.12
+		# 【調整用】ドーム（頭頂部の丸み）の高さ。大きいほど頭が縦に膨らむ
+		var hair_top_h = hr * 1.08
+
+		# 【調整用】髪の下端位置（ショート/ロング）。値を大きくすると髪が長くなる
 		var hair_bottom_y = head_center.y + hr * 1.8 # 短い場合
 		if hair_style == "long":
 			hair_bottom_y = head_center.y + hr * 3.5 # ロングの場合
-		
+
 		# 1. 後ろ髪（顔の背面に描画）
-		# 頭頂部を丸く覆うドーム
-		CharacterDrawUtils.draw_ellipse(self , head_center + Vector2(0, -hr * 0.1), hair_outer_w, hair_top_h, hair_color)
-		# そこから下へ落ちるベース
+		# 【調整用】ドーム中心のYオフセット。マイナスで上にずれる
+		var dome_offset_y = -hr * 0.1
+		CharacterDrawUtils.draw_ellipse(self , head_center + Vector2(0, dome_offset_y), hair_outer_w, hair_top_h, hair_color)
+		# そこから下へ落ちるベース（0.95で下端がわずかに内側にすぼまる）
 		var back_pts = PackedVector2Array([
 			Vector2(head_center.x - hair_outer_w, head_center.y),
 			Vector2(head_center.x + hair_outer_w, head_center.y),
@@ -121,8 +125,9 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color)
 
 		# 3. サイドヘア（顔の左右の手前にかぶせる髪）
-		# これにより、顔の左右に垂直な髪のラインができ、イラストのようなシルエットになります。
-		var side_inner_w = hr * 0.85 # 顔が出る幅（小さいほど髪が顔に迫る）
+		# 【調整用】顔が見える幅。小さいほど髪が顔に迫り、大きいほど顔が広く見える
+		var side_inner_w = hr * 0.85
+		# 【調整用】サイドヘアの上端位置。マイナスを大きくすると上から始まる
 		var side_top_y = head_center.y - hr * 0.5
 		
 		var left_side_pts = PackedVector2Array([
@@ -243,18 +248,27 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 
 # 正面の前髪
 func _draw_bangs_front(head_center: Vector2, hr: float, head_w: float, hair_style: String, hair_color: Color) -> void:
-	var top_y = head_center.y - hr * 0.9
-	var bangs_bottom_y = head_center.y - hr * 0.2 # 額の下あたり
+	# 【調整用】前髪の下端。大きくすると前髪が目に近づく（マイナス値=頭中心より上）
+	var bangs_bottom_y = head_center.y - hr * 0.2
+	# 【調整用】前髪の横幅（半幅）。大きいほど前髪が広がる
 	var half_w = head_w * 0.55
+	# ドーム上端に合わせて前髪の上端を設定（隙間を防ぐ）
+	var dome_top_y = head_center.y - hr * 0.1 - hr * 1.08
+	# 【調整用】ドーム上端からのオフセット。小さいほど前髪がドームに密着する
+	var top_y = dome_top_y + hr * 0.15
 
-	# 添付画像を参考に、向かって左側を少し長くし、右側に分け目を入れる形状
+	# 向かって左側を少し長くし、右側に分け目を入れる形状
 	var pts = PackedVector2Array([
-		Vector2(head_center.x - half_w, top_y), # 左上
-		Vector2(head_center.x + half_w, top_y), # 右上
-		Vector2(head_center.x + half_w * 0.8, bangs_bottom_y), # 右下端
-		Vector2(head_center.x + half_w * 0.3, bangs_bottom_y - hr * 0.15), # 分け目の切れ込み
-		Vector2(head_center.x - half_w * 0.2, bangs_bottom_y), # 前髪中央付近
-		Vector2(head_center.x - half_w * 0.8, bangs_bottom_y + hr * 0.6), # 左側の少し長いサイドバング
+		Vector2(head_center.x - half_w, top_y),                            # 左上
+		Vector2(head_center.x + half_w, top_y),                            # 右上
+		# 【調整用】右下端。0.8を変えると右端の角度が変わる
+		Vector2(head_center.x + half_w * 0.8, bangs_bottom_y),
+		# 【調整用】分け目の切れ込み。0.3=横位置、0.15=切れ込みの深さ
+		Vector2(head_center.x + half_w * 0.3, bangs_bottom_y - hr * 0.15),
+		# 【調整用】前髪中央付近。-0.2を変えると中央の位置が左右にずれる
+		Vector2(head_center.x - half_w * 0.2, bangs_bottom_y),
+		# 【調整用】左サイドバング。0.8=横位置、0.6=下への伸び（大きいほど長い）
+		Vector2(head_center.x - half_w * 0.8, bangs_bottom_y + hr * 0.6),
 	])
 	draw_polygon(pts, PackedColorArray([hair_color]))
 
