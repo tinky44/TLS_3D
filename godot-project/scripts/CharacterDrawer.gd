@@ -207,7 +207,7 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		var fan_steps = 10
 		var fan_start_ang = min_ang
 		# 【調整用】扇形が前方のどこまで広がるか（-PI/2で額の真ん前）
-		var fan_end_ang = - PI / 4
+		var fan_end_ang = - PI / 4 # 45度が生え際とする
 		
 		for i in range(fan_steps + 1):
 			var t = float(i) / fan_steps
@@ -226,16 +226,17 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			head_center + back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang)),
 			
 			# ② 前方に突き出す先端 (ここをいじって長さを調整)
-			head_center + fwd_dir * hr * 1.0 + up_dir * hr * 0.6,
+			head_center + fwd_dir * hr * 1.1 + up_dir * hr * 0.1, # 顔の正面方向*1.1倍
 			
 			# ③ 前髪の毛先 / 額・目の上のライン 
 			#   ※ 目が隠れてしまう場合は、ここの `down_dir * hr * 0.1` を 
 			#      `up_dir * hr * 0.1` などに変更して上に持ち上げるか、 `0.0` に寄せてください。
 			#   ※ `fwd_dir * hr * 0.7` の 0.7 を小さくすると、おでこ側へ後退します。
-			head_center + fwd_dir * hr * 0.7 + up_dir * hr * 0.1,
+			head_center + fwd_dir * hr * 0.1 + up_dir * hr * 0.1,
 			
 			# ④ 横髪の顔側ラインと接触する点（③の高さに合わせるのが基本です）
-			head_center + back_dir * cut_dist + down_dir * hr * 0.1
+			#head_center + back_dir * cut_dist + up_dir * hr * 0.1
+			(head_center + back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang))) * 0.2 + up_dir * hr * 0.1
 		])
 		draw_polygon(bangs_pts, PackedColorArray([hair_color]))
 
