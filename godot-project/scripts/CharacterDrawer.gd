@@ -221,9 +221,10 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		# 4. 前髪
 		# 額を覆うように、前方に突き出し、顔の前面をカバーする四角形
 		# 【調整用】各頂点の座標を変えることで、前髪のシルエットを作れます。目の位置に合わせて微調整してください。
+		var p1 = head_center + back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang))
 		var bangs_pts = PackedVector2Array([
 			# ① 扇形の終端あたり（前髪の起点）
-			head_center + back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang)),
+			p1,
 			
 			# ② 前方に突き出す先端 (ここをいじって長さを調整)
 			head_center + fwd_dir * hr * 1.1 + up_dir * hr * 0.1, # 顔の正面方向*1.1倍
@@ -234,8 +235,8 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			#   ※ `fwd_dir * hr * 0.7` の 0.7 を小さくすると、おでこ側へ後退します。
 			head_center + fwd_dir * hr * 0.1 + up_dir * hr * 0.1,
 			
-			# ④ 横髪の顔側ラインと接触する点（③の高さに合わせるのが基本です）
-			head_center + (back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang))) * 0.2
+			# ④ 横髪の顔側ラインと接触する点
+			fan_center.lerp(p1, 0.2)
 		])
 		draw_polygon(bangs_pts, PackedColorArray([hair_color]))
 
