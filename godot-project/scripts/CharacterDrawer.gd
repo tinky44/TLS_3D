@@ -233,7 +233,7 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			#   ※ 目が隠れてしまう場合は、ここの `down_dir * hr * 0.1` を 
 			#      `up_dir * hr * 0.1` などに変更して上に持ち上げるか、 `0.0` に寄せてください。
 			#   ※ `fwd_dir * hr * 0.7` の 0.7 を小さくすると、おでこ側へ後退します。
-			head_center + fwd_dir * hr * 0.1 + up_dir * hr * 0.1,
+			head_center + fwd_dir * hr * 0.5 + up_dir * hr * 0.1,
 			
 			# ④ 横髪の顔側ラインと接触する点
 			fan_center.lerp(p1, 0.2)
