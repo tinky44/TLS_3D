@@ -7,7 +7,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 240,
         "obstacles": [
-            {"id": "door_exit", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
+            {"id": "door_to_outdoor", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 200, "type": "overhead"},
             {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
             {"id": "kitchen_cabinet", "x": 440, "x2": 550, "height": 180, "type": "background"},
@@ -33,7 +33,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 230,
         "obstacles": [
-            {"id": "door_1", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
+            {"id": "door_to_outdoor", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
             {"id": "door_2", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
@@ -47,6 +47,7 @@ const STAGES = {
         "width": 5000,
         "ceiling_height": null,
         "obstacles": [
+            {"id": "door_to_room", "x": 50, "x2": 130, "height": 200, "type": "overhead"},
             {"id": "public_phone", "x": 300, "x2": 345, "height": 200, "type": "background"},
             {"id": "pedestrian_signal", "x": 700, "x2": 725, "height": 300, "type": "background"},
             {"id": "streetlight", "x": 1200, "x2": 1225, "height": 500, "type": "background"},
@@ -55,8 +56,10 @@ const STAGES = {
             {"id": "footbridge", "x": 3100, "x2": 3500, "height": 500, "type": "overhead"},
             {"id": "house_2f", "x": 3800, "x2": 4050, "height": 700, "type": "background"},
             {"id": "house_3f", "x": 4200, "x2": 4500, "height": 900, "type": "background"},
+            {"id": "door_to_train", "x": 2100, "x2": 2180, "height": 200, "type": "overhead"},
             {"id": "vending_machine", "x": 4700, "x2": 4780, "height": 183, "type": "ground"},
-            {"id": "curve_mirror", "x": 4850, "x2": 4900, "height": 300, "type": "background"}
+            {"id": "curve_mirror", "x": 4850, "x2": 4900, "height": 300, "type": "background"},
+            {"id": "door_to_school", "x": 4920, "x2": 5000, "height": 200, "type": "overhead"}
         ]
     },
     "school": {
@@ -64,7 +67,7 @@ const STAGES = {
         "width": 2500,
         "ceiling_height": 300,
         "obstacles": [
-            {"id": "school_door_1", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
+            {"id": "door_to_outdoor", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
             {"id": "blackboard", "x": 400, "x2": 800, "height": 210, "type": "background"},
             {"id": "desk_1", "x": 1000, "x2": 1060, "height": 70, "type": "ground"},
             {"id": "desk_2", "x": 1150, "x2": 1210, "height": 70, "type": "ground"},
@@ -293,7 +296,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     # IDに応じた装飾の追加 (ドアの取っ手、吊り革の丸、鏡の枠など)
     # ---------------------------------------------------------
     var o_id = obs["id"]
-    if o_id == "door_exit":
+    if o_id == "door_to_outdoor":
         # 横から見た出入口
         cr.color = Color(0, 0, 0, 0)
         # 暗い外の空間
@@ -1007,12 +1010,27 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
 
 static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
     match obs_id:
-        "door_exit":
+        "door_to_outdoor":
             if h > oh:
-                return "出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+                return "外への出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "外への出入口（%dcm）。余裕でくぐれます。" % oh
-        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4", "door_to_room", "door_to_myroom":
+        "door_to_room":
+            if h > oh:
+                return "家の玄関（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "家の玄関（%dcm）。ただいま！" % oh
+        "door_to_train":
+            if h > oh:
+                return "駅の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "駅の入口（%dcm）。電車に乗りましょう。" % oh
+        "door_to_school":
+            if h > oh:
+                return "学校の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "学校の入口（%dcm）。いってらっしゃい！" % oh
+        "door_left", "door_right", "side_door", "door_2", "door_3", "door_4", "door_to_myroom":
             if h > oh:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
