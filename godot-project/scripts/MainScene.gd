@@ -1115,15 +1115,50 @@ func _on_next_term_pressed() -> void:
 	get_tree().paused = false
 	_nearby_height_scale = false
 
-	var global = get_node_or_null("/root/Global")
-	if not global: return
+	# フェードオーバーレイを生成
+	var fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.z_index = 100
+	ui_layer.add_child(fade)
 
-	global.advance_term()
+	# フェードアウト（0.5秒）
+	var tw = create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 0.5)
+	await tw.finished
+
+	# 学期を進めて自室へ
+	var global = get_node_or_null("/root/Global")
+	if global:
+		global.advance_term()
+		global.current_stage_id = "room"
 
 	if player:
 		player.update_measurements()
 
 	_load_stage()
+
+	# 黒画面中に学期テキストを表示
+	if global:
+		var lbl = Label.new()
+		lbl.text = "第 %d 学期" % (global.term + 1)
+		lbl.add_theme_font_size_override("font_size", 36)
+		lbl.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+		lbl.modulate.a = 0.0
+		lbl.set_anchors_preset(Control.PRESET_CENTER)
+		lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		lbl.grow_vertical = Control.GROW_DIRECTION_BOTH
+		fade.add_child(lbl)
+		var tw_lbl = create_tween()
+		tw_lbl.tween_property(lbl, "modulate:a", 1.0, 0.3)
+		tw_lbl.tween_interval(0.5)
+		tw_lbl.tween_property(lbl, "modulate:a", 0.0, 0.3)
+
+	# フェードイン（0.8秒）
+	var tw2 = create_tween()
+	tw2.tween_property(fade, "color:a", 0.0, 0.8)
+	await tw2.finished
+	fade.queue_free()
 
 func _setup_history_panel() -> void:
 	if history_panel:
@@ -1204,6 +1239,7 @@ func _toggle_history_panel() -> void:
 		int(global.term) + 1
 	]
 	growth_graph.set_data(global.growth_history)
+	growth_graph.animate_new_point()
 
 	history_panel.show()
 	get_tree().paused = true
