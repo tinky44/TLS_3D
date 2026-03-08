@@ -1,6 +1,0 @@
-fix: Resolve side hair rendering gap and rotation issues
-
-- Ensure side hair falls correctly downwards based on gravity instead of rigidly rotating with the head.
-- Ensure smooth separation boundary when the character rotates its head, preventing visual gaps between the back hair and the face.
-
-Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>
