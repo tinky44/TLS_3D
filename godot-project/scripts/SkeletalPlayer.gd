@@ -29,6 +29,7 @@ var m: Dictionary
 var sensors: Array = []
 
 func _ready() -> void:
+    collision_layer = 0 # NPCから押し出されないように自身の当たり判定レイヤーを消す
     collision_mask |= 4 # 天井(layer4)にも物理的に当たるように
     update_measurements()
 

@@ -40,6 +40,7 @@ var appearance: Dictionary
 }
 
 func _ready() -> void:
+	collision_layer = 0 # 当たり判定なし（プレイヤーがすり抜けられるようにする）
 	collision_mask |= 4
 	update_measurements()
 

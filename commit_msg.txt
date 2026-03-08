@@ -1,0 +1,6 @@
+fix: NPCを押してしまう問題の修正
+
+- SkeletalNPCとSkeletalPlayerのcollision_layerを0に設定
+- プレイヤーとNPCが互いに干渉せず、すり抜けられるように修正
+
+Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>
