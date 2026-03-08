@@ -123,6 +123,7 @@ func get_body_measurements() -> Dictionary:
         "shoulder": h - head - 2.0 * neck,
         "nipple": h - head - 2.0 * neck - arm * 0.25,
         "navel": h - head - 2.0 * neck - arm * 0.60,
+        "hip": h - head - 2.0 * neck - arm * 0.80,
         "crotch": leg,
         "knee": leg * 0.5,
         "foot": 0.0
