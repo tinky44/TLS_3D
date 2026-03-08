@@ -348,7 +348,7 @@ func _draw_bangs_side(head_center: Vector2, hr: float, hair_style: String, hair_
 	draw_polygon(pts, PackedColorArray([hair_color]))
 
 # スカート描画ヘルパー
-func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float) -> void:
+func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float, facing: String = "front") -> void:
 	var waist_to_crotch = d["cy"] - waist_pos.y
 	var skirt_length: float
 	var hem_w: float
@@ -360,8 +360,37 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
 		hem_w = base_width * 1.5
 
-	var p_bottom = Vector2(waist_pos.x, waist_pos.y + skirt_length)
-	CharacterDrawUtils.draw_trapezoid(self , waist_pos, p_bottom, base_width, hem_w, bottoms_color)
+	# 側面ではシンプルに台形描画
+	if facing == "side":
+		var p_bottom = Vector2(waist_pos.x, waist_pos.y + skirt_length)
+		CharacterDrawUtils.draw_trapezoid(self , waist_pos, p_bottom, base_width, hem_w, bottoms_color)
+		return
+
+	# 正面・背面の場合、足の広がりに合わせて裾を広げ、下端に緩やかなカーブを付ける
+	var p_bottom_y = waist_pos.y + skirt_length
+	
+	# 両足首のおおよその位置を計算して、脚が大きく開いているなら裾を広げる
+	var f_leg_l_ang = (d["leg_l_angle"] * 0.2) * PI / 180 + PI / 2
+	var f_leg_r_ang = (d["leg_r_angle"] * 0.2) * PI / 180 + PI / 2
+	var ankle_l_x = d["hip_l"].x + (d["thigh_l"] + d["shin_l"]) * cos(f_leg_l_ang)
+	var ankle_r_x = d["hip_r"].x + (d["thigh_l"] + d["shin_l"]) * cos(f_leg_r_ang)
+	var legs_spread = abs(ankle_r_x - ankle_l_x)
+	
+	var actual_hem_w = max(hem_w, legs_spread * 0.9) # 足幅の90%まではスカートが追従して広がる
+	var half_top = base_width / 2.0
+	var half_hem = actual_hem_w / 2.0
+	
+	# 下端を下向きに少し膨らませる（カーブの近似）
+	var curve_drop = skirt_length * 0.05
+	
+	var pts = PackedVector2Array([
+		Vector2(waist_pos.x - half_top, waist_pos.y),
+		Vector2(waist_pos.x + half_top, waist_pos.y),
+		Vector2(waist_pos.x + half_hem, p_bottom_y),
+		Vector2(waist_pos.x, p_bottom_y + curve_drop), # 裾の中央が少し下がる
+		Vector2(waist_pos.x - half_hem, p_bottom_y)
+	])
+	draw_polygon(pts, PackedColorArray([bottoms_color]))
 
 # --- 正面・背面 描画 ---
 func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, _pants_dark, shoulder_w, thigh_w, shin_w, arm_w, neck_w):
@@ -425,7 +454,7 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 
 	# 3. ボトムス（骨盤部分またはスカート）
 	if is_skirt:
-		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w)
+		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, facing)
 	elif bottoms_type == "pants":
 		var p_pelvis_top = Vector2(d["front_hip_x"], d["front_hip_y"])
 		var p_crotch = Vector2(d["cx"], d["cy"])
@@ -542,7 +571,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 
 	# 5. ボトムス（骨盤部分またはスカート — 足の上に重ねる）
 	if is_skirt:
-		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["hip_x"], d["hip_y"]), torso_thickness)
+		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["hip_x"], d["hip_y"]), torso_thickness, "side")
 	elif bottoms_type == "pants":
 		var p_pelvis_top = Vector2(d["hip_x"], d["hip_y"])
 		var p_crotch_center = Vector2(d["cx"], d["cy"])
