@@ -451,6 +451,8 @@ func _load_stage():
 	
 	# 床や障害物を生成
 	StageBuilder.build_stage(stage_id, self , p)
+	
+	_spawn_npcs(stage_id)
 
 	# 自動セーブ（スロット選択済みの場合）
 	if global and global.current_slot >= 1:
@@ -470,6 +472,93 @@ func _load_stage():
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
 			cam.limit_bottom = 250
+
+func _spawn_npcs(stage_id: String) -> void:
+	var npc_scene = load("res://NPC.tscn")
+	if not npc_scene: return
+	
+	for child in get_children():
+		if child.has_meta("is_npc"):
+			child.queue_free()
+
+	if stage_id == "outdoor":
+		var npc = npc_scene.instantiate()
+		npc.set_meta("is_npc", true)
+		npc.custom_params = {
+			"height": 158.0,
+			"ratio": 7.0,
+			"legRatio": 45.0,
+			"sex": "female"
+		}
+		npc.position = Vector2(300 * p, 0)
+		add_child(npc)
+		
+		# 街にいる小さな子供
+		var kid = npc_scene.instantiate()
+		kid.set_meta("is_npc", true)
+		kid.custom_params = {
+			"height": 110.0,
+			"ratio": 5.5,
+			"legRatio": 40.0,
+			"sex": "female"
+		}
+		kid.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#885533",
+			"tops_type": "t_shirt",
+			"tops_color": "#ffdd00",
+			"bottoms_type": "pants",
+			"bottoms_color": "#33aa33",
+			"shoes_type": "sneakers",
+			"shoes_color": "#ffffff"
+		}
+		kid.position = Vector2(500 * p, 0)
+		add_child(kid)
+
+	elif stage_id == "school":
+		# 背の低い先生/生徒用など
+		var npc1 = npc_scene.instantiate()
+		npc1.set_meta("is_npc", true)
+		npc1.custom_params = {
+			"height": 152.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}
+		npc1.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#222222",
+			"tops_type": "blouse",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_short",
+			"bottoms_color": "#111166",
+			"shoes_type": "sneakers",
+			"shoes_color": "#ffffff"
+		}
+		npc1.position = Vector2(500 * p, 0)
+		add_child(npc1)
+
+		# 背の高い男性教師のようなダミー（身長175cm）
+		var npc2 = npc_scene.instantiate()
+		npc2.set_meta("is_npc", true)
+		npc2.custom_params = {
+			"height": 175.0,
+			"ratio": 7.2,
+			"legRatio": 46.0,
+			"sex": "male"
+		}
+		npc2.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#111111",
+			"tops_type": "sweater",
+			"tops_color": "#333333",
+			"bottoms_type": "pants",
+			"bottoms_color": "#111111",
+			"shoes_type": "sneakers",
+			"shoes_color": "#000000"
+		}
+		npc2.position = Vector2(900 * p, 0) # 先生の机付近
+		add_child(npc2)
 
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
