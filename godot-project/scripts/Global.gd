@@ -34,6 +34,7 @@ var age: int = 6
 var term: int = 6
 var growth_factor: float = 1.0
 var prev_height: float = 0.0
+var growth_history: Array = []
 
 const AVG_HEIGHT_FEMALE: Dictionary = {
 	3: 95.0, 4: 101.0, 5: 107.0,
@@ -62,11 +63,32 @@ static func get_base_growth(current_age: int) -> float:
 func calc_growth() -> float:
 	return get_base_growth(age) * growth_factor * randf_range(0.7, 1.3)
 
+func _ensure_growth_history() -> void:
+	if growth_history.is_empty():
+		record_growth_history("start")
+
+func record_growth_history(source: String = "measurement") -> void:
+	var height_now := float(current_params["height"])
+	var avg_height := get_avg_height(age)
+	var diff_prev := 0.0
+	if prev_height > 0.0:
+		diff_prev = height_now - prev_height
+	growth_history.append({
+		"term": term,
+		"age": age,
+		"height": height_now,
+		"avg_height": avg_height,
+		"diff_avg": height_now - avg_height,
+		"diff_prev": diff_prev,
+		"source": source
+	})
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
+	record_growth_history("growth")
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)
@@ -87,6 +109,7 @@ const SLOT_COUNT: int = 20
 
 func _ready():
 	load_settings()
+	_ensure_growth_history()
 
 func load_settings():
 	var config = ConfigFile.new()
@@ -126,6 +149,7 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "age", age)
 	config.set_value(section, "term", term)
 	config.set_value(section, "prev_height", prev_height)
+	config.set_value(section, "growth_history", growth_history)
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
@@ -147,10 +171,12 @@ func load_slot(slot: int) -> bool:
 	age = config.get_value(section, "age", 6)
 	term = config.get_value(section, "term", 6)
 	prev_height = config.get_value(section, "prev_height", 0.0)
+	growth_history = config.get_value(section, "growth_history", [])
 	# 旧セーブデータのマイグレーション（age=0 or term=0 の不整合を修正）
 	if age <= 0 or term == 0:
 		age = 6
 		term = 6
+	_ensure_growth_history()
 	for key in current_appearance.keys():
 		current_appearance[key] = config.get_value(section, "appearance_" + key, current_appearance[key])
 	current_slot = slot
@@ -169,6 +195,23 @@ func get_slot_info(slot: int) -> Dictionary:
 		"timestamp": config.get_value(section, "timestamp", ""),
 		"age": config.get_value(section, "age", 6),
 	}
+
+func get_growth_history_lines(limit: int = 12) -> PackedStringArray:
+	_ensure_growth_history()
+	var lines := PackedStringArray()
+	var start := maxi(0, growth_history.size() - limit)
+	for i in range(growth_history.size() - 1, start - 1, -1):
+		var entry: Dictionary = growth_history[i]
+		lines.append(
+			"%02d学期 | %d歳 | %.1fcm | 前回 %+0.1f | 平均差 %+0.1f" % [
+				int(entry.get("term", 0)) + 1,
+				int(entry.get("age", age)),
+				float(entry.get("height", current_params["height"])),
+				float(entry.get("diff_prev", 0.0)),
+				float(entry.get("diff_avg", 0.0))
+			]
+		)
+	return lines
 
 func get_body_measurements() -> Dictionary:
 	var h: float = current_params["height"]

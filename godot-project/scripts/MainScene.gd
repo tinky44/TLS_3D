@@ -26,6 +26,8 @@ var _nearby_height_scale: bool = false
 # 測定結果パネル
 var measurement_panel: Control
 var measurement_content_label: Label
+var history_panel: Control
+var history_content_label: Label
 var bump_alert_label: Label
 var _bump_alert_time_left: float = 0.0
 
@@ -461,6 +463,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Q:
 			if sidebar: sidebar.visible = not sidebar.visible
+		elif event.keycode == KEY_G:
+			_toggle_history_panel()
 		elif event.keycode == KEY_E:
 			if _nearby_transition_door != "":
 				_enter_transition_door()
@@ -837,3 +841,84 @@ func _on_next_term_pressed() -> void:
 		player.update_measurements()
 
 	_load_stage()
+
+func _setup_history_panel() -> void:
+	if history_panel:
+		return
+
+	history_panel = ColorRect.new()
+	history_panel.color = Color(0, 0, 0, 0.72)
+	history_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	history_panel.hide()
+	history_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	history_panel.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#16202c")
+	style.corner_radius_top_left = 16
+	style.corner_radius_top_right = 16
+	style.corner_radius_bottom_right = 16
+	style.corner_radius_bottom_left = 16
+	style.content_margin_left = 36
+	style.content_margin_right = 36
+	style.content_margin_top = 28
+	style.content_margin_bottom = 28
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "成長記録"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title)
+
+	history_content_label = Label.new()
+	history_content_label.add_theme_font_size_override("font_size", 18)
+	history_content_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	history_content_label.custom_minimum_size = Vector2(520, 320)
+	vbox.add_child(history_content_label)
+
+	var close_hint = Label.new()
+	close_hint.text = "[G] で閉じる"
+	close_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	close_hint.add_theme_font_size_override("font_size", 14)
+	close_hint.add_theme_color_override("font_color", Color(0.75, 0.82, 0.9))
+	vbox.add_child(close_hint)
+
+	ui_layer.add_child(history_panel)
+
+func _toggle_history_panel() -> void:
+	if not history_panel:
+		_setup_history_panel()
+
+	if history_panel.visible:
+		history_panel.hide()
+		get_tree().paused = false
+		return
+
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+
+	var lines: PackedStringArray = global.get_growth_history_lines(14)
+	var header := "現在 %.1fcm / %d歳 / 第%d学期\n\n" % [
+		float(global.current_params["height"]),
+		int(global.age),
+		int(global.term) + 1
+	]
+	if lines.is_empty():
+		history_content_label.text = header + "まだ記録がありません。"
+	else:
+		history_content_label.text = header + "\n".join(lines)
+
+	history_panel.show()
+	get_tree().paused = true
