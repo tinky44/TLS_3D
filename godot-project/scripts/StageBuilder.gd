@@ -1,4 +1,4 @@
-extends RefCounted
+﻿extends RefCounted
 class_name StageBuilder
 
 const STAGES = {
@@ -72,7 +72,22 @@ const STAGES = {
             {"id": "shoes_locker", "x": 350, "x2": 550, "height": 180, "type": "background"},
             {"id": "bulletin_board", "x": 800, "x2": 1050, "height": 180, "type": "background"},
             {"id": "door_to_school", "x": 1300, "x2": 1440, "height": 200, "type": "overhead"},
-            {"id": "fire_hydrant", "x": 1800, "x2": 1860, "height": 120, "type": "background"}
+            {"id": "fire_hydrant", "x": 1800, "x2": 1860, "height": 120, "type": "background"},
+            {"id": "door_to_infirmary", "x": 2200, "x2": 2340, "height": 200, "type": "overhead"}
+        ]
+    },
+    "infirmary": {
+        "name": "保健室",
+        "width": 1400,
+        "ceiling_height": 270,
+        "obstacles": [
+            {"id": "door_to_school_hallway", "x": 80, "x2": 220, "height": 200, "type": "overhead"},
+            {"id": "medicine_cabinet", "x": 280, "x2": 420, "height": 200, "type": "background"},
+            {"id": "height_scale", "x": 500, "x2": 560, "height": 220, "type": "background"},
+            {"id": "weight_scale", "x": 580, "x2": 640, "height": 10, "type": "ground"},
+            {"id": "infirmary_desk", "x": 730, "x2": 900, "height": 72, "type": "ground"},
+            {"id": "infirmary_bed", "x": 1000, "x2": 1280, "height": 60, "type": "ground"},
+            {"id": "infirmary_curtain", "x": 980, "x2": 1000, "height": 220, "type": "background"}
         ]
     },
     "school": {
@@ -135,6 +150,8 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風
     elif stage_id == "school_hallway":
         floor_rect.color = Color(0.50, 0.55, 0.50) # リノリウム風グレーグリーン
+    elif stage_id == "infirmary":
+        floor_rect.color = Color(0.82, 0.88, 0.82) # 明るい薄緑（保健室リノリウム）
     elif stage_id == "outdoor":
         floor_rect.color = Color(0.55, 0.53, 0.50) # アスファルト
     else: # train
@@ -501,6 +518,67 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
             wmid2.size = Vector2(win_w, 6)
             sch_bg.add_child(wmid2)
         parent_node.add_child(sch_bg)
+
+    # 保健室ステージ: 白い壁と清潔感のある背景
+    elif stage_id == "infirmary" and stage_data.get("ceiling_height") != null:
+        var inf_bg = Node2D.new()
+        inf_bg.set_meta("is_stage_obj", true)
+        inf_bg.z_index = -5
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var stage_w_px = stage_data["width"] * cm_to_px
+        # 壁（白系）
+        var iw_top = ColorRect.new()
+        iw_top.color = Color(0.96, 0.97, 0.95)
+        iw_top.position = Vector2(0, -ceil_h_px)
+        iw_top.size = Vector2(stage_w_px, ceil_h_px)
+        inf_bg.add_child(iw_top)
+        # 腰壁（薄い緑）
+        var iw_btm = ColorRect.new()
+        iw_btm.color = Color(0.78, 0.90, 0.78)
+        iw_btm.position = Vector2(0, -ceil_h_px * 0.40)
+        iw_btm.size = Vector2(stage_w_px, ceil_h_px * 0.40)
+        inf_bg.add_child(iw_btm)
+        # 見切り材
+        var iw_mold = ColorRect.new()
+        iw_mold.color = Color(0.55, 0.70, 0.55)
+        iw_mold.position = Vector2(0, -ceil_h_px * 0.40 - 5)
+        iw_mold.size = Vector2(stage_w_px, 10)
+        inf_bg.add_child(iw_mold)
+        # 巾木
+        var iw_base = ColorRect.new()
+        iw_base.color = Color(0.55, 0.72, 0.55)
+        iw_base.position = Vector2(0, -15)
+        iw_base.size = Vector2(stage_w_px, 15)
+        inf_bg.add_child(iw_base)
+        # 窓（右側に2つ）
+        for wx_cm in [900, 1150]:
+            var win_w = 200 * cm_to_px
+            var win_h = 120 * cm_to_px
+            var win_y = -230 * cm_to_px
+            var iwf = ColorRect.new()
+            iwf.color = Color(0.55, 0.60, 0.55)
+            iwf.position = Vector2(wx_cm * cm_to_px - 5, win_y - 5)
+            iwf.size = Vector2(win_w + 10, win_h + 10)
+            inf_bg.add_child(iwf)
+            var iwg = ColorRect.new()
+            iwg.color = Color(0.62, 0.85, 0.75, 0.68)
+            iwg.position = Vector2(wx_cm * cm_to_px, win_y)
+            iwg.size = Vector2(win_w, win_h)
+            inf_bg.add_child(iwg)
+            # 窓の中桟
+            var iwmid = ColorRect.new()
+            iwmid.color = Color(0.55, 0.60, 0.55)
+            iwmid.position = Vector2(wx_cm * cm_to_px, win_y + win_h * 0.6 - 3)
+            iwmid.size = Vector2(win_w, 5)
+            inf_bg.add_child(iwmid)
+        # 天井の蛍光灯（白い帯）
+        for lx_cm in [300, 700, 1100]:
+            var fl = ColorRect.new()
+            fl.color = Color(1.0, 1.0, 0.95, 0.9)
+            fl.position = Vector2(lx_cm * cm_to_px, -ceil_h_px)
+            fl.size = Vector2(200 * cm_to_px, 8)
+            inf_bg.add_child(fl)
+        parent_node.add_child(inf_bg)
 
     # 天井の生成
     if stage_data.get("ceiling_height") != null:
@@ -1672,6 +1750,151 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         rand_outline.position = cr.position
         rand_outline.size = cr.size
         node.add_child(rand_outline)
+
+    elif o_id == "height_scale":
+        # 身長計（壁付きの目盛り付き板）
+        cr.color = Color(0.90, 0.88, 0.80) # ベージュ系の板
+        var scale_x = obs["x"] * cm_to_px
+        # 外枠
+        var sc_frame = ReferenceRect.new()
+        sc_frame.editor_only = false
+        sc_frame.border_color = Color(0.55, 0.42, 0.28)
+        sc_frame.border_width = 3.0
+        sc_frame.position = cr.position
+        sc_frame.size = cr.size
+        node.add_child(sc_frame)
+        # 目盛り線（10cm刻み、100cm〜210cmの範囲）
+        for mark_cm in range(100, 221, 10):
+            var mark_y = - float(mark_cm) * cm_to_px
+            var mark_w = w_px * (0.6 if mark_cm % 50 == 0 else (0.45 if mark_cm % 10 == 0 else 0.3))
+            var mark_line = ColorRect.new()
+            mark_line.color = Color(0.25, 0.15, 0.08)
+            mark_line.position = Vector2(scale_x + w_px - mark_w, mark_y - 1)
+            mark_line.size = Vector2(mark_w, 2)
+            node.add_child(mark_line)
+            # 50cm刻みにラベル
+            if mark_cm % 50 == 0 or mark_cm % 10 == 0:
+                var mark_label = Label.new()
+                mark_label.text = "%d" % mark_cm
+                mark_label.add_theme_font_size_override("font_size", 9)
+                mark_label.add_theme_color_override("font_color", Color(0.15, 0.08, 0.02))
+                mark_label.position = Vector2(scale_x, mark_y - 8)
+                mark_label.size = Vector2(w_px * 0.6, 16)
+                node.add_child(mark_label)
+        # 赤い水平バー（頭部を当てるスライダー）- 220cmラインに配置
+        var slider = ColorRect.new()
+        slider.color = Color(0.85, 0.15, 0.15)
+        slider.position = Vector2(scale_x - w_px * 0.3, -h_px - 4)
+        slider.size = Vector2(w_px * 1.3, 8)
+        node.add_child(slider)
+
+    elif o_id == "weight_scale":
+        # 体重計（床に置く薄い台）
+        cr.color = Color(0.88, 0.90, 0.92)
+        var ws_frame = ReferenceRect.new()
+        ws_frame.editor_only = false
+        ws_frame.border_color = Color(0.60, 0.62, 0.65)
+        ws_frame.border_width = 2.0
+        ws_frame.position = cr.position
+        ws_frame.size = cr.size
+        node.add_child(ws_frame)
+        # デジタル表示部
+        var display = ColorRect.new()
+        display.color = Color(0.10, 0.12, 0.10)
+        display.position = cr.position + Vector2(w_px * 0.25, cr.size.y * 0.1)
+        display.size = Vector2(w_px * 0.5, cr.size.y * 0.6)
+        node.add_child(display)
+
+    elif o_id == "infirmary_bed":
+        # 保健室のベッド（白いシーツ）
+        cr.color = Color(0, 0, 0, 0)
+        # フレーム
+        var ib_frame = ColorRect.new()
+        ib_frame.color = Color(0.75, 0.78, 0.80)
+        ib_frame.position = cr.position
+        ib_frame.size = cr.size
+        node.add_child(ib_frame)
+        # マットレス・シーツ（白）
+        var ib_sheet = ColorRect.new()
+        ib_sheet.color = Color(0.97, 0.97, 0.97)
+        ib_sheet.position = cr.position + Vector2(6, 4)
+        ib_sheet.size = Vector2(w_px - 12, h_draw_px - 4)
+        node.add_child(ib_sheet)
+        # 枕（右端）
+        var ib_pillow = ColorRect.new()
+        ib_pillow.color = Color(0.93, 0.93, 0.93)
+        ib_pillow.position = cr.position + Vector2(w_px - w_px * 0.22 - 10, 6)
+        ib_pillow.size = Vector2(w_px * 0.22, h_draw_px * 0.65)
+        node.add_child(ib_pillow)
+        # 緑のラインシーツ（清潔感）
+        var ib_accent = ColorRect.new()
+        ib_accent.color = Color(0.55, 0.80, 0.60)
+        ib_accent.position = cr.position + Vector2(6, 4)
+        ib_accent.size = Vector2(w_px * 0.05, h_draw_px - 4)
+        node.add_child(ib_accent)
+
+    elif o_id == "infirmary_curtain":
+        # カーテン（薄い白・仕切り）
+        cr.color = Color(0.90, 0.92, 0.90, 0.85)
+        var ic_frame = ReferenceRect.new()
+        ic_frame.editor_only = false
+        ic_frame.border_color = Color(0.65, 0.72, 0.65)
+        ic_frame.border_width = 2.0
+        ic_frame.position = cr.position
+        ic_frame.size = cr.size
+        node.add_child(ic_frame)
+
+    elif o_id == "medicine_cabinet":
+        # 薬棚（白い棚）
+        cr.color = Color(0.92, 0.94, 0.92)
+        var mc_frame = ReferenceRect.new()
+        mc_frame.editor_only = false
+        mc_frame.border_color = Color(0.60, 0.65, 0.60)
+        mc_frame.border_width = 3.0
+        mc_frame.position = cr.position
+        mc_frame.size = cr.size
+        node.add_child(mc_frame)
+        # 棚板（3段）
+        for si in range(1, 4):
+            var shelf_pl = ColorRect.new()
+            shelf_pl.color = Color(0.72, 0.76, 0.72)
+            shelf_pl.position = Vector2(cr.position.x + 5, cr.position.y + h_draw_px * (float(si) / 4.0))
+            shelf_pl.size = Vector2(w_px - 10, 4)
+            node.add_child(shelf_pl)
+        # 中の薬（小さな色付きボックス）
+        var med_colors = [Color(0.85, 0.2, 0.2), Color(0.2, 0.5, 0.85), Color(0.2, 0.75, 0.35), Color(0.90, 0.75, 0.1)]
+        for row in range(3):
+            var item_y = cr.position.y + h_draw_px * (float(row) / 4.0) + 8
+            var item_x = cr.position.x + 8
+            for col in range(4):
+                var med = ColorRect.new()
+                med.color = med_colors[col % med_colors.size()]
+                med.position = Vector2(item_x + col * (w_px - 16) / 4.0, item_y)
+                med.size = Vector2((w_px - 16) / 4.0 - 4, h_draw_px / 4.0 - 12)
+                node.add_child(med)
+
+    elif o_id == "infirmary_desk":
+        # 保健室の先生の机（白系）
+        cr.color = Color(0, 0, 0, 0)
+        var id_top = ColorRect.new()
+        id_top.color = Color(0.88, 0.90, 0.88)
+        id_top.position = cr.position
+        id_top.size = Vector2(w_px, 14)
+        node.add_child(id_top)
+        var id_frame = ReferenceRect.new()
+        id_frame.editor_only = false
+        id_frame.border_color = Color(0.60, 0.65, 0.60)
+        id_frame.border_width = 2.0
+        id_frame.position = cr.position
+        id_frame.size = Vector2(w_px, 14)
+        node.add_child(id_frame)
+        # 脚
+        for leg_dx in [8.0, w_px - 18.0]:
+            var id_leg = ColorRect.new()
+            id_leg.color = Color(0.70, 0.74, 0.70)
+            id_leg.position = Vector2(cr.position.x + leg_dx, cr.position.y + 14)
+            id_leg.size = Vector2(10, h_draw_px - 14)
+            node.add_child(id_leg)
 
     # ---------------------------------------------------------
 

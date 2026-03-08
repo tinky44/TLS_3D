@@ -595,6 +595,29 @@ func _spawn_npcs(stage_id: String) -> void:
 		npc2.position = Vector2(900 * p, 0) # 先生の机付近
 		add_child(npc2)
 
+	elif stage_id == "infirmary":
+		# 保健室の先生（小柄な女性、机の前に立っている）
+		var nurse = npc_scene.instantiate()
+		nurse.set_meta("is_npc", true)
+		nurse.custom_params = {
+			"height": 155.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}
+		nurse.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#334422",
+			"tops_type": "blouse",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_long",
+			"bottoms_color": "#ffffff",
+			"shoes_type": "sneakers",
+			"shoes_color": "#cccccc"
+		}
+		nurse.position = Vector2(680 * p, 0) # 机のそば
+		add_child(nurse)
+
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
