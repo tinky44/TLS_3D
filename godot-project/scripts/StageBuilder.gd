@@ -70,6 +70,21 @@ const STAGES = {
             {"id": "desk_2", "x": 1150, "x2": 1210, "height": 70, "type": "ground"},
             {"id": "teacher_desk", "x": 2000, "x2": 2150, "height": 100, "type": "ground"}
         ]
+    },
+    "myroom": {
+        "name": "自分の部屋",
+        "width": 700,
+        "ceiling_height": 240,
+        "obstacles": [
+            {"id": "bed", "x": 30, "x2": 230, "height": 50, "type": "ground"},
+            {"id": "window_myroom", "x": 50, "x2": 190, "height": 155, "type": "background"},
+            {"id": "ceiling_light", "x": 250, "x2": 345, "height": 200, "type": "overhead"},
+            {"id": "bookshelf", "x": 295, "x2": 355, "height": 195, "type": "background"},
+            {"id": "chair", "x": 360, "x2": 400, "height": 45, "type": "ground"},
+            {"id": "desk_myroom", "x": 415, "x2": 550, "height": 72, "type": "ground"},
+            {"id": "randoseru", "x": 560, "x2": 597, "height": 35, "type": "ground"},
+            {"id": "door_to_room", "x": 600, "x2": 675, "height": 200, "type": "overhead"}
+        ]
     }
 }
 
@@ -98,7 +113,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     
     # 床の描画 (フローリング風の少し落ち着いた茶色)
     var floor_rect = ColorRect.new()
-    if stage_id == "room":
+    if stage_id == "room" or stage_id == "myroom":
         floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風（濃いめ）
     else:
         floor_rect.color = Color(0.2, 0.2, 0.2)
@@ -108,43 +123,59 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     
     parent_node.add_child(floor_body)
 
-    # 部屋（room）の場合、背景を壁紙風にする
-    if stage_id == "room" and stage_data.get("ceiling_height") != null:
+    # 部屋系ステージの場合、背景を壁紙風にする
+    if (stage_id == "room" or stage_id == "myroom") and stage_data.get("ceiling_height") != null:
         var wall_bg = Node2D.new()
         wall_bg.set_meta("is_stage_obj", true)
         wall_bg.z_index = -5 # 一番奥に配置する
-        
+
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
-        
-        # 壁紙 上半分（濃いグレー系に変更して見やすくする）
+
+        # ステージ別の壁紙カラー
+        var wall_top_color: Color
+        var wall_btm_color: Color
+        var molding_color: Color
+        var baseboard_color: Color
+        if stage_id == "myroom":
+            wall_top_color = Color(0.90, 0.85, 0.78)  # 温かみのあるクリーム
+            wall_btm_color = Color(0.80, 0.75, 0.68)
+            molding_color  = Color(0.65, 0.55, 0.40)
+            baseboard_color = Color(0.45, 0.30, 0.18)
+        else:
+            wall_top_color = Color(0.40, 0.45, 0.50)  # グレー系（リビング）
+            wall_btm_color = Color(0.30, 0.35, 0.40)
+            molding_color  = Color(0.20, 0.20, 0.25)
+            baseboard_color = Color(0.35, 0.24, 0.18)
+
+        # 壁紙 上半分
         var wall_top = ColorRect.new()
-        wall_top.color = Color(0.40, 0.45, 0.50)
+        wall_top.color = wall_top_color
         wall_top.position = Vector2(0, -ceil_h_px)
         wall_top.size = Vector2(stage_w_px, ceil_h_px * 0.5)
         wall_bg.add_child(wall_top)
-        
-        # 壁紙 下半分（さらに濃いネイビー/グレーに変更）
+
+        # 壁紙 下半分
         var wall_btm = ColorRect.new()
-        wall_btm.color = Color(0.30, 0.35, 0.40)
+        wall_btm.color = wall_btm_color
         wall_btm.position = Vector2(0, -ceil_h_px * 0.5)
         wall_btm.size = Vector2(stage_w_px, ceil_h_px * 0.5)
         wall_bg.add_child(wall_btm)
-        
+
         # 見切り材（上下の壁紙の境界の帯）
         var molding = ColorRect.new()
-        molding.color = Color(0.20, 0.20, 0.25)
+        molding.color = molding_color
         molding.position = Vector2(0, -ceil_h_px * 0.5 - 4)
         molding.size = Vector2(stage_w_px, 8)
         wall_bg.add_child(molding)
-        
+
         # 巾木（床と壁の境界の板）
         var baseboard = ColorRect.new()
-        baseboard.color = Color(0.35, 0.24, 0.18) # 暗めの茶色
+        baseboard.color = baseboard_color
         baseboard.position = Vector2(0, -15)
         baseboard.size = Vector2(stage_w_px, 15)
         wall_bg.add_child(baseboard)
-        
+
         parent_node.add_child(wall_bg)
 
     # 天井の生成
@@ -782,6 +813,127 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         ceiling_fill.z_index = -1
         node.add_child(ceiling_fill)
 
+    elif o_id == "bed":
+        cr.color = Color(0, 0, 0, 0)
+        # フレーム（木製・茶色）
+        var bed_frame = ColorRect.new()
+        bed_frame.color = Color(0.40, 0.25, 0.15)
+        bed_frame.position = cr.position
+        bed_frame.size = cr.size
+        node.add_child(bed_frame)
+        # マットレス
+        var mattress = ColorRect.new()
+        mattress.color = Color(0.93, 0.90, 0.85)
+        mattress.position = cr.position + Vector2(6, 6)
+        mattress.size = Vector2(w_px - 22, h_draw_px - 6)
+        node.add_child(mattress)
+        # 枕（右端＝ヘッドボード側）
+        var pillow = ColorRect.new()
+        pillow.color = Color(0.98, 0.96, 0.90)
+        var p_w = w_px * 0.18
+        pillow.position = cr.position + Vector2(w_px - p_w - 16, 8)
+        pillow.size = Vector2(p_w, h_draw_px * 0.55)
+        node.add_child(pillow)
+        # ヘッドボード（右端の縦板）
+        var headboard = ColorRect.new()
+        headboard.color = Color(0.35, 0.22, 0.12)
+        headboard.position = Vector2(obs["x"] * cm_to_px + w_px - 16, cr.position.y - 35)
+        headboard.size = Vector2(16, h_draw_px + 35)
+        node.add_child(headboard)
+        # フットボード（左端の短い縦板）
+        var footboard = ColorRect.new()
+        footboard.color = Color(0.35, 0.22, 0.12)
+        footboard.position = Vector2(obs["x"] * cm_to_px, cr.position.y - 15)
+        footboard.size = Vector2(14, h_draw_px + 15)
+        node.add_child(footboard)
+
+    elif o_id == "bookshelf":
+        cr.color = Color(0.45, 0.30, 0.18)
+        # 棚板（4枚）
+        var shelf_count = 4
+        var shelf_spacing = h_draw_px / (shelf_count + 1)
+        for i in range(1, shelf_count + 1):
+            var shelf = ColorRect.new()
+            shelf.color = Color(0.55, 0.38, 0.22)
+            shelf.position = Vector2(cr.position.x, cr.position.y + shelf_spacing * i)
+            shelf.size = Vector2(w_px, 5)
+            node.add_child(shelf)
+        # 本（固定パターン）
+        var book_colors_shelf = [Color(0.75, 0.15, 0.15), Color(0.15, 0.45, 0.75), Color(0.15, 0.65, 0.25), Color(0.85, 0.65, 0.10), Color(0.55, 0.15, 0.70)]
+        var book_widths_arr = [10, 8, 12, 9, 11, 8]
+        for i in range(shelf_count + 1):
+            var sy = cr.position.y + shelf_spacing * i + (0.0 if i == 0 else 5.0)
+            var ey = cr.position.y + (shelf_spacing * (i + 1) if i < shelf_count else h_draw_px)
+            var bh = ey - sy - 4.0
+            var bx = cr.position.x + 5.0
+            for j in range(book_widths_arr.size()):
+                var bw = float(book_widths_arr[j])
+                if bx + bw > cr.position.x + w_px - 5.0:
+                    break
+                var book = ColorRect.new()
+                book.color = book_colors_shelf[(i + j) % book_colors_shelf.size()]
+                book.position = Vector2(bx, sy + 3.0)
+                book.size = Vector2(bw, bh)
+                node.add_child(book)
+                bx += bw + 1.0
+
+    elif o_id == "desk_myroom":
+        cr.color = Color(0, 0, 0, 0)
+        # 天板
+        var desk_top = ColorRect.new()
+        desk_top.color = Color(0.65, 0.45, 0.25)
+        desk_top.position = cr.position
+        desk_top.size = Vector2(w_px, 12)
+        node.add_child(desk_top)
+        # 脚（左右）
+        for leg_x_offset in [8.0, w_px - 18.0]:
+            var leg = ColorRect.new()
+            leg.color = Color(0.50, 0.32, 0.18)
+            leg.position = Vector2(cr.position.x + leg_x_offset, cr.position.y + 12)
+            leg.size = Vector2(10, h_draw_px - 12)
+            node.add_child(leg)
+        # 引き出し（右側）
+        var drawer = ColorRect.new()
+        drawer.color = Color(0.58, 0.40, 0.22)
+        drawer.position = Vector2(cr.position.x + w_px * 0.55, cr.position.y + 18)
+        drawer.size = Vector2(w_px * 0.38, h_draw_px * 0.5)
+        node.add_child(drawer)
+        # 引き出しの取っ手
+        var desk_handle = ColorRect.new()
+        desk_handle.color = Color(0.75, 0.65, 0.20)
+        desk_handle.position = drawer.position + Vector2(drawer.size.x * 0.35, drawer.size.y * 0.38)
+        desk_handle.size = Vector2(10, 5)
+        node.add_child(desk_handle)
+
+    elif o_id == "randoseru":
+        cr.color = Color(0, 0, 0, 0)
+        # メインボディ（赤）
+        var rand_body = ColorRect.new()
+        rand_body.color = Color(0.75, 0.10, 0.10)
+        rand_body.position = cr.position
+        rand_body.size = cr.size
+        node.add_child(rand_body)
+        # フラップ（上部、少し暗い赤）
+        var flap = ColorRect.new()
+        flap.color = Color(0.60, 0.08, 0.08)
+        flap.position = cr.position
+        flap.size = Vector2(w_px, h_draw_px * 0.38)
+        node.add_child(flap)
+        # バックル（フラップ中央）
+        var buckle = ColorRect.new()
+        buckle.color = Color(0.85, 0.70, 0.10)
+        buckle.position = cr.position + Vector2(w_px * 0.35, h_draw_px * 0.33)
+        buckle.size = Vector2(w_px * 0.30, 5)
+        node.add_child(buckle)
+        # 外枠
+        var rand_outline = ReferenceRect.new()
+        rand_outline.editor_only = false
+        rand_outline.border_color = Color(0.45, 0.05, 0.05)
+        rand_outline.border_width = 2.0
+        rand_outline.position = cr.position
+        rand_outline.size = cr.size
+        node.add_child(rand_outline)
+
     # ---------------------------------------------------------
 
     
@@ -821,7 +973,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "外への出入口（%dcm）。余裕でくぐれます。" % oh
-        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4":
+        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4", "door_to_room":
             if h > oh:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
@@ -922,7 +1074,21 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "黒板の上の方は少し背伸びが必要かもしれません。"
         "desk_1", "desk_2", "teacher_desk":
             return "学校の机（%dcm）。\n昔はこんなに小さかったですね。" % oh
-    
+        "bed":
+            return "自分のベッド（高さ%dcm）。\n背が高いと足がはみ出してしまいますね。" % oh
+        "bookshelf":
+            if h > oh:
+                return "本棚（高さ%dcm）。\nあなた（%dcm）より低い！上の棚まで余裕で手が届きますね。" % [oh, h]
+            else:
+                return "本棚（高さ%dcm）。\n上の棚に少し背伸びが必要かもしれません。" % oh
+        "desk_myroom":
+            if h > 170:
+                return "学習机（高さ%dcm）。\n少し低く感じるかもしれません。" % oh
+            else:
+                return "学習机（高さ%dcm）です。" % oh
+        "randoseru":
+            return "ランドセル。\n小学校の頃を思い出しますね。"
+
     if h > oh:
         return "オブジェクト（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, math_round(h - oh)]
     return "オブジェクト（高さ%dcm）。" % oh
