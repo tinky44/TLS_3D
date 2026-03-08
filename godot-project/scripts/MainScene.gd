@@ -7,10 +7,13 @@ var p: float = 2.0
 
 # UI用
 var ui_layer: CanvasLayer
-var sidebar: PanelContainer  # Qキーでトグル表示するステータスサイドバー
+var sidebar: PanelContainer # Qキーでトグル表示するステータスサイドバー
 var status_label: Label
 var bubble_panel: PanelContainer
 var bubble_label: Label
+
+var minimap_bg: ColorRect
+var minimap_player: ColorRect
 
 # ポーズメニュー用
 var pause_menu: Control
@@ -35,7 +38,7 @@ func _ready() -> void:
 		player.process_mode = Node.PROCESS_MODE_PAUSABLE
 		
 	_setup_ui()
-	_setup_bubble()    # bubble_panel を先に追加（下層に描画）
+	_setup_bubble() # bubble_panel を先に追加（下層に描画）
 	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_load_stage()
 
@@ -146,6 +149,22 @@ func _setup_bubble():
 func _process(_delta: float) -> void:
 	_update_ui()
 	_update_bubble()
+	_update_minimap()
+
+func _update_minimap():
+	if not player or not minimap_bg or not minimap_player: return
+	var global = get_node_or_null("/root/Global")
+	var stage_id = global.current_stage_id if global else "room"
+	var stage_w_cm = 2000.0
+	if StageBuilder.STAGES.has(stage_id):
+		stage_w_cm = float(StageBuilder.STAGES[stage_id]["width"])
+		
+	var px_cm = clamp(player.global_position.x / p, 0.0, stage_w_cm)
+	var ratio = px_cm / max(1.0, stage_w_cm)
+	
+	# clamp to keep within the bar visually
+	var target_x = ratio * minimap_bg.size.x - minimap_player.size.x * 0.5
+	minimap_player.position.x = target_x
 	
 func _update_bubble():
 	if not player or not bubble_panel: return
@@ -232,6 +251,25 @@ func _setup_ui():
 	status_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(status_label)
 
+	var speed_label = Label.new()
+	speed_label.text = "歩き速度"
+	speed_label.add_theme_color_override("font_color", Color("#495057"))
+	speed_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(speed_label)
+	
+	var speed_slider = HSlider.new()
+	speed_slider.min_value = 50.0
+	speed_slider.max_value = 600.0
+	speed_slider.step = 10.0
+	speed_slider.value = 250.0
+	speed_slider.value_changed.connect(func(v: float):
+		if player:
+			var ratio = v / 250.0
+			player.set("SPEED", v)
+			player.set("walk_speed", 12.0 * ratio)
+	)
+	vbox.add_child(speed_slider)
+
 	vbox.add_child(HSeparator.new())
 	_setup_appearance_debug(vbox)
 
@@ -240,12 +278,28 @@ func _setup_ui():
 
 	# 常時表示する「Q: ステータス」ヒントラベル
 	var hint = Label.new()
-	hint.text = "Q: ステータス"
-	hint.add_theme_font_size_override("font_size", 13)
-	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+	hint.text = "Q: ステータス設定"
+	hint.add_theme_font_size_override("font_size", 14)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	hint.add_theme_constant_override("outline_size", 4)
 	hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	hint.position = Vector2(8, 8)
+	hint.position = Vector2(20, 10)
 	ui_layer.add_child(hint)
+
+	# ステージ上の自分の位置を示す線（ミニマップ）
+	minimap_bg = ColorRect.new()
+	minimap_bg.color = Color(0, 0, 0, 0.5)
+	minimap_bg.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	minimap_bg.position = Vector2(20, 32)
+	minimap_bg.size = Vector2(200, 4)
+	ui_layer.add_child(minimap_bg)
+	
+	minimap_player = ColorRect.new()
+	minimap_player.color = Color(0.2, 0.8, 1.0, 1.0) # 水色
+	minimap_player.position = Vector2(0, -2)
+	minimap_player.size = Vector2(6, 8)
+	minimap_bg.add_child(minimap_player)
 
 	add_child(ui_layer)
 	# ui_layer は _setup_ui() で add_child 済み。_setup_bubble() / _setup_pause_menu() はその後に呼ぶ

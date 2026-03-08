@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-const SPEED = 250.0
+var SPEED: float = 250.0
 const JUMP_VELOCITY = -500.0
 const GRAVITY = 1200.0
 var CM_TO_PX: float = 2.0 # Updated in _ready from Global
