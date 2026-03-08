@@ -21,6 +21,10 @@ var current_appearance: Dictionary = {
     "shoes_color": "#e5d6ba"
 }
 
+var system_settings: Dictionary = {
+    "move_speed": 250.0
+}
+
 var current_stage_id: String = "room"
 var current_slot: int = -1 # 現在使用中のスロット番号 (-1 = 未選択)
 var slot_select_mode: String = "save" # "save" or "load"
@@ -42,6 +46,8 @@ func load_settings():
         current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
         for key in current_appearance.keys():
             current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
+        for key in system_settings.keys():
+            system_settings[key] = config.get_value("System", key, system_settings[key])
 
 func save_settings():
     var config = ConfigFile.new()
@@ -51,6 +57,8 @@ func save_settings():
     config.set_value("Player", "sex", current_params["sex"])
     for key in current_appearance.keys():
         config.set_value("Appearance", key, current_appearance[key])
+    for key in system_settings.keys():
+        config.set_value("System", key, system_settings[key])
     config.save(SAVE_PATH)
 
 func save_slot(slot: int) -> void:

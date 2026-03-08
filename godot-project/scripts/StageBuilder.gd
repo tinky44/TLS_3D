@@ -721,18 +721,21 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         door_line.color = Color(0.36, 0.25, 0.20) # ドアパネルと同じ茶色
         # w_px の中央付近に少しだけ幅を持たせて配置（幅は適当に10px程度）
         var door_w = min(10.0, w_px)
-        door_line.position = cr.position + Vector2((w_px - door_w) * 0.5, 0)
-        door_line.size = Vector2(door_w, h_draw_px)
+        
+        # 床(y=0)からドアの高さ(-h_px)までの線として描画する
+        door_line.position = Vector2(obs["x"] * cm_to_px + (w_px - door_w) * 0.5, -h_px)
+        door_line.size = Vector2(door_w, h_px)
         door_line.z_index = -1
         node.add_child(door_line)
         
         # ドアノブ
         var knob_w = 12.0
-        var knob_h = 4.0
+        var knob_h = 6.0
         var d_knob = ColorRect.new()
         d_knob.color = Color(0.7, 0.7, 0.7) # シルバー
-        # ドアの中心付近、高さの半分くらいに配置
-        d_knob.position = door_line.position + Vector2(-knob_w * 0.5 + door_w * 0.5, h_draw_px * 0.5)
+        # 床から約 90cm の位置に配置する
+        var knob_y = -90.0 * cm_to_px
+        d_knob.position = Vector2(obs["x"] * cm_to_px + (w_px - knob_w) * 0.5, knob_y)
         d_knob.size = Vector2(knob_w, knob_h)
         d_knob.z_index = -1
         node.add_child(d_knob)
