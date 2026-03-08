@@ -43,11 +43,44 @@
 
 基盤が整いましたので、次は「高身長ゆえの不便さと快感」をより具体的に実装していきますわ。
 
-#### 3-A. 理想の等身への調整（9頭身プロジェクト） ⭐⭐⭐
-- **課題**: 現在、身長が伸びても頭身（頭の大きさとの比率）が適切に変化していない。
-- **目標**: 
-    - 身長成長に合わせて頭部サイズを相対的に調整し、最大9頭身程度までモデルがシュッとしていく「成長の美しさ」を表現する。
-    - `CharacterDrawer.gd` の描画ロジック改修。
+#### 3-A. 理想の等身への調整（9頭身プロジェクト） ⭐⭐⭐ ✅完了
+- advance_term() で ratio を身長から自動計算（5.0〜9.0 clamp）済み。
+
+#### 3-F. 年齢別学校ステージ + 駅経由通学 ⭐⭐⭐ ✅完了
+
+**ユーザー要望**: 学校を「小学校・中学校・高校」に分けたい。中学以降は電車移動（駅経由）。
+
+##### 実装計画（StageBuilder.gd 中心、MainScene.gd を一部修正）
+
+**① 年齢で学校の obstacles を切り替える**
+
+`StageBuilder.gd` の `build_stage()` 内で `Global.age` を参照し、`school` ステージの中身を差し替える。
+
+```
+age  6-12 → 小学校: JIS1-4号机(高さ46-64cm)、黒板(下端90cm)、教壇
+age 13-15 → 中学校: JIS4-6号机(58-76cm)、ロッカー(180cm)、引き戸ドア
+age 16-18 → 高校  : JIS5-6号机(70-76cm)、窓、特注椅子イベント枠
+```
+
+変更箇所: `StageBuilder.gd` の `STAGES["school"]["obstacles"]` 定義を年齢分岐関数に置き換える。
+
+**② 中学以降は outdoorのドア遷移先を station に変える**
+
+`StageBuilder.gd` の `STAGES["outdoor"]` の `door_to_school` を、`age >= 13` のとき `door_to_station` に切り替える。合わせて `station` に `door_to_school` ドアを追加する。
+
+```
+小学校時代: [自室] → [outdoor] → [school]
+中学以降  : [自室] → [outdoor] → [station] → [school]
+```
+
+変更箇所:
+- `StageBuilder.gd`: `STAGES["outdoor"]` ドア遷移先を age で動的生成
+- `StageBuilder.gd`: `STAGES["station"]` に `door_to_school` ドアを追加
+- `MainScene.gd`: `_spawn_npcs("school")` 内でクラスメートの外見を age に合わせる（制服色など）
+
+**③ 学校ステージ名の表示更新**
+
+`STAGES["school"]["name"]` を age に応じて「小学校」「中学校」「高校」に動的変更。
 
 #### 3-B. コアNPC「はるか」とのコミュニケーション深化 ⭐⭐
 - **現状**: 会話はできるが、まだ単発。

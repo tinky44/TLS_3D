@@ -702,7 +702,7 @@ func _update_ui():
 	
 	var global = get_node_or_null("/root/Global")
 	var stage_id = global.current_stage_id if global else "room"
-	var stage_name = StageBuilder.STAGES[stage_id]["name"] if StageBuilder.STAGES.has(stage_id) else "Unknown"
+	var stage_name = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
 	var m = player.get("m")
 	if not m: return
 	
@@ -726,7 +726,7 @@ func _load_stage():
 	var stage_id = global.current_stage_id if global else "room"
 	
 	# 床や障害物を生成
-	StageBuilder.build_stage(stage_id, self , p)
+	StageBuilder.build_stage(stage_id, self, p, global.age if global else 0)
 	
 	_spawn_npcs(stage_id)
 
@@ -949,7 +949,8 @@ func _enter_transition_door() -> void:
 	if player and from_stage_id != "" and StageBuilder.STAGES.has(new_stage_id):
 		var return_door_id = "door_to_" + from_stage_id
 		var stage_width = float(StageBuilder.STAGES[new_stage_id]["width"])
-		for obs in StageBuilder.STAGES[new_stage_id]["obstacles"]:
+		var cur_age = global.age if global else 0
+		for obs in StageBuilder.get_obstacles(new_stage_id, cur_age):
 			if obs["id"] == return_door_id:
 				var obs_x = float(obs["x"])
 				var obs_x2 = float(obs["x2"])
