@@ -16,13 +16,15 @@ func set_data(history: Array) -> void:
 	data = history
 	queue_redraw()
 
-func animate_new_point() -> void:
+func animate_new_point(line_duration: float = 0.5) -> void:
 	_anim_progress = 0.0
 	_new_dot_scale = 0.0
 	queue_redraw()
 	var tw = create_tween()
-	tw.tween_method(func(v: float): _anim_progress = v; queue_redraw(), 0.0, 1.0, 0.5)
-	tw.parallel().tween_method(func(v: float): _new_dot_scale = v; queue_redraw(), 0.0, 1.5, 0.35)
+	# 線が line_duration 秒かけて伸びる
+	tw.tween_method(func(v: float): _anim_progress = v; queue_redraw(), 0.0, 1.0, line_duration)
+	# 線が完成した後にドットがポップイン
+	tw.tween_method(func(v: float): _new_dot_scale = v; queue_redraw(), 0.0, 1.5, 0.35)
 	tw.tween_method(func(v: float): _new_dot_scale = v; queue_redraw(), 1.5, 1.0, 0.15)
 
 func _get_pt(i: int, key: String, min_h: float, h_range: float, gw: float, gh: float) -> Vector2:

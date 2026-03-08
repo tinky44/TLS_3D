@@ -914,6 +914,7 @@ var _meas_btn_row: HBoxContainer = null
 var _measurement_showing: bool = false
 var _mini_proxy: Node2D = null
 var _mini_drawer: Node2D = null
+var _meas_graph: Control = null
 
 func _setup_measurement_panel() -> void:
 	measurement_panel = ColorRect.new()
@@ -999,6 +1000,12 @@ func _setup_measurement_panel() -> void:
 	_meas_diff_label.modulate.a = 0.0
 	vbox.add_child(_meas_diff_label)
 
+	# 成長グラフ（測定パネル内インライン表示）
+	var GrowthGraphScript = load("res://scripts/GrowthGraph.gd")
+	_meas_graph = GrowthGraphScript.new()
+	_meas_graph.custom_minimum_size = Vector2(380, 110)
+	vbox.add_child(_meas_graph)
+
 	vbox.add_child(HSeparator.new())
 
 	# 詳細テキスト（平均比較・コメント）
@@ -1081,6 +1088,17 @@ func _show_measurement_result() -> void:
 	_meas_btn_row.modulate.a = 0.0
 	_meas_diff_label.scale = Vector2(0.7, 0.7)
 	_update_mini_avatar(prev_h if prev_h > 0.0 else h)
+
+	# グラフに「現在測定中」のプレビューデータをセット（最新点を末尾に追加）
+	if _meas_graph:
+		var preview = global.growth_history.duplicate()
+		preview.append({
+			"height": h, "avg_height": avg_h,
+			"age": a, "term": global.term,
+			"diff_prev": diff_prev, "diff_avg": diff_avg,
+		})
+		_meas_graph.set_data(preview)
+		_meas_graph.animate_new_point(1.4)  # カウントアップ(1.4秒)と同期
 
 	_measurement_showing = true
 	measurement_panel.show()
