@@ -65,14 +65,16 @@ const STAGES = {
     },
     "school": {
         "name": "学校",
-        "width": 2500,
+        "width": 1600,
         "ceiling_height": 300,
         "obstacles": [
             {"id": "door_to_outdoor", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
-            {"id": "blackboard", "x": 400, "x2": 800, "height": 210, "type": "background"},
-            {"id": "desk_1", "x": 1000, "x2": 1060, "height": 70, "type": "ground"},
-            {"id": "desk_2", "x": 1150, "x2": 1210, "height": 70, "type": "ground"},
-            {"id": "teacher_desk", "x": 2000, "x2": 2150, "height": 100, "type": "ground"}
+            {"id": "blackboard", "x": 300, "x2": 800, "height": 210, "type": "background"},
+            {"id": "teacher_desk", "x": 840, "x2": 990, "height": 100, "type": "ground"},
+            {"id": "desk_1", "x": 1100, "x2": 1160, "height": 75, "type": "ground"},
+            {"id": "student_chair_1", "x": 1180, "x2": 1220, "height": 45, "type": "ground"},
+            {"id": "desk_2", "x": 1350, "x2": 1410, "height": 75, "type": "ground"},
+            {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": 45, "type": "ground"}
         ]
     },
     "myroom": {
@@ -399,7 +401,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         sw_base.size = Vector2(stage_w_px, 15)
         sch_bg.add_child(sw_base)
         # 窓（等間隔・右壁側）
-        for wx_cm in [850, 1250, 1700, 2100]:
+        for wx_cm in [850, 1200]:
             var win_w = 240 * cm_to_px
             var win_h = 140 * cm_to_px
             var win_y = -280 * cm_to_px
@@ -1554,6 +1556,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "黒板の上の方は少し背伸びが必要かもしれません。"
         "desk_1", "desk_2", "teacher_desk":
             return "学校の机（%dcm）。\n昔はこんなに小さかったですね。" % oh
+        "student_chair_1", "student_chair_2":
+            return "学校の椅子（%dcm）。\n大人には少し小さく感じますね。" % oh
         "bed":
             return "自分のベッド（高さ%dcm）。\n背が高いと足がはみ出してしまいますね。" % oh
         "bookshelf":
