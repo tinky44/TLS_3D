@@ -225,6 +225,14 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		var fwd_dir = Vector2(1, 0).rotated(head_angle)
 		var up_dir = Vector2(0, -1).rotated(head_angle)
 		
+		# 追加：髪の毛先を重力に従って下に向けるベクトル
+		var gravity_dir = Vector2(0, 1)
+		var hair_down_dir = down_dir
+		if hair_style == "long":
+			hair_down_dir = gravity_dir # ロングヘアは重力で真下に垂れる
+		else:
+			hair_down_dir = down_dir.lerp(gravity_dir, 0.5).normalized() # ショートも少し下向きに補正
+
 		# 後ろ髪の長さ決定
 		var hair_bottom_len = hr * 1.3 # ショートヘアのデフォルト
 		if hair_style == "long":
@@ -245,14 +253,27 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		# -hr*0.2 などマイナスを強めると、髪が前進して顔が隠れます。
 		var cut_dist = - hr * 0.1 # マイナス＝中心より前
 
+		var pivot = head_center + back_dir * cut_dist
+
 		# (A) 下部・顔側の頂点
-		var p_face_bottom = head_center + back_dir * cut_dist + down_dir * hair_bottom_len
+		var p_face_bottom = pivot + hair_down_dir * hair_bottom_len
 		hair_pts.append(p_face_bottom)
+		
+		# (A') 頭の中央を通るピボット（首を曲げた時の剥げ・隙間防止）
+		hair_pts.append(pivot)
 
 		# (B) 頭頂部〜後頭部の丸み（ドーム中心を上にオフセット）
 		var steps = 15
 		var min_ang = asin(cut_dist / R)
-		var max_ang = PI / 2.0
+		
+		# 髪が頭の後ろから自然に垂れる「分離点（接点）」の角度を計算
+		var sep_dir = hair_down_dir.rotated(PI / 2) # 左（後ろ）を向く法線
+		var dot_up = sep_dir.dot(up_dir)
+		var dot_back = sep_dir.dot(back_dir)
+		var max_ang = atan2(dot_back, dot_up)
+		if max_ang < min_ang:
+			max_ang += PI * 2.0
+
 		for i in range(steps + 1):
 			var t = float(i) / steps
 			var ang = lerp(min_ang, max_ang, t)
@@ -261,7 +282,11 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 			hair_pts.append(dome_center + back_dir * l_back + up_dir * l_up)
 			
 		# (C) 下部・後ろ側の頂点
-		var p_back_bottom = head_center + back_dir * R + down_dir * hair_bottom_len
+		# 分離点（一番後ろの輪郭）から毛先の方向へ垂らす
+		var l_back_sep = R * sin(max_ang)
+		var l_up_sep = R * cos(max_ang)
+		var sep_point = dome_center + back_dir * l_back_sep + up_dir * l_up_sep
+		var p_back_bottom = sep_point + hair_down_dir * hair_bottom_len
 		hair_pts.append(p_back_bottom)
 		
 		draw_polygon(hair_pts, PackedColorArray([hair_color]))
