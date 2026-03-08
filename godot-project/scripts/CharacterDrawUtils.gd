@@ -28,7 +28,7 @@ static func draw_limb(canvas: CanvasItem, p1: Vector2, p2: Vector2, width: float
     canvas.draw_circle(p1, width / 2.0, color)
     canvas.draw_circle(p2, width / 2.0, color)
 
-static func draw_trapezoid(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2, top_width: float, bottom_width: float, color: Color):
+static func draw_trapezoid(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2, top_width: float, bottom_width: float, color: Color, outline_color: Color = Color.TRANSPARENT):
     var d = p_bottom - p_top
     var length = d.length()
     if length <= 0.01:
@@ -41,6 +41,12 @@ static func draw_trapezoid(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2
         p_top - nt, p_top + nt, p_bottom + nb, p_bottom - nb
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
+    
+    if outline_color != Color.TRANSPARENT:
+        var outline_pts = PackedVector2Array([
+            p_top - nt, p_top + nt, p_bottom + nb, p_bottom - nb, p_top - nt
+        ])
+        canvas.draw_polyline(outline_pts, outline_color, 1.5)
 
 static func draw_rect(canvas: CanvasItem, p_top: Vector2, p_bottom: Vector2, width: float, color: Color):
     var d = p_bottom - p_top

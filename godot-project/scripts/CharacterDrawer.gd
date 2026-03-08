@@ -73,18 +73,19 @@ func _draw_sleeve_arm(p_torso_shoulder: Vector2, p_shoulder: Vector2, p_elbow: V
 	var sleeve_top_w = arm_w * 1.5 # 袖の肩側の太さ（肩をカバー）
 	var sleeve_bot_w = arm_w * 1.8 # 袖口の太さ（末広がり）
 
+	var outline_color = Color(0.8, 0.8, 0.8, 0.5) # 薄いグレー(半透明)
 	if tops_type == "sweater" or tops_type == "blouse":
 		# 長袖: 肩→肘 台形（末広がり）、肘→手首 台形（やや絞り）
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
-		CharacterDrawUtils.draw_trapezoid(self , p_torso_shoulder, p_elbow, sleeve_top_w, sleeve_bot_w, shirt)
-		CharacterDrawUtils.draw_trapezoid(self , p_elbow, p_hand, sleeve_bot_w, arm_w * 1.3, shirt)
+		CharacterDrawUtils.draw_trapezoid(self , p_torso_shoulder, p_elbow, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
+		CharacterDrawUtils.draw_trapezoid(self , p_elbow, p_hand, sleeve_bot_w, arm_w * 1.3, shirt, outline_color)
 	elif tops_type == "t_shirt":
 		# 半袖: 肩→上腕60%地点まで台形袖（末広がり）、残りは肌色limb
 		var sleeve_end = p_torso_shoulder.lerp(p_elbow, 0.6)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
-		CharacterDrawUtils.draw_trapezoid(self , p_torso_shoulder, sleeve_end, sleeve_top_w, sleeve_bot_w, shirt)
+		CharacterDrawUtils.draw_trapezoid(self , p_torso_shoulder, sleeve_end, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
 	else:
 		# ノースリーブ等: 通常の腕描画のみ
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
