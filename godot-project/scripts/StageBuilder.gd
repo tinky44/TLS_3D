@@ -37,6 +37,9 @@ const STAGES = {
             {"id": "door_2", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
+            {"id": "train_seat_1", "x": 240, "x2": 560, "height": 45, "type": "ground"},
+            {"id": "train_seat_2", "x": 790, "x2": 1190, "height": 45, "type": "ground"},
+            {"id": "train_seat_3", "x": 1440, "x2": 1740, "height": 45, "type": "ground"},
             {"id": "strap_1", "x": 350, "x2": 400, "height": 163, "type": "background"},
             {"id": "strap_2", "x": 950, "x2": 1000, "height": 163, "type": "background"},
             {"id": "strap_3", "x": 1550, "x2": 1600, "height": 163, "type": "background"}
@@ -239,6 +242,19 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
             ad.position = Vector2(ax * cm_to_px, -215 * cm_to_px)
             ad.size = Vector2(200 * cm_to_px, 25 * cm_to_px)
             train_bg.add_child(ad)
+        # 広告パネル（ドア上）
+        for door_cx in [140, 670, 1310, 1860]:
+            var dad = ColorRect.new()
+            dad.color = Color(0.90, 0.88, 0.92)
+            dad.position = Vector2((door_cx - 85) * cm_to_px, -210 * cm_to_px)
+            dad.size = Vector2(170 * cm_to_px, 22 * cm_to_px)
+            train_bg.add_child(dad)
+            # 広告の色帯（左端）
+            var dad_accent = ColorRect.new()
+            dad_accent.color = Color(0.25, 0.45, 0.75)
+            dad_accent.position = Vector2((door_cx - 85) * cm_to_px, -210 * cm_to_px)
+            dad_accent.size = Vector2(6 * cm_to_px, 22 * cm_to_px)
+            train_bg.add_child(dad_accent)
         # 吊り革バー
         var bar = ColorRect.new()
         bar.color = Color(0.48, 0.50, 0.55)
@@ -615,6 +631,49 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
             top_wall.z_index = -1
             node.add_child(top_wall)
 
+    elif stage_id == "train" and "door" in o_id:
+        # 電車のスライドドア（door_2 / door_3 / door_4）
+        cr.color = Color(0, 0, 0, 0)
+        var tdoor_x = obs["x"] * cm_to_px
+        var td_frame = ColorRect.new()
+        td_frame.color = Color(0.70, 0.72, 0.75)
+        td_frame.position = Vector2(tdoor_x, -h_px)
+        td_frame.size = Vector2(w_px, h_px)
+        td_frame.z_index = -1
+        node.add_child(td_frame)
+        var tglass_h = h_px * 0.62
+        var tglass = ColorRect.new()
+        tglass.color = Color(0.58, 0.70, 0.84, 0.62)
+        tglass.position = Vector2(tdoor_x + 8, -h_px + 8)
+        tglass.size = Vector2(w_px - 16, tglass_h - 8)
+        tglass.z_index = -1
+        node.add_child(tglass)
+        var tpanel = ColorRect.new()
+        tpanel.color = Color(0.62, 0.65, 0.70)
+        tpanel.position = Vector2(tdoor_x + 8, -h_px + tglass_h)
+        tpanel.size = Vector2(w_px - 16, h_px - tglass_h - 8)
+        tpanel.z_index = -1
+        node.add_child(tpanel)
+        var th_bar = ColorRect.new()
+        th_bar.color = Color(0.55, 0.57, 0.60)
+        th_bar.position = Vector2(tdoor_x + 8, -h_px + tglass_h - 4)
+        th_bar.size = Vector2(w_px - 16, 8)
+        th_bar.z_index = -1
+        node.add_child(th_bar)
+        var tc_gask = ColorRect.new()
+        tc_gask.color = Color(0.18, 0.18, 0.20)
+        tc_gask.position = Vector2(tdoor_x + w_px * 0.5 - 3, -h_px)
+        tc_gask.size = Vector2(6, h_px)
+        tc_gask.z_index = -1
+        node.add_child(tc_gask)
+        for tgx in [tdoor_x + 3, tdoor_x + w_px - 6]:
+            var tgask = ColorRect.new()
+            tgask.color = Color(0.15, 0.15, 0.18)
+            tgask.position = Vector2(tgx, -h_px)
+            tgask.size = Vector2(3, h_px)
+            tgask.z_index = -1
+            node.add_child(tgask)
+
     elif "door" in o_id:
         # 元の梁（上枠）の色をドアの枠色に合わせる
         cr.color = Color(0.24, 0.16, 0.12)
@@ -683,6 +742,38 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         knob_panel.z_index = -1
         node.add_child(knob_panel)
         
+    elif "train_seat" in o_id:
+        # 電車のロングシート（壁際ベンチ）
+        cr.color = Color(0, 0, 0, 0)
+        # 背もたれ（座面の上に積み上がる）
+        var backrest = ColorRect.new()
+        backrest.color = Color(0.22, 0.16, 0.48) # 紺色ファブリック（暗め）
+        backrest.position = Vector2(cr.position.x, cr.position.y - 36 * cm_to_px)
+        backrest.size = Vector2(w_px, 36 * cm_to_px)
+        node.add_child(backrest)
+        # 座面
+        var cushion = ColorRect.new()
+        cushion.color = Color(0.30, 0.22, 0.58) # 紺色ファブリック
+        cushion.position = cr.position
+        cushion.size = cr.size
+        node.add_child(cushion)
+        # 座面上の縫い目ライン（意匠）
+        var seam_count = int(w_px / (30 * cm_to_px))
+        for si in range(1, seam_count):
+            var seam = ColorRect.new()
+            seam.color = Color(0.20, 0.14, 0.42)
+            seam.position = Vector2(cr.position.x + si * (w_px / seam_count), cr.position.y + 4 * cm_to_px)
+            seam.size = Vector2(2, cr.size.y - 6 * cm_to_px)
+            node.add_child(seam)
+        # 座席仕切り板（両端と中間）
+        var divider_count = int(w_px / (60 * cm_to_px)) + 1
+        for di in range(divider_count):
+            var divider = ColorRect.new()
+            divider.color = Color(0.55, 0.55, 0.60)
+            divider.position = Vector2(cr.position.x + di * (w_px / (divider_count - 1)) - 2, cr.position.y - 36 * cm_to_px)
+            divider.size = Vector2(4, (36 + 45) * cm_to_px)
+            node.add_child(divider)
+
     elif "strap" in o_id:
         # 吊り革の場合は、上のバーから伸びる紐と輪っかを描く
         var strap_line = Line2D.new()
@@ -1398,6 +1489,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "浴室の天井（%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "浴室の天井（%dcm）。低めの天井ですね。" % oh
+        "train_seat_1", "train_seat_2", "train_seat_3":
+            return "電車のロングシート（%dcm）。\n長身だと膝が高くなりがちです。" % oh
         "strap_1", "strap_2", "strap_3":
             if h >= oh:
                 return "吊り革バー（%dcm）が目の前！楽々手が届きます！" % oh
