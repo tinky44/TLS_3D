@@ -16,7 +16,7 @@ var current_appearance: Dictionary = {
     "tops_type": "t_shirt",
     "tops_color": "#ab82a8",
     "bottoms_type": "pants",
-    "bottoms_color": "#e5d6ba",
+    "bottoms_color": "#3a5f8a",
     "shoes_type": "sneakers",
     "shoes_color": "#e5d6ba"
 }
