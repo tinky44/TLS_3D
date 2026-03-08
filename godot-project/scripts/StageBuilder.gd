@@ -40,9 +40,16 @@ const STAGES = {
             {"id": "train_seat_1", "x": 240, "x2": 560, "height": 45, "type": "ground"},
             {"id": "train_seat_2", "x": 790, "x2": 1190, "height": 45, "type": "ground"},
             {"id": "train_seat_3", "x": 1440, "x2": 1740, "height": 45, "type": "ground"},
-            {"id": "strap_1", "x": 350, "x2": 400, "height": 163, "type": "background"},
-            {"id": "strap_2", "x": 950, "x2": 1000, "height": 163, "type": "background"},
-            {"id": "strap_3", "x": 1550, "x2": 1600, "height": 163, "type": "background"}
+            {"id": "strap_1", "x": 280, "x2": 320, "height": 163, "type": "background"},
+            {"id": "strap_2", "x": 380, "x2": 420, "height": 163, "type": "background"},
+            {"id": "strap_3", "x": 480, "x2": 520, "height": 163, "type": "background"},
+            {"id": "strap_4", "x": 830, "x2": 870, "height": 163, "type": "background"},
+            {"id": "strap_5", "x": 930, "x2": 970, "height": 163, "type": "background"},
+            {"id": "strap_6", "x": 1030, "x2": 1070, "height": 163, "type": "background"},
+            {"id": "strap_7", "x": 1130, "x2": 1170, "height": 163, "type": "background"},
+            {"id": "strap_8", "x": 1480, "x2": 1520, "height": 163, "type": "background"},
+            {"id": "strap_9", "x": 1580, "x2": 1620, "height": 163, "type": "background"},
+            {"id": "strap_10", "x": 1680, "x2": 1720, "height": 163, "type": "background"}
         ]
     },
     "outdoor": {
@@ -258,7 +265,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         # 吊り革バー
         var bar = ColorRect.new()
         bar.color = Color(0.48, 0.50, 0.55)
-        bar.position = Vector2(250 * cm_to_px, -(stage_data["ceiling_height"] - 67) * cm_to_px)
+        bar.position = Vector2(250 * cm_to_px, - (stage_data["ceiling_height"] - 67) * cm_to_px)
         bar.size = Vector2(1500 * cm_to_px, 5)
         train_bg.add_child(bar)
         parent_node.add_child(train_bg)
@@ -295,7 +302,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         roof.polygon = PackedVector2Array([
             Vector2(house_x - 15, -house_h),
             Vector2(house_x + house_w + 15, -house_h),
-            Vector2(house_x + house_w * 0.5, -(house_h + 110 * cm_to_px)),
+            Vector2(house_x + house_w * 0.5, - (house_h + 110 * cm_to_px)),
         ])
         roof.color = Color(0.50, 0.20, 0.10)
         out_bg.add_child(roof)
@@ -303,7 +310,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         for hwin_x_off in [20.0, house_w - 80.0]:
             var hw = ColorRect.new()
             hw.color = Color(0.68, 0.83, 1.0, 0.85)
-            hw.position = Vector2(house_x + hwin_x_off * cm_to_px, -(house_h - 45 * cm_to_px))
+            hw.position = Vector2(house_x + hwin_x_off * cm_to_px, - (house_h - 45 * cm_to_px))
             hw.size = Vector2(55 * cm_to_px, 65 * cm_to_px)
             out_bg.add_child(hw)
             var hwf = ReferenceRect.new()
@@ -331,14 +338,14 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         # 駅の看板
         var st_sign = ColorRect.new()
         st_sign.color = Color(0.12, 0.28, 0.62)
-        st_sign.position = Vector2(st_x + 8 * cm_to_px, -(st_h - 15 * cm_to_px))
+        st_sign.position = Vector2(st_x + 8 * cm_to_px, - (st_h - 15 * cm_to_px))
         st_sign.size = Vector2(st_w - 16 * cm_to_px, 28 * cm_to_px)
         out_bg.add_child(st_sign)
         # 駅の窓
         for stw_x in [0, 1]:
             var stw = ColorRect.new()
             stw.color = Color(0.55, 0.72, 0.90, 0.75)
-            stw.position = Vector2(st_x + (15 + stw_x * 90) * cm_to_px, -(st_h - 60 * cm_to_px))
+            stw.position = Vector2(st_x + (15 + stw_x * 90) * cm_to_px, - (st_h - 60 * cm_to_px))
             stw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
             out_bg.add_child(stw)
         # ===== 学校（door_to_school の背後） =====
@@ -355,7 +362,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
             for col in range(2):
                 var scw = ColorRect.new()
                 scw.color = Color(0.58, 0.74, 0.90, 0.78)
-                scw.position = Vector2(sc_x + (18 + col * 90) * cm_to_px, -(sc_h - (30 + row * 110) * cm_to_px))
+                scw.position = Vector2(sc_x + (18 + col * 90) * cm_to_px, - (sc_h - (30 + row * 110) * cm_to_px))
                 scw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
                 out_bg.add_child(scw)
         parent_node.add_child(out_bg)
@@ -438,6 +445,34 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         ceil_visual.position = Vector2(0, -ceil_h_px - ceil_thick_px)
         ceil_visual.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
         ceiling_body.add_child(ceil_visual)
+        
+        # 天井高さを示す黄色線
+        var c_line = Line2D.new()
+        c_line.add_point(Vector2(0, -ceil_h_px))
+        c_line.add_point(Vector2(stage_data["width"] * cm_to_px, -ceil_h_px))
+        c_line.width = 3.0
+        c_line.default_color = Color(1.0, 1.0, 0.2, 0.9) # やや明るい黄色
+        c_line.z_as_relative = false
+        c_line.z_index = 10
+        ceiling_body.add_child(c_line)
+        
+        # 表示タイミングによっては見えないため、複数箇所にラベルを配置する
+        for lx in [300, 1000, 1700]:
+            if lx > stage_data["width"]:
+                break
+            var c_label = Label.new()
+            c_label.text = "Ceiling Height\n%d cm" % int(stage_data["ceiling_height"])
+            c_label.add_theme_color_override("font_color", Color.WHITE)
+            c_label.add_theme_color_override("font_outline_color", Color.BLACK)
+            c_label.add_theme_constant_override("outline_size", 4)
+            c_label.add_theme_font_size_override("font_size", 14)
+            c_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+            c_label.size = Vector2(400 * cm_to_px, 40)
+            c_label.position = Vector2((lx - 200) * cm_to_px, -ceil_h_px - 45)
+            c_label.z_as_relative = false
+            c_label.z_index = 10
+            ceiling_body.add_child(c_label)
+
         parent_node.add_child(ceiling_body)
 
     # 障害物の生成
@@ -747,13 +782,13 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         cr.color = Color(0, 0, 0, 0)
         # 背もたれ（座面の上に積み上がる）
         var backrest = ColorRect.new()
-        backrest.color = Color(0.22, 0.16, 0.48) # 紺色ファブリック（暗め）
+        backrest.color = Color(0.25, 0.45, 0.28) # 緑色ファブリック（暗め）
         backrest.position = Vector2(cr.position.x, cr.position.y - 36 * cm_to_px)
         backrest.size = Vector2(w_px, 36 * cm_to_px)
         node.add_child(backrest)
         # 座面
         var cushion = ColorRect.new()
-        cushion.color = Color(0.30, 0.22, 0.58) # 紺色ファブリック
+        cushion.color = Color(0.32, 0.55, 0.35) # 緑色ファブリック
         cushion.position = cr.position
         cushion.size = cr.size
         node.add_child(cushion)
@@ -761,7 +796,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         var seam_count = int(w_px / (30 * cm_to_px))
         for si in range(1, seam_count):
             var seam = ColorRect.new()
-            seam.color = Color(0.20, 0.14, 0.42)
+            seam.color = Color(0.20, 0.40, 0.22)
             seam.position = Vector2(cr.position.x + si * (w_px / seam_count), cr.position.y + 4 * cm_to_px)
             seam.size = Vector2(2, cr.size.y - 6 * cm_to_px)
             node.add_child(seam)
@@ -775,6 +810,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
             node.add_child(divider)
 
     elif "strap" in o_id:
+        cr.color = Color(0, 0, 0, 0)
         # 吊り革の場合は、上のバーから伸びる紐と輪っかを描く
         var strap_line = Line2D.new()
         strap_line.add_point(Vector2(cr.position.x + w_px * 0.5, cr.position.y))
@@ -790,7 +826,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         ring.position = Vector2(cr.position.x + w_px * 0.5 - 12, cr.position.y + 40)
         node.add_child(ring)
         var ring_hole = ColorRect.new()
-        ring_hole.color = main_color
+        ring_hole.color = Color(0, 0, 0, 0)
         ring_hole.size = Vector2(14, 14)
         ring_hole.position = ring.position + Vector2(5, 5)
         node.add_child(ring_hole)
@@ -1239,9 +1275,9 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         cr.color = Color(0, 0, 0, 0)
         var frame_color = Color(0.45, 0.30, 0.18)
         var shelf_color = Color(0.52, 0.35, 0.20)
-        var ft = 7.0   # フレーム厚
-        var st = 5.0   # 棚板厚
-        var shelf_count = 4  # 棚板4枚 = 5段
+        var ft = 7.0 # フレーム厚
+        var st = 5.0 # 棚板厚
+        var shelf_count = 4 # 棚板4枚 = 5段
 
         # 左右のパネル（正面から見た柱）
         for dx in [0.0, w_px - ft]:
@@ -1491,7 +1527,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "浴室の天井（%dcm）。低めの天井ですね。" % oh
         "train_seat_1", "train_seat_2", "train_seat_3":
             return "電車のロングシート（%dcm）。\n長身だと膝が高くなりがちです。" % oh
-        "strap_1", "strap_2", "strap_3":
+        "strap_1", "strap_2", "strap_3", "strap_4", "strap_5", "strap_6", "strap_7", "strap_8", "strap_9", "strap_10":
             if h >= oh:
                 return "吊り革バー（%dcm）が目の前！楽々手が届きます！" % oh
             else:
