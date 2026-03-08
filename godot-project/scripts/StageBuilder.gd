@@ -96,10 +96,10 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     floor_shape.position = Vector2(stage_data["width"] * cm_to_px / 2.0, 50)
     floor_body.add_child(floor_shape)
     
-    # 床の描画 (フローリング風の少し明るい茶色)
+    # 床の描画 (フローリング風の少し落ち着いた茶色)
     var floor_rect = ColorRect.new()
     if stage_id == "room":
-        floor_rect.color = Color(0.65, 0.52, 0.40) # フローリング風
+        floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風（濃いめ）
     else:
         floor_rect.color = Color(0.2, 0.2, 0.2)
     floor_rect.position = Vector2(0, 0)
@@ -117,23 +117,23 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
         
-        # 壁紙 上半分（薄いクリーム色）
+        # 壁紙 上半分（濃いグレー系に変更して見やすくする）
         var wall_top = ColorRect.new()
-        wall_top.color = Color(0.96, 0.94, 0.90)
+        wall_top.color = Color(0.40, 0.45, 0.50)
         wall_top.position = Vector2(0, -ceil_h_px)
         wall_top.size = Vector2(stage_w_px, ceil_h_px * 0.5)
         wall_bg.add_child(wall_top)
         
-        # 壁紙 下半分（やや暖かみのあるベージュ、ツートンカラー）
+        # 壁紙 下半分（さらに濃いネイビー/グレーに変更）
         var wall_btm = ColorRect.new()
-        wall_btm.color = Color(0.92, 0.88, 0.82)
+        wall_btm.color = Color(0.30, 0.35, 0.40)
         wall_btm.position = Vector2(0, -ceil_h_px * 0.5)
         wall_btm.size = Vector2(stage_w_px, ceil_h_px * 0.5)
         wall_bg.add_child(wall_btm)
         
         # 見切り材（上下の壁紙の境界の帯）
         var molding = ColorRect.new()
-        molding.color = Color(0.85, 0.78, 0.70)
+        molding.color = Color(0.20, 0.20, 0.25)
         molding.position = Vector2(0, -ceil_h_px * 0.5 - 4)
         molding.size = Vector2(stage_w_px, 8)
         wall_bg.add_child(molding)

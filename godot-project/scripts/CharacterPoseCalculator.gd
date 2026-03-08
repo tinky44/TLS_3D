@@ -25,8 +25,8 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
 
     var y_crotch = -m["leg"] * p
     var head_h = m["head"] * p
-    var waist_l = (m["arm"] * 0.45) * p
-    var chest_l = (m["arm"] * 0.55) * p
+    var navel_l = (m["arm"] * 0.40) * p # へそ〜股下 (胴体下部 40%)
+    var chest_l = (m["arm"] * 0.60) * p # 肩〜へそ (胴体上部 60%)
     var thigh_l = (m["leg"] * 0.55) * p
     var shin_l = (m["leg"] * 0.45) * p
 
@@ -50,7 +50,7 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         # 二分探索で t(0~2) を求める簡略版
         for i in range(15):
             var mid_t = (min_t + max_t) / 2.0
-            var hp = _eval_crouch_height(mid_t, p, thigh_l, shin_l, waist_l, chest_l, head_h, m)
+            var hp = _eval_crouch_height(mid_t, p, thigh_l, shin_l, navel_l, chest_l, head_h, m)
             if hp > target_px: min_t = mid_t
             else: max_t = mid_t
         best_t = (min_t + max_t) / 2.0
@@ -77,12 +77,12 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var cx = 0.0
     var cy = y_crotch
     
-    var hip_ang = waist_angle * 0.5
-    var wx = cx + waist_l * sin(hip_ang)
-    var wy = cy - waist_l * cos(hip_ang) # 腰（へそ付近）
+    var navel_ang = waist_angle * 0.5
+    var navel_x = cx + navel_l * sin(navel_ang)
+    var navel_y = cy - navel_l * cos(navel_ang) # へそ
     
-    var sx = wx + chest_l * sin(waist_angle)
-    var sy = wy - chest_l * cos(waist_angle) # 肩中心
+    var sx = navel_x + chest_l * sin(waist_angle)
+    var sy = navel_y - chest_l * cos(waist_angle) # 肩中心
     
     var nx = sx + 2.0 * (m["neck"] * p) * sin(waist_angle)
     var ny = sy - 2.0 * (m["neck"] * p) * cos(waist_angle) # 顎下
@@ -91,14 +91,22 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var hy = ny - (head_h / 2.0) * cos(waist_angle) # 頭中心
 
     # 正面・背面ビュー用: 背骨のX座標は中心(cx)に固定、Yのみ腰曲げで圧縮
-    var front_wx = cx
-    var front_wy = cy - waist_l * cos(hip_ang)
+    var front_navel_x = cx
+    var front_navel_y = cy - navel_l * cos(navel_ang)
     var front_sx = cx
-    var front_sy = front_wy - chest_l * cos(waist_angle)
+    var front_sy = front_navel_y - chest_l * cos(waist_angle)
     var front_nx = cx
     var front_ny = front_sy - 2.0 * (m["neck"] * p) * cos(waist_angle)
     var front_hx = cx
     var front_hy = front_ny - (head_h / 2.0) * cos(waist_angle * 0.5)
+
+    # 腰/骨盤（パンツやスカートのライン。下から20%付近）
+    var hip_l = (m["arm"] * 0.20) * p
+    var hip_ang = waist_angle * 0.25
+    var hip_x = cx + hip_l * sin(hip_ang)
+    var hip_y = cy - hip_l * cos(hip_ang)
+    var front_hip_x = cx
+    var front_hip_y = cy - hip_l * cos(hip_ang)
 
     return {
         "leg_l_angle": leg_l_angle,
@@ -107,19 +115,21 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         "arm_r_angle": arm_r_angle,
         "knee_l": knee_l,
         "knee_r": knee_r,
-        "waist_angle": waist_angle,
+        "waist_angle": waist_angle, # 胴体の曲がり角度
         "y_crotch": y_crotch,
         "head_h": head_h,
-        "waist_l": waist_l,
+        "navel_l": navel_l,
         "chest_l": chest_l,
         "thigh_l": thigh_l,
         "shin_l": shin_l,
         "cx": cx, "cy": cy,
-        "wx": wx, "wy": wy,
+        "navel_x": navel_x, "navel_y": navel_y,
+        "hip_x": hip_x, "hip_y": hip_y,
         "sx": sx, "sy": sy,
         "nx": nx, "ny": ny,
         "hx": hx, "hy": hy,
-        "front_wx": front_wx, "front_wy": front_wy,
+        "front_navel_x": front_navel_x, "front_navel_y": front_navel_y,
+        "front_hip_x": front_hip_x, "front_hip_y": front_hip_y,
         "front_sx": front_sx, "front_sy": front_sy,
         "front_nx": front_nx, "front_ny": front_ny,
         "front_hx": front_hx, "front_hy": front_hy
