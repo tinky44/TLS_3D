@@ -360,10 +360,19 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
 		hem_w = base_width * 1.5
 
-	# 側面ではシンプルに台形描画
+	# 側面では脚の動きに合わせて前後に傾け、裾を広げる
 	if facing == "side":
-		var p_bottom = Vector2(waist_pos.x, waist_pos.y + skirt_length)
-		CharacterDrawUtils.draw_trapezoid(self , waist_pos, p_bottom, base_width, hem_w, bottoms_color)
+		var avg_leg_ang = (d["leg_l_angle"] + d["leg_r_angle"]) / 2.0
+		# スカートは布のため重力で多少下に向くので、脚の角度を完全に追うのではなく軽減(0.7倍)
+		var skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
+		var p_bottom = Vector2(waist_pos.x + skirt_length * cos(skirt_ang), waist_pos.y + skirt_length * sin(skirt_ang))
+
+		# 歩幅(spread_angle)や屈み具合(bend_factor)に応じて側面から見た裾幅(hem_w)を拡大
+		var spread_angle = abs(d["leg_l_angle"] - d["leg_r_angle"])
+		var bend_factor = abs(avg_leg_ang) / 90.0 # 90度で1.0
+		var actual_hem_w = hem_w + (skirt_length * (spread_angle / 180.0)) + (skirt_length * bend_factor * 0.5)
+
+		CharacterDrawUtils.draw_trapezoid(self , waist_pos, p_bottom, base_width, actual_hem_w, bottoms_color)
 		return
 
 	# 正面・背面の場合、足の広がりに合わせて裾を広げ、下端に緩やかなカーブを付ける
