@@ -630,6 +630,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_E:
 			if _in_dialogue:
 				_advance_dialogue()
+			elif _measurement_showing:
+				_on_next_term_pressed()
 			elif _nearby_transition_door != "":
 				_enter_transition_door()
 			elif _nearby_height_scale:
