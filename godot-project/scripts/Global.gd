@@ -92,12 +92,23 @@ func record_growth_history(source: String = "measurement") -> void:
 		"source": source
 	})
 
+# ─── イベントキュー ────────────────────────────────────────────
+var pending_events: Array = []
+
+func queue_event(event_id: String) -> void:
+	pending_events.append(event_id)
+
+func pop_next_event() -> String:
+	if pending_events.is_empty(): return ""
+	return pending_events.pop_front()
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
 	record_growth_history("growth")
+	queue_event("semester_start")  # 学期開始イベントを予約
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)

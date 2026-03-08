@@ -21,6 +21,7 @@ var visual_height_cm: float = 158.0
 var m: Dictionary
 var appearance: Dictionary
 
+var npc_id: String = ""  # コアNPCの識別子。空文字は匿名NPC
 var look_pitch: float = 0.0
 var look_head_angle: float = 0.0
 var _reaction_label: Label = null
