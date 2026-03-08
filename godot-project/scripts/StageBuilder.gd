@@ -18,8 +18,8 @@ const STAGES = {
             {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
             {"id": "window_1", "x": 920, "x2": 1050, "height": 160, "type": "background"},
             {"id": "door_to_myroom", "x": 1080, "x2": 1155, "height": 200, "type": "overhead"},
-            {"id": "side_door", "x": 1175, "x2": 1205, "height": 200, "type": "overhead"},
-            {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
+            {"id": "side_door", "x": 1375, "x2": 1405, "height": 200, "type": "overhead"},
+            {"id": "washstand", "x": 1450, "x2": 1550, "height": 180, "type": "background"},
             {"id": "bathroom_wall", "x": 1610, "x2": 1630, "height": 240, "type": "background"},
             {"id": "bathroom_bg", "x": 1640, "x2": 1950, "height": 240, "type": "background"},
             {"id": "bathroom_ceiling", "x": 1640, "x2": 1950, "height": 200, "type": "overhead"},
@@ -138,14 +138,14 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         var molding_color: Color
         var baseboard_color: Color
         if stage_id == "myroom":
-            wall_top_color = Color(0.90, 0.85, 0.78)  # 温かみのあるクリーム
+            wall_top_color = Color(0.90, 0.85, 0.78) # 温かみのあるクリーム
             wall_btm_color = Color(0.80, 0.75, 0.68)
-            molding_color  = Color(0.65, 0.55, 0.40)
+            molding_color = Color(0.65, 0.55, 0.40)
             baseboard_color = Color(0.45, 0.30, 0.18)
         else:
-            wall_top_color = Color(0.40, 0.45, 0.50)  # グレー系（リビング）
+            wall_top_color = Color(0.40, 0.45, 0.50) # グレー系（リビング）
             wall_btm_color = Color(0.30, 0.35, 0.40)
-            molding_color  = Color(0.20, 0.20, 0.25)
+            molding_color = Color(0.20, 0.20, 0.25)
             baseboard_color = Color(0.35, 0.24, 0.18)
 
         # 壁紙 上半分
