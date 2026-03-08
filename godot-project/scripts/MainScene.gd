@@ -71,6 +71,12 @@ const DIALOGUES: Dictionary = {
 			{"speaker": "保健の先生", "text": "身長計の前に立って。はい、背筋をまっすぐ。"},
 		],
 	},
+	"player": {
+		"new_semester": [
+			{"speaker": "（主人公）", "text": "新学期か……。"},
+			{"speaker": "（主人公）", "text": "また少し背が伸びた気がする。今学期も色々あるんだろうな。"},
+		],
+	},
 }
 
 func _ready() -> void:
@@ -721,13 +727,15 @@ func _load_stage():
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)
 
-	# ペンディングイベントを処理（始業式など）
+	# ペンディングイベントを処理（始業式は教室に入ったときのみ発火）
 	if global:
 		var ev = global.pop_next_event()
 		if ev == "semester_start":
-			# 少し遅延させてステージが描画されてから始業式を開始
-			await get_tree().create_timer(0.5).timeout
-			_start_dialogue("teacher", "semester_start")
+			if stage_id == "school":
+				await get_tree().create_timer(0.5).timeout
+				_start_dialogue("teacher", "semester_start")
+			else:
+				global.pending_events.push_front(ev)  # 教室に入るまで保留
 
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
@@ -1180,6 +1188,9 @@ func _on_next_term_pressed() -> void:
 	await tw2.finished
 	fade.queue_free()
 
+	# 自室で主人公モノローグ
+	_start_dialogue("player", "new_semester")
+
 func _setup_history_panel() -> void:
 	if history_panel:
 		return
@@ -1259,7 +1270,6 @@ func _toggle_history_panel() -> void:
 		int(global.term) + 1
 	]
 	growth_graph.set_data(global.growth_history)
-	growth_graph.animate_new_point()
 
 	history_panel.show()
 	get_tree().paused = true
