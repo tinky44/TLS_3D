@@ -1342,6 +1342,31 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
                 bx += bw + 1.0
                 c_idx += 1
 
+    elif o_id == "blackboard":
+        # 床から100cm〜高さ(210cm)までの範囲とする
+        var bottom_cm = 100.0
+        var board_h_cm = h_cm - bottom_cm
+        
+        cr.color = Color(0.18, 0.35, 0.22) # 深草色（黒板の緑）
+        cr.position.y = - h_px # 上端
+        cr.size.y = board_h_cm * cm_to_px
+        
+        # 木枠
+        var frame = ReferenceRect.new()
+        frame.editor_only = false
+        frame.border_color = Color(0.45, 0.28, 0.15)
+        frame.border_width = 6.0
+        frame.position = cr.position
+        frame.size = cr.size
+        node.add_child(frame)
+        
+        # 粉受け（チョーク置き）を黒板下端に配置
+        var chalk_tray = ColorRect.new()
+        chalk_tray.color = Color(0.40, 0.22, 0.12)
+        chalk_tray.position = Vector2(cr.position.x - 4, cr.position.y + cr.size.y)
+        chalk_tray.size = Vector2(cr.size.x + 8, 6)
+        node.add_child(chalk_tray)
+
     elif o_id == "desk_myroom":
         cr.color = Color(0, 0, 0, 0)
         # 天板
