@@ -367,10 +367,25 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 		var skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
 		var p_bottom = Vector2(waist_pos.x + skirt_length * cos(skirt_ang), waist_pos.y + skirt_length * sin(skirt_ang))
 
-		# 歩幅(spread_angle)や屈み具合(bend_factor)に応じて側面から見た裾幅(hem_w)を拡大
-		var spread_angle = abs(d["leg_l_angle"] - d["leg_r_angle"])
-		var bend_factor = abs(avg_leg_ang) / 90.0 # 90度で1.0
-		var actual_hem_w = hem_w + (skirt_length * (spread_angle / 180.0)) + (skirt_length * bend_factor * 0.5)
+		# 脚の実際のX座標の広がりを計算して、裾が脚を覆い隠せるようにする
+		var ang_l = d["leg_l_angle"] * PI / 180.0 + PI / 2.0
+		var ang_r = d["leg_r_angle"] * PI / 180.0 + PI / 2.0
+		var knee_l_x = d["cx"] + d["thigh_l"] * cos(ang_l)
+		var knee_r_x = d["cx"] + d["thigh_l"] * cos(ang_r)
+		
+		var min_x = min(knee_l_x, knee_r_x)
+		var max_x = max(knee_l_x, knee_r_x)
+		
+		if bottoms_type == "skirt_long":
+			# ロングスカートの場合は足首のX座標まで考慮する
+			var ankle_l_x = knee_l_x + d["shin_l"] * cos(ang_l + d["knee_l"])
+			var ankle_r_x = knee_r_x + d["shin_l"] * cos(ang_r + d["knee_r"])
+			min_x = min(min_x, min(ankle_l_x, ankle_r_x))
+			max_x = max(max_x, max(ankle_l_x, ankle_r_x))
+			
+		var spread_x = abs(max_x - min_x)
+		var spread_margin = 1.4 if bottoms_type == "skirt_long" else 1.2
+		var actual_hem_w = max(hem_w, spread_x * spread_margin)
 
 		CharacterDrawUtils.draw_trapezoid(self , waist_pos, p_bottom, base_width, actual_hem_w, bottoms_color)
 		return
