@@ -113,7 +113,48 @@ func get_body_measurements() -> Dictionary:
     var shoulder: float = head * 1.872 if sex == "female" else head * 1.935
     var leg: float = h * leg_ratio / 100.0
     var arm: float = h - leg - head - 2.0 * neck
-    var arm_length: float = head * 2.7
+    var arm_length: float = arm
+    var hand: float = (h / ratio) * 0.83
+    
+    var landmarks: Dictionary = {
+        "top": h,
+        "eye": h - head * 0.5,
+        "chin": h - head,
+        "shoulder": h - head - 2.0 * neck,
+        "nipple": h - head - 2.0 * neck - arm * 0.25,
+        "navel": h - head - 2.0 * neck - arm * 0.60,
+        "hip": h - head - 2.0 * neck - arm * 0.80,
+        "crotch": leg,
+        "knee": leg * 0.5,
+        "foot": 0.0
+    }
+    
+    return {
+        "height": h,
+        "head": head,
+        "headWidth": head_width,
+        "neck": neck,
+        "shoulder": shoulder,
+        "arm": arm,
+        "armLength": arm_length,
+        "leg": leg,
+        "hand": hand,
+        "landmarks": landmarks
+    }
+
+func get_custom_body_measurements(params: Dictionary) -> Dictionary:
+    var h: float = params.get("height", 180.0)
+    var ratio: float = params.get("ratio", 7.5)
+    var leg_ratio: float = params.get("legRatio", 48.0)
+    var sex: String = params.get("sex", "female")
+    
+    var head: float = h / ratio
+    var head_width: float = head * 0.702
+    var neck: float = head * 0.220
+    var shoulder: float = head * 1.872 if sex == "female" else head * 1.935
+    var leg: float = h * leg_ratio / 100.0
+    var arm: float = h - leg - head - 2.0 * neck
+    var arm_length: float = arm
     var hand: float = (h / ratio) * 0.83
     
     var landmarks: Dictionary = {

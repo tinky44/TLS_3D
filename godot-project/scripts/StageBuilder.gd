@@ -7,7 +7,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 240,
         "obstacles": [
-            {"id": "door_exit", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
+            {"id": "door_to_outdoor", "x": 100, "x2": 180, "height": 200, "type": "overhead"},
             {"id": "ceiling_light", "x": 280, "x2": 380, "height": 200, "type": "overhead"},
             {"id": "refrigerator", "x": 380, "x2": 440, "height": 180, "type": "background"},
             {"id": "kitchen_cabinet", "x": 440, "x2": 550, "height": 180, "type": "background"},
@@ -17,9 +17,9 @@ const STAGES = {
             {"id": "chair", "x": 700, "x2": 740, "height": 45, "type": "ground"},
             {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
             {"id": "window_1", "x": 920, "x2": 1050, "height": 160, "type": "background"},
-            {"id": "poster", "x": 1080, "x2": 1130, "height": 170, "type": "background"},
-            {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
-            {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
+            {"id": "door_to_myroom", "x": 1080, "x2": 1155, "height": 200, "type": "overhead"},
+            {"id": "side_door", "x": 1375, "x2": 1405, "height": 200, "type": "overhead"},
+            {"id": "washstand", "x": 1450, "x2": 1550, "height": 180, "type": "background"},
             {"id": "bathroom_wall", "x": 1610, "x2": 1630, "height": 240, "type": "background"},
             {"id": "bathroom_bg", "x": 1640, "x2": 1950, "height": 240, "type": "background"},
             {"id": "bathroom_ceiling", "x": 1640, "x2": 1950, "height": 200, "type": "overhead"},
@@ -33,42 +33,63 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 230,
         "obstacles": [
-            {"id": "door_1", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
+            {"id": "door_to_outdoor", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
             {"id": "door_2", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
-            {"id": "strap_1", "x": 350, "x2": 400, "height": 163, "type": "background"},
-            {"id": "strap_2", "x": 950, "x2": 1000, "height": 163, "type": "background"},
-            {"id": "strap_3", "x": 1550, "x2": 1600, "height": 163, "type": "background"}
+            {"id": "train_seat_1", "x": 240, "x2": 560, "height": 45, "type": "ground"},
+            {"id": "train_seat_2", "x": 790, "x2": 1190, "height": 45, "type": "ground"},
+            {"id": "train_seat_3", "x": 1440, "x2": 1740, "height": 45, "type": "ground"},
+            {"id": "strap_1", "x": 280, "x2": 320, "height": 163, "type": "background"},
+            {"id": "strap_2", "x": 380, "x2": 420, "height": 163, "type": "background"},
+            {"id": "strap_3", "x": 480, "x2": 520, "height": 163, "type": "background"},
+            {"id": "strap_4", "x": 830, "x2": 870, "height": 163, "type": "background"},
+            {"id": "strap_5", "x": 930, "x2": 970, "height": 163, "type": "background"},
+            {"id": "strap_6", "x": 1030, "x2": 1070, "height": 163, "type": "background"},
+            {"id": "strap_7", "x": 1130, "x2": 1170, "height": 163, "type": "background"},
+            {"id": "strap_8", "x": 1480, "x2": 1520, "height": 163, "type": "background"},
+            {"id": "strap_9", "x": 1580, "x2": 1620, "height": 163, "type": "background"},
+            {"id": "strap_10", "x": 1680, "x2": 1720, "height": 163, "type": "background"}
         ]
     },
     "outdoor": {
         "name": "屋外",
-        "width": 5000,
+        "width": 1200,
         "ceiling_height": null,
         "obstacles": [
-            {"id": "public_phone", "x": 300, "x2": 345, "height": 200, "type": "background"},
-            {"id": "pedestrian_signal", "x": 700, "x2": 725, "height": 300, "type": "background"},
-            {"id": "streetlight", "x": 1200, "x2": 1225, "height": 500, "type": "background"},
-            {"id": "traffic_signal", "x": 1800, "x2": 1825, "height": 500, "type": "background"},
-            {"id": "utility_pole", "x": 2500, "x2": 2525, "height": 1000, "type": "background"},
-            {"id": "footbridge", "x": 3100, "x2": 3500, "height": 500, "type": "overhead"},
-            {"id": "house_2f", "x": 3800, "x2": 4050, "height": 700, "type": "background"},
-            {"id": "house_3f", "x": 4200, "x2": 4500, "height": 900, "type": "background"},
-            {"id": "vending_machine", "x": 4700, "x2": 4780, "height": 183, "type": "ground"},
-            {"id": "curve_mirror", "x": 4850, "x2": 4900, "height": 300, "type": "background"}
+            {"id": "door_to_room", "x": 50, "x2": 130, "height": 200, "type": "overhead"},
+            {"id": "vending_machine", "x": 450, "x2": 530, "height": 183, "type": "ground"},
+            {"id": "door_to_train", "x": 650, "x2": 750, "height": 200, "type": "overhead"},
+            {"id": "door_to_school", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"}
         ]
     },
     "school": {
         "name": "学校",
-        "width": 2500,
+        "width": 1600,
         "ceiling_height": 300,
         "obstacles": [
-            {"id": "school_door_1", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
-            {"id": "blackboard", "x": 400, "x2": 800, "height": 210, "type": "background"},
-            {"id": "desk_1", "x": 1000, "x2": 1060, "height": 70, "type": "ground"},
-            {"id": "desk_2", "x": 1150, "x2": 1210, "height": 70, "type": "ground"},
-            {"id": "teacher_desk", "x": 2000, "x2": 2150, "height": 100, "type": "ground"}
+            {"id": "door_to_outdoor", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
+            {"id": "blackboard", "x": 300, "x2": 800, "height": 210, "type": "background"},
+            {"id": "teacher_desk", "x": 840, "x2": 990, "height": 100, "type": "ground"},
+            {"id": "desk_1", "x": 1100, "x2": 1160, "height": 75, "type": "ground"},
+            {"id": "student_chair_1", "x": 1180, "x2": 1220, "height": 45, "type": "ground"},
+            {"id": "desk_2", "x": 1350, "x2": 1410, "height": 75, "type": "ground"},
+            {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": 45, "type": "ground"}
+        ]
+    },
+    "myroom": {
+        "name": "自分の部屋",
+        "width": 700,
+        "ceiling_height": 240,
+        "obstacles": [
+            {"id": "bed", "x": 30, "x2": 230, "height": 50, "type": "ground"},
+            {"id": "window_myroom", "x": 50, "x2": 190, "height": 155, "type": "background"},
+            {"id": "ceiling_light", "x": 250, "x2": 345, "height": 200, "type": "overhead"},
+            {"id": "bookshelf", "x": 295, "x2": 355, "height": 195, "type": "background"},
+            {"id": "chair", "x": 360, "x2": 400, "height": 45, "type": "ground"},
+            {"id": "desk_myroom", "x": 415, "x2": 550, "height": 72, "type": "ground"},
+            {"id": "randoseru", "x": 560, "x2": 597, "height": 35, "type": "ground"},
+            {"id": "door_to_room", "x": 600, "x2": 675, "height": 200, "type": "overhead"}
         ]
     }
 }
@@ -98,54 +119,314 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     
     # 床の描画 (フローリング風の少し落ち着いた茶色)
     var floor_rect = ColorRect.new()
-    if stage_id == "room":
-        floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風（濃いめ）
-    else:
-        floor_rect.color = Color(0.2, 0.2, 0.2)
+    if stage_id == "room" or stage_id == "myroom" or stage_id == "school":
+        floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風
+    elif stage_id == "outdoor":
+        floor_rect.color = Color(0.55, 0.53, 0.50) # アスファルト
+    else: # train
+        floor_rect.color = Color(0.32, 0.32, 0.35) # 電車の床
     floor_rect.position = Vector2(0, 0)
     floor_rect.size = Vector2(stage_data["width"] * cm_to_px, 100)
     floor_body.add_child(floor_rect)
     
     parent_node.add_child(floor_body)
 
-    # 部屋（room）の場合、背景を壁紙風にする
-    if stage_id == "room" and stage_data.get("ceiling_height") != null:
+    # 部屋系ステージの場合、背景を壁紙風にする
+    if (stage_id == "room" or stage_id == "myroom") and stage_data.get("ceiling_height") != null:
         var wall_bg = Node2D.new()
         wall_bg.set_meta("is_stage_obj", true)
         wall_bg.z_index = -5 # 一番奥に配置する
-        
+
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
-        
-        # 壁紙 上半分（濃いグレー系に変更して見やすくする）
+
+        # ステージ別の壁紙カラー
+        var wall_top_color: Color
+        var wall_btm_color: Color
+        var molding_color: Color
+        var baseboard_color: Color
+        if stage_id == "myroom":
+            wall_top_color = Color(0.90, 0.85, 0.78) # 温かみのあるクリーム
+            wall_btm_color = Color(0.80, 0.75, 0.68)
+            molding_color = Color(0.65, 0.55, 0.40)
+            baseboard_color = Color(0.45, 0.30, 0.18)
+        else:
+            wall_top_color = Color(0.40, 0.45, 0.50) # グレー系（リビング）
+            wall_btm_color = Color(0.30, 0.35, 0.40)
+            molding_color = Color(0.20, 0.20, 0.25)
+            baseboard_color = Color(0.35, 0.24, 0.18)
+
+        # 壁紙 上半分
         var wall_top = ColorRect.new()
-        wall_top.color = Color(0.40, 0.45, 0.50)
+        wall_top.color = wall_top_color
         wall_top.position = Vector2(0, -ceil_h_px)
         wall_top.size = Vector2(stage_w_px, ceil_h_px * 0.5)
         wall_bg.add_child(wall_top)
-        
-        # 壁紙 下半分（さらに濃いネイビー/グレーに変更）
+
+        # 壁紙 下半分
         var wall_btm = ColorRect.new()
-        wall_btm.color = Color(0.30, 0.35, 0.40)
+        wall_btm.color = wall_btm_color
         wall_btm.position = Vector2(0, -ceil_h_px * 0.5)
         wall_btm.size = Vector2(stage_w_px, ceil_h_px * 0.5)
         wall_bg.add_child(wall_btm)
-        
+
         # 見切り材（上下の壁紙の境界の帯）
         var molding = ColorRect.new()
-        molding.color = Color(0.20, 0.20, 0.25)
+        molding.color = molding_color
         molding.position = Vector2(0, -ceil_h_px * 0.5 - 4)
         molding.size = Vector2(stage_w_px, 8)
         wall_bg.add_child(molding)
-        
+
         # 巾木（床と壁の境界の板）
         var baseboard = ColorRect.new()
-        baseboard.color = Color(0.35, 0.24, 0.18) # 暗めの茶色
+        baseboard.color = baseboard_color
         baseboard.position = Vector2(0, -15)
         baseboard.size = Vector2(stage_w_px, 15)
         wall_bg.add_child(baseboard)
-        
+
         parent_node.add_child(wall_bg)
+
+    # 電車ステージ: 車内背景
+    elif stage_id == "train" and stage_data.get("ceiling_height") != null:
+        var train_bg = Node2D.new()
+        train_bg.set_meta("is_stage_obj", true)
+        train_bg.z_index = -5
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var stage_w_px = stage_data["width"] * cm_to_px
+        # 壁（アイボリー上部）
+        var tw_top = ColorRect.new()
+        tw_top.color = Color(0.90, 0.88, 0.84)
+        tw_top.position = Vector2(0, -ceil_h_px)
+        tw_top.size = Vector2(stage_w_px, ceil_h_px * 0.55)
+        train_bg.add_child(tw_top)
+        # 腰壁（青みグレー）
+        var tw_btm = ColorRect.new()
+        tw_btm.color = Color(0.45, 0.52, 0.60)
+        tw_btm.position = Vector2(0, -ceil_h_px * 0.45)
+        tw_btm.size = Vector2(stage_w_px, ceil_h_px * 0.45)
+        train_bg.add_child(tw_btm)
+        # 見切り材
+        var tw_mold = ColorRect.new()
+        tw_mold.color = Color(0.35, 0.38, 0.42)
+        tw_mold.position = Vector2(0, -ceil_h_px * 0.45 - 5)
+        tw_mold.size = Vector2(stage_w_px, 10)
+        train_bg.add_child(tw_mold)
+        # 窓（ドア間3か所）
+        for wx in [320, 900, 1490]:
+            var win_w = 200 * cm_to_px
+            var win_h = 85 * cm_to_px
+            var win_y = -185 * cm_to_px
+            var wf = ColorRect.new()
+            wf.color = Color(0.38, 0.40, 0.43)
+            wf.position = Vector2(wx * cm_to_px - 5, win_y - 5)
+            wf.size = Vector2(win_w + 10, win_h + 10)
+            train_bg.add_child(wf)
+            var wg = ColorRect.new()
+            wg.color = Color(0.55, 0.70, 0.88, 0.72)
+            wg.position = Vector2(wx * cm_to_px, win_y)
+            wg.size = Vector2(win_w, win_h)
+            train_bg.add_child(wg)
+            var wsky = ColorRect.new()
+            wsky.color = Color(0.62, 0.82, 0.98, 0.5)
+            wsky.position = Vector2(wx * cm_to_px + 5, win_y + 5)
+            wsky.size = Vector2(win_w - 10, win_h * 0.55)
+            train_bg.add_child(wsky)
+            # 窓の中桟
+            var wmid = ColorRect.new()
+            wmid.color = Color(0.38, 0.40, 0.43)
+            wmid.position = Vector2(wx * cm_to_px, win_y + win_h * 0.55 - 2)
+            wmid.size = Vector2(win_w, 5)
+            train_bg.add_child(wmid)
+        # 蛍光灯帯（天井）
+        for lx in [180, 600, 1020, 1440, 1800]:
+            var fl = ColorRect.new()
+            fl.color = Color(1.0, 0.98, 0.90)
+            fl.position = Vector2(lx * cm_to_px, -ceil_h_px + 2)
+            fl.size = Vector2(200 * cm_to_px, 10)
+            train_bg.add_child(fl)
+        # 広告パネル（窓上）
+        for ax in [320, 900, 1490]:
+            var ad = ColorRect.new()
+            ad.color = Color(0.82, 0.82, 0.86)
+            ad.position = Vector2(ax * cm_to_px, -215 * cm_to_px)
+            ad.size = Vector2(200 * cm_to_px, 25 * cm_to_px)
+            train_bg.add_child(ad)
+        # 広告パネル（ドア上）
+        for door_cx in [140, 670, 1310, 1860]:
+            var dad = ColorRect.new()
+            dad.color = Color(0.90, 0.88, 0.92)
+            dad.position = Vector2((door_cx - 85) * cm_to_px, -210 * cm_to_px)
+            dad.size = Vector2(170 * cm_to_px, 22 * cm_to_px)
+            train_bg.add_child(dad)
+            # 広告の色帯（左端）
+            var dad_accent = ColorRect.new()
+            dad_accent.color = Color(0.25, 0.45, 0.75)
+            dad_accent.position = Vector2((door_cx - 85) * cm_to_px, -210 * cm_to_px)
+            dad_accent.size = Vector2(6 * cm_to_px, 22 * cm_to_px)
+            train_bg.add_child(dad_accent)
+        # 吊り革バー
+        var bar = ColorRect.new()
+        bar.color = Color(0.48, 0.50, 0.55)
+        bar.position = Vector2(250 * cm_to_px, - (stage_data["ceiling_height"] - 67) * cm_to_px)
+        bar.size = Vector2(1500 * cm_to_px, 5)
+        train_bg.add_child(bar)
+        parent_node.add_child(train_bg)
+
+    # 屋外ステージ: 空と建物の背景
+    elif stage_id == "outdoor":
+        var out_bg = Node2D.new()
+        out_bg.set_meta("is_stage_obj", true)
+        out_bg.z_index = -10
+        var stage_w_px = stage_data["width"] * cm_to_px
+        # 空（上）
+        var sky_top = ColorRect.new()
+        sky_top.color = Color(0.42, 0.68, 0.96)
+        sky_top.position = Vector2(0, -600 * cm_to_px)
+        sky_top.size = Vector2(stage_w_px, 400 * cm_to_px)
+        out_bg.add_child(sky_top)
+        # 空（下・薄く）
+        var sky_btm = ColorRect.new()
+        sky_btm.color = Color(0.62, 0.82, 0.98)
+        sky_btm.position = Vector2(0, -200 * cm_to_px)
+        sky_btm.size = Vector2(stage_w_px, 200 * cm_to_px)
+        out_bg.add_child(sky_btm)
+        # ===== 家の外観（左端、door_to_roomの右隣） =====
+        var house_x = 130 * cm_to_px
+        var house_w = 290 * cm_to_px
+        var house_h = 240 * cm_to_px
+        var h_wall = ColorRect.new()
+        h_wall.color = Color(0.92, 0.88, 0.80)
+        h_wall.position = Vector2(house_x, -house_h)
+        h_wall.size = Vector2(house_w, house_h)
+        out_bg.add_child(h_wall)
+        # 屋根（三角形）
+        var roof = Polygon2D.new()
+        roof.polygon = PackedVector2Array([
+            Vector2(house_x - 15, -house_h),
+            Vector2(house_x + house_w + 15, -house_h),
+            Vector2(house_x + house_w * 0.5, - (house_h + 110 * cm_to_px)),
+        ])
+        roof.color = Color(0.50, 0.20, 0.10)
+        out_bg.add_child(roof)
+        # 家の窓2つ
+        for hwin_x_off in [20.0, house_w - 80.0]:
+            var hw = ColorRect.new()
+            hw.color = Color(0.68, 0.83, 1.0, 0.85)
+            hw.position = Vector2(house_x + hwin_x_off * cm_to_px, - (house_h - 45 * cm_to_px))
+            hw.size = Vector2(55 * cm_to_px, 65 * cm_to_px)
+            out_bg.add_child(hw)
+            var hwf = ReferenceRect.new()
+            hwf.editor_only = false
+            hwf.border_color = Color(0.50, 0.45, 0.38)
+            hwf.border_width = 3.0
+            hwf.position = hw.position
+            hwf.size = hw.size
+            out_bg.add_child(hwf)
+        # 家の外壁の巾木
+        var hbase = ColorRect.new()
+        hbase.color = Color(0.70, 0.60, 0.48)
+        hbase.position = Vector2(house_x, -15 * cm_to_px)
+        hbase.size = Vector2(house_w, 15 * cm_to_px)
+        out_bg.add_child(hbase)
+        # ===== 駅ビル（door_to_train の背後） =====
+        var st_x = 620 * cm_to_px
+        var st_w = 180 * cm_to_px
+        var st_h = 320 * cm_to_px
+        var st_wall = ColorRect.new()
+        st_wall.color = Color(0.72, 0.74, 0.78)
+        st_wall.position = Vector2(st_x, -st_h)
+        st_wall.size = Vector2(st_w, st_h)
+        out_bg.add_child(st_wall)
+        # 駅の看板
+        var st_sign = ColorRect.new()
+        st_sign.color = Color(0.12, 0.28, 0.62)
+        st_sign.position = Vector2(st_x + 8 * cm_to_px, - (st_h - 15 * cm_to_px))
+        st_sign.size = Vector2(st_w - 16 * cm_to_px, 28 * cm_to_px)
+        out_bg.add_child(st_sign)
+        # 駅の窓
+        for stw_x in [0, 1]:
+            var stw = ColorRect.new()
+            stw.color = Color(0.55, 0.72, 0.90, 0.75)
+            stw.position = Vector2(st_x + (15 + stw_x * 90) * cm_to_px, - (st_h - 60 * cm_to_px))
+            stw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
+            out_bg.add_child(stw)
+        # ===== 学校（door_to_school の背後） =====
+        var sc_x = 1020 * cm_to_px
+        var sc_w = 200 * cm_to_px
+        var sc_h = 380 * cm_to_px
+        var sc_wall = ColorRect.new()
+        sc_wall.color = Color(0.82, 0.80, 0.72)
+        sc_wall.position = Vector2(sc_x, -sc_h)
+        sc_wall.size = Vector2(sc_w, sc_h)
+        out_bg.add_child(sc_wall)
+        # 学校の窓（格子状）
+        for row in range(3):
+            for col in range(2):
+                var scw = ColorRect.new()
+                scw.color = Color(0.58, 0.74, 0.90, 0.78)
+                scw.position = Vector2(sc_x + (18 + col * 90) * cm_to_px, - (sc_h - (30 + row * 110) * cm_to_px))
+                scw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
+                out_bg.add_child(scw)
+        parent_node.add_child(out_bg)
+
+    # 学校ステージ: 教室背景
+    elif stage_id == "school" and stage_data.get("ceiling_height") != null:
+        var sch_bg = Node2D.new()
+        sch_bg.set_meta("is_stage_obj", true)
+        sch_bg.z_index = -5
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var stage_w_px = stage_data["width"] * cm_to_px
+        # 壁（上部 クリーム色）
+        var sw_top = ColorRect.new()
+        sw_top.color = Color(0.92, 0.90, 0.80)
+        sw_top.position = Vector2(0, -ceil_h_px)
+        sw_top.size = Vector2(stage_w_px, ceil_h_px * 0.60)
+        sch_bg.add_child(sw_top)
+        # 腰壁（グリーン系）
+        var sw_btm = ColorRect.new()
+        sw_btm.color = Color(0.48, 0.62, 0.42)
+        sw_btm.position = Vector2(0, -ceil_h_px * 0.40)
+        sw_btm.size = Vector2(stage_w_px, ceil_h_px * 0.40)
+        sch_bg.add_child(sw_btm)
+        # 見切り材
+        var sw_mold = ColorRect.new()
+        sw_mold.color = Color(0.40, 0.38, 0.30)
+        sw_mold.position = Vector2(0, -ceil_h_px * 0.40 - 5)
+        sw_mold.size = Vector2(stage_w_px, 10)
+        sch_bg.add_child(sw_mold)
+        # 巾木
+        var sw_base = ColorRect.new()
+        sw_base.color = Color(0.35, 0.25, 0.15)
+        sw_base.position = Vector2(0, -15)
+        sw_base.size = Vector2(stage_w_px, 15)
+        sch_bg.add_child(sw_base)
+        # 窓（等間隔・右壁側）
+        for wx_cm in [850, 1200]:
+            var win_w = 240 * cm_to_px
+            var win_h = 140 * cm_to_px
+            var win_y = -280 * cm_to_px
+            var wf2 = ColorRect.new()
+            wf2.color = Color(0.55, 0.52, 0.45)
+            wf2.position = Vector2(wx_cm * cm_to_px - 5, win_y - 5)
+            wf2.size = Vector2(win_w + 10, win_h + 10)
+            sch_bg.add_child(wf2)
+            var wg2 = ColorRect.new()
+            wg2.color = Color(0.62, 0.80, 0.95, 0.72)
+            wg2.position = Vector2(wx_cm * cm_to_px, win_y)
+            wg2.size = Vector2(win_w, win_h)
+            sch_bg.add_child(wg2)
+            var wsky2 = ColorRect.new()
+            wsky2.color = Color(0.48, 0.72, 0.98, 0.45)
+            wsky2.position = Vector2(wx_cm * cm_to_px + 5, win_y + 5)
+            wsky2.size = Vector2(win_w - 10, win_h * 0.65)
+            sch_bg.add_child(wsky2)
+            # 窓の中桟
+            var wmid2 = ColorRect.new()
+            wmid2.color = Color(0.55, 0.52, 0.45)
+            wmid2.position = Vector2(wx_cm * cm_to_px, win_y + win_h * 0.65 - 3)
+            wmid2.size = Vector2(win_w, 6)
+            sch_bg.add_child(wmid2)
+        parent_node.add_child(sch_bg)
 
     # 天井の生成
     if stage_data.get("ceiling_height") != null:
@@ -166,13 +447,41 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
         ceil_visual.position = Vector2(0, -ceil_h_px - ceil_thick_px)
         ceil_visual.size = Vector2(stage_data["width"] * cm_to_px, ceil_thick_px)
         ceiling_body.add_child(ceil_visual)
+        
+        # 天井高さを示す黄色線
+        var c_line = Line2D.new()
+        c_line.add_point(Vector2(0, -ceil_h_px))
+        c_line.add_point(Vector2(stage_data["width"] * cm_to_px, -ceil_h_px))
+        c_line.width = 3.0
+        c_line.default_color = Color(1.0, 1.0, 0.2, 0.9) # やや明るい黄色
+        c_line.z_as_relative = false
+        c_line.z_index = 10
+        ceiling_body.add_child(c_line)
+        
+        # 表示タイミングによっては見えないため、複数箇所にラベルを配置する
+        for lx in [300, 1000, 1700]:
+            if lx > stage_data["width"]:
+                break
+            var c_label = Label.new()
+            c_label.text = "Ceiling Height\n%d cm" % int(stage_data["ceiling_height"])
+            c_label.add_theme_color_override("font_color", Color.WHITE)
+            c_label.add_theme_color_override("font_outline_color", Color.BLACK)
+            c_label.add_theme_constant_override("outline_size", 4)
+            c_label.add_theme_font_size_override("font_size", 14)
+            c_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+            c_label.size = Vector2(400 * cm_to_px, 40)
+            c_label.position = Vector2((lx - 200) * cm_to_px, -ceil_h_px - 45)
+            c_label.z_as_relative = false
+            c_label.z_index = 10
+            ceiling_body.add_child(c_label)
+
         parent_node.add_child(ceiling_body)
 
     # 障害物の生成
     for obs in stage_data["obstacles"]:
-        _build_obstacle(obs, parent_node, cm_to_px)
+        _build_obstacle(obs, parent_node, cm_to_px, stage_id)
 
-static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) -> void:
+static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, stage_id: String = "") -> void:
     var w_cm = obs["x2"] - obs["x"]
     var w_px = w_cm * cm_to_px
     var h_cm = obs["height"]
@@ -262,30 +571,145 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
     # IDに応じた装飾の追加 (ドアの取っ手、吊り革の丸、鏡の枠など)
     # ---------------------------------------------------------
     var o_id = obs["id"]
-    if o_id == "door_exit":
-        # 横から見た出入口
+    if o_id == "door_to_outdoor":
         cr.color = Color(0, 0, 0, 0)
-        # 暗い外の空間
-        var outside = ColorRect.new()
-        outside.color = Color(0.08, 0.08, 0.12)
-        outside.position = Vector2(0, -h_px)
-        outside.size = Vector2(obs["x2"] * cm_to_px, h_px + 50)
-        outside.z_index = -2
-        node.add_child(outside)
-        # 右縦フレーム（壁端の柱）
-        var post = ColorRect.new()
-        post.color = Color(0.24, 0.16, 0.12)
-        post.position = Vector2(obs["x"] * cm_to_px + w_px * 0.7, -h_px)
-        post.size = Vector2(w_px * 0.3, h_px)
-        post.z_index = -1
-        node.add_child(post)
-        # 上部の梁（出入口上の壁）
-        var top_wall = ColorRect.new()
-        top_wall.color = Color(0.85, 0.82, 0.78)
-        top_wall.position = Vector2(0, y_pos)
-        top_wall.size = Vector2(obs["x2"] * cm_to_px, h_draw_px + 40)
-        top_wall.z_index = -1
-        node.add_child(top_wall)
+        var door_x = obs["x"] * cm_to_px
+        if stage_id == "train":
+            # 電車のスライドドア（ステンレス製）
+            var d_frame = ColorRect.new()
+            d_frame.color = Color(0.70, 0.72, 0.75)
+            d_frame.position = Vector2(door_x, -h_px)
+            d_frame.size = Vector2(w_px, h_px)
+            d_frame.z_index = -1
+            node.add_child(d_frame)
+            # ガラス部分（上62%）
+            var glass_h = h_px * 0.62
+            var glass = ColorRect.new()
+            glass.color = Color(0.58, 0.70, 0.84, 0.62)
+            glass.position = Vector2(door_x + 8, -h_px + 8)
+            glass.size = Vector2(w_px - 16, glass_h - 8)
+            glass.z_index = -1
+            node.add_child(glass)
+            # 不透明パネル（下38%）
+            var panel = ColorRect.new()
+            panel.color = Color(0.62, 0.65, 0.70)
+            panel.position = Vector2(door_x + 8, -h_px + glass_h)
+            panel.size = Vector2(w_px - 16, h_px - glass_h - 8)
+            panel.z_index = -1
+            node.add_child(panel)
+            # 横桟（ガラスとパネルの境界）
+            var h_bar = ColorRect.new()
+            h_bar.color = Color(0.55, 0.57, 0.60)
+            h_bar.position = Vector2(door_x + 8, -h_px + glass_h - 4)
+            h_bar.size = Vector2(w_px - 16, 8)
+            h_bar.z_index = -1
+            node.add_child(h_bar)
+            # 中央のゴムパッキン（縦線）
+            var center_gask = ColorRect.new()
+            center_gask.color = Color(0.18, 0.18, 0.20)
+            center_gask.position = Vector2(door_x + w_px * 0.5 - 3, -h_px)
+            center_gask.size = Vector2(6, h_px)
+            center_gask.z_index = -1
+            node.add_child(center_gask)
+            # 戸先ゴム（左右端）
+            for gx in [door_x + 3, door_x + w_px - 6]:
+                var gask = ColorRect.new()
+                gask.color = Color(0.15, 0.15, 0.18)
+                gask.position = Vector2(gx, -h_px)
+                gask.size = Vector2(3, h_px)
+                gask.z_index = -1
+                node.add_child(gask)
+        elif stage_id == "school":
+            # 学校の出口ドア（ガラス入り引き戸）
+            var d_frame2 = ColorRect.new()
+            d_frame2.color = Color(0.28, 0.20, 0.14)
+            d_frame2.position = Vector2(door_x, -h_px)
+            d_frame2.size = Vector2(w_px, h_px)
+            d_frame2.z_index = -1
+            node.add_child(d_frame2)
+            # ガラス上半分
+            var glass2 = ColorRect.new()
+            glass2.color = Color(0.62, 0.78, 0.90, 0.58)
+            glass2.position = Vector2(door_x + 10, -h_px + 10)
+            glass2.size = Vector2(w_px - 20, h_px * 0.52)
+            glass2.z_index = -1
+            node.add_child(glass2)
+            # 中間横桟
+            var h_bar2 = ColorRect.new()
+            h_bar2.color = Color(0.22, 0.16, 0.10)
+            h_bar2.position = Vector2(door_x, -h_px + h_px * 0.52 + 8)
+            h_bar2.size = Vector2(w_px, 8)
+            h_bar2.z_index = -1
+            node.add_child(h_bar2)
+            # ドアノブ
+            var knob_sc = ColorRect.new()
+            knob_sc.color = Color(0.78, 0.68, 0.18)
+            knob_sc.position = Vector2(door_x + w_px * 0.78, -h_px * 0.52)
+            knob_sc.size = Vector2(10, 18)
+            knob_sc.z_index = -1
+            node.add_child(knob_sc)
+        else: # room stage: 家の玄関（暗い外の空間）
+            var outside = ColorRect.new()
+            outside.color = Color(0.08, 0.08, 0.12)
+            outside.position = Vector2(0, -h_px)
+            outside.size = Vector2(obs["x2"] * cm_to_px, h_px + 50)
+            outside.z_index = -2
+            node.add_child(outside)
+            var post = ColorRect.new()
+            post.color = Color(0.24, 0.16, 0.12)
+            post.position = Vector2(obs["x"] * cm_to_px + w_px * 0.7, -h_px)
+            post.size = Vector2(w_px * 0.3, h_px)
+            post.z_index = -1
+            node.add_child(post)
+            var top_wall = ColorRect.new()
+            top_wall.color = Color(0.85, 0.82, 0.78)
+            top_wall.position = Vector2(0, y_pos)
+            top_wall.size = Vector2(obs["x2"] * cm_to_px, h_draw_px + 40)
+            top_wall.z_index = -1
+            node.add_child(top_wall)
+
+    elif stage_id == "train" and "door" in o_id:
+        # 電車のスライドドア（door_2 / door_3 / door_4）
+        cr.color = Color(0, 0, 0, 0)
+        var tdoor_x = obs["x"] * cm_to_px
+        var td_frame = ColorRect.new()
+        td_frame.color = Color(0.70, 0.72, 0.75)
+        td_frame.position = Vector2(tdoor_x, -h_px)
+        td_frame.size = Vector2(w_px, h_px)
+        td_frame.z_index = -1
+        node.add_child(td_frame)
+        var tglass_h = h_px * 0.62
+        var tglass = ColorRect.new()
+        tglass.color = Color(0.58, 0.70, 0.84, 0.62)
+        tglass.position = Vector2(tdoor_x + 8, -h_px + 8)
+        tglass.size = Vector2(w_px - 16, tglass_h - 8)
+        tglass.z_index = -1
+        node.add_child(tglass)
+        var tpanel = ColorRect.new()
+        tpanel.color = Color(0.62, 0.65, 0.70)
+        tpanel.position = Vector2(tdoor_x + 8, -h_px + tglass_h)
+        tpanel.size = Vector2(w_px - 16, h_px - tglass_h - 8)
+        tpanel.z_index = -1
+        node.add_child(tpanel)
+        var th_bar = ColorRect.new()
+        th_bar.color = Color(0.55, 0.57, 0.60)
+        th_bar.position = Vector2(tdoor_x + 8, -h_px + tglass_h - 4)
+        th_bar.size = Vector2(w_px - 16, 8)
+        th_bar.z_index = -1
+        node.add_child(th_bar)
+        var tc_gask = ColorRect.new()
+        tc_gask.color = Color(0.18, 0.18, 0.20)
+        tc_gask.position = Vector2(tdoor_x + w_px * 0.5 - 3, -h_px)
+        tc_gask.size = Vector2(6, h_px)
+        tc_gask.z_index = -1
+        node.add_child(tc_gask)
+        for tgx in [tdoor_x + 3, tdoor_x + w_px - 6]:
+            var tgask = ColorRect.new()
+            tgask.color = Color(0.15, 0.15, 0.18)
+            tgask.position = Vector2(tgx, -h_px)
+            tgask.size = Vector2(3, h_px)
+            tgask.z_index = -1
+            node.add_child(tgask)
 
     elif "door" in o_id:
         # 元の梁（上枠）の色をドアの枠色に合わせる
@@ -355,7 +779,40 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         knob_panel.z_index = -1
         node.add_child(knob_panel)
         
+    elif "train_seat" in o_id:
+        # 電車のロングシート（壁際ベンチ）
+        cr.color = Color(0, 0, 0, 0)
+        # 背もたれ（座面の上に積み上がる）
+        var backrest = ColorRect.new()
+        backrest.color = Color(0.25, 0.45, 0.28) # 緑色ファブリック（暗め）
+        backrest.position = Vector2(cr.position.x, cr.position.y - 36 * cm_to_px)
+        backrest.size = Vector2(w_px, 36 * cm_to_px)
+        node.add_child(backrest)
+        # 座面
+        var cushion = ColorRect.new()
+        cushion.color = Color(0.32, 0.55, 0.35) # 緑色ファブリック
+        cushion.position = cr.position
+        cushion.size = cr.size
+        node.add_child(cushion)
+        # 座面上の縫い目ライン（意匠）
+        var seam_count = int(w_px / (30 * cm_to_px))
+        for si in range(1, seam_count):
+            var seam = ColorRect.new()
+            seam.color = Color(0.20, 0.40, 0.22)
+            seam.position = Vector2(cr.position.x + si * (w_px / seam_count), cr.position.y + 4 * cm_to_px)
+            seam.size = Vector2(2, cr.size.y - 6 * cm_to_px)
+            node.add_child(seam)
+        # 座席仕切り板（両端と中間）
+        var divider_count = int(w_px / (60 * cm_to_px)) + 1
+        for di in range(divider_count):
+            var divider = ColorRect.new()
+            divider.color = Color(0.55, 0.55, 0.60)
+            divider.position = Vector2(cr.position.x + di * (w_px / (divider_count - 1)) - 2, cr.position.y - 36 * cm_to_px)
+            divider.size = Vector2(4, (36 + 45) * cm_to_px)
+            node.add_child(divider)
+
     elif "strap" in o_id:
+        cr.color = Color(0, 0, 0, 0)
         # 吊り革の場合は、上のバーから伸びる紐と輪っかを描く
         var strap_line = Line2D.new()
         strap_line.add_point(Vector2(cr.position.x + w_px * 0.5, cr.position.y))
@@ -371,7 +828,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         ring.position = Vector2(cr.position.x + w_px * 0.5 - 12, cr.position.y + 40)
         node.add_child(ring)
         var ring_hole = ColorRect.new()
-        ring_hole.color = main_color
+        ring_hole.color = Color(0, 0, 0, 0)
         ring_hole.size = Vector2(14, 14)
         ring_hole.position = ring.position + Vector2(5, 5)
         node.add_child(ring_hole)
@@ -782,6 +1239,191 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         ceiling_fill.z_index = -1
         node.add_child(ceiling_fill)
 
+    elif o_id == "bed":
+        cr.color = Color(0, 0, 0, 0)
+        # フレーム（木製・茶色）
+        var bed_frame = ColorRect.new()
+        bed_frame.color = Color(0.40, 0.25, 0.15)
+        bed_frame.position = cr.position
+        bed_frame.size = cr.size
+        node.add_child(bed_frame)
+        # マットレス
+        var mattress = ColorRect.new()
+        mattress.color = Color(0.93, 0.90, 0.85)
+        mattress.position = cr.position + Vector2(6, 6)
+        mattress.size = Vector2(w_px - 22, h_draw_px - 6)
+        node.add_child(mattress)
+        # 枕（右端＝ヘッドボード側）
+        var pillow = ColorRect.new()
+        pillow.color = Color(0.98, 0.96, 0.90)
+        var p_w = w_px * 0.18
+        pillow.position = cr.position + Vector2(w_px - p_w - 16, 8)
+        pillow.size = Vector2(p_w, h_draw_px * 0.55)
+        node.add_child(pillow)
+        # ヘッドボード（右端の縦板）
+        var headboard = ColorRect.new()
+        headboard.color = Color(0.35, 0.22, 0.12)
+        headboard.position = Vector2(obs["x"] * cm_to_px + w_px - 16, cr.position.y - 35)
+        headboard.size = Vector2(16, h_draw_px + 35)
+        node.add_child(headboard)
+        # フットボード（左端の短い縦板）
+        var footboard = ColorRect.new()
+        footboard.color = Color(0.35, 0.22, 0.12)
+        footboard.position = Vector2(obs["x"] * cm_to_px, cr.position.y - 15)
+        footboard.size = Vector2(14, h_draw_px + 15)
+        node.add_child(footboard)
+
+    elif o_id == "bookshelf":
+        cr.color = Color(0, 0, 0, 0)
+        var frame_color = Color(0.45, 0.30, 0.18)
+        var shelf_color = Color(0.52, 0.35, 0.20)
+        var ft = 7.0 # フレーム厚
+        var st = 5.0 # 棚板厚
+        var shelf_count = 4 # 棚板4枚 = 5段
+
+        # 左右のパネル（正面から見た柱）
+        for dx in [0.0, w_px - ft]:
+            var panel = ColorRect.new()
+            panel.color = frame_color
+            panel.position = Vector2(cr.position.x + dx, cr.position.y)
+            panel.size = Vector2(ft, h_draw_px)
+            node.add_child(panel)
+
+        # 上下のパネル
+        for dy in [0.0, h_draw_px - ft]:
+            var plank = ColorRect.new()
+            plank.color = frame_color
+            plank.position = Vector2(cr.position.x, cr.position.y + dy)
+            plank.size = Vector2(w_px, ft)
+            node.add_child(plank)
+
+        # 背板（少し暗い茶色）
+        var back = ColorRect.new()
+        back.color = Color(0.30, 0.20, 0.12)
+        back.position = Vector2(cr.position.x + ft, cr.position.y + ft)
+        back.size = Vector2(w_px - ft * 2, h_draw_px - ft * 2)
+        node.add_child(back)
+
+        # 棚板（横仕切り）
+        var inner_h = h_draw_px - ft * 2
+        var section_h = inner_h / (shelf_count + 1)
+        for i in range(1, shelf_count + 1):
+            var shelf = ColorRect.new()
+            shelf.color = shelf_color
+            shelf.position = Vector2(cr.position.x + ft, cr.position.y + ft + section_h * i)
+            shelf.size = Vector2(w_px - ft * 2, st)
+            node.add_child(shelf)
+
+        # 本（各段に左右対称に詰めて配置）
+        var book_colors_shelf = [Color(0.80, 0.15, 0.15), Color(0.15, 0.40, 0.80), Color(0.15, 0.65, 0.25), Color(0.85, 0.65, 0.10), Color(0.55, 0.15, 0.70), Color(0.85, 0.45, 0.10)]
+        var book_widths_arr = [9, 7, 11, 8, 10, 7, 9, 11, 8]
+        var inner_x = cr.position.x + ft + 1.0
+        var inner_w = w_px - ft * 2 - 2.0
+        for i in range(shelf_count + 1):
+            var book_top: float
+            var book_h: float
+            if i == 0:
+                book_top = cr.position.y + ft + 2.0
+                book_h = section_h - 4.0
+            else:
+                book_top = cr.position.y + ft + section_h * i + st + 2.0
+                book_h = section_h - st - 4.0
+            var bx = inner_x
+            var c_idx = i * 3
+            while bx < inner_x + inner_w - 5.0:
+                var bw = float(book_widths_arr[c_idx % book_widths_arr.size()])
+                if bx + bw > inner_x + inner_w - 1.0:
+                    break
+                var book = ColorRect.new()
+                book.color = book_colors_shelf[c_idx % book_colors_shelf.size()]
+                book.position = Vector2(bx, book_top)
+                book.size = Vector2(bw, book_h)
+                node.add_child(book)
+                bx += bw + 1.0
+                c_idx += 1
+
+    elif o_id == "blackboard":
+        # 床から100cm〜高さ(210cm)までの範囲とする
+        var bottom_cm = 100.0
+        var board_h_cm = h_cm - bottom_cm
+        
+        cr.color = Color(0.18, 0.35, 0.22) # 深草色（黒板の緑）
+        cr.position.y = - h_px # 上端
+        cr.size.y = board_h_cm * cm_to_px
+        
+        # 木枠
+        var frame = ReferenceRect.new()
+        frame.editor_only = false
+        frame.border_color = Color(0.45, 0.28, 0.15)
+        frame.border_width = 6.0
+        frame.position = cr.position
+        frame.size = cr.size
+        node.add_child(frame)
+        
+        # 粉受け（チョーク置き）を黒板下端に配置
+        var chalk_tray = ColorRect.new()
+        chalk_tray.color = Color(0.40, 0.22, 0.12)
+        chalk_tray.position = Vector2(cr.position.x - 4, cr.position.y + cr.size.y)
+        chalk_tray.size = Vector2(cr.size.x + 8, 6)
+        node.add_child(chalk_tray)
+
+    elif o_id == "desk_myroom":
+        cr.color = Color(0, 0, 0, 0)
+        # 天板
+        var desk_top = ColorRect.new()
+        desk_top.color = Color(0.65, 0.45, 0.25)
+        desk_top.position = cr.position
+        desk_top.size = Vector2(w_px, 12)
+        node.add_child(desk_top)
+        # 脚（左右）
+        for leg_x_offset in [8.0, w_px - 18.0]:
+            var leg = ColorRect.new()
+            leg.color = Color(0.50, 0.32, 0.18)
+            leg.position = Vector2(cr.position.x + leg_x_offset, cr.position.y + 12)
+            leg.size = Vector2(10, h_draw_px - 12)
+            node.add_child(leg)
+        # 引き出し（右側）
+        var drawer = ColorRect.new()
+        drawer.color = Color(0.58, 0.40, 0.22)
+        drawer.position = Vector2(cr.position.x + w_px * 0.55, cr.position.y + 18)
+        drawer.size = Vector2(w_px * 0.38, h_draw_px * 0.5)
+        node.add_child(drawer)
+        # 引き出しの取っ手
+        var desk_handle = ColorRect.new()
+        desk_handle.color = Color(0.75, 0.65, 0.20)
+        desk_handle.position = drawer.position + Vector2(drawer.size.x * 0.35, drawer.size.y * 0.38)
+        desk_handle.size = Vector2(10, 5)
+        node.add_child(desk_handle)
+
+    elif o_id == "randoseru":
+        cr.color = Color(0, 0, 0, 0)
+        # メインボディ（赤）
+        var rand_body = ColorRect.new()
+        rand_body.color = Color(0.75, 0.10, 0.10)
+        rand_body.position = cr.position
+        rand_body.size = cr.size
+        node.add_child(rand_body)
+        # フラップ（上部、少し暗い赤）
+        var flap = ColorRect.new()
+        flap.color = Color(0.60, 0.08, 0.08)
+        flap.position = cr.position
+        flap.size = Vector2(w_px, h_draw_px * 0.38)
+        node.add_child(flap)
+        # バックル（フラップ中央）
+        var buckle = ColorRect.new()
+        buckle.color = Color(0.85, 0.70, 0.10)
+        buckle.position = cr.position + Vector2(w_px * 0.35, h_draw_px * 0.33)
+        buckle.size = Vector2(w_px * 0.30, 5)
+        node.add_child(buckle)
+        # 外枠
+        var rand_outline = ReferenceRect.new()
+        rand_outline.editor_only = false
+        rand_outline.border_color = Color(0.45, 0.05, 0.05)
+        rand_outline.border_width = 2.0
+        rand_outline.position = cr.position
+        rand_outline.size = cr.size
+        node.add_child(rand_outline)
+
     # ---------------------------------------------------------
 
     
@@ -816,12 +1458,27 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
 
 static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
     match obs_id:
-        "door_exit":
+        "door_to_outdoor":
             if h > oh:
-                return "出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+                return "外への出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "外への出入口（%dcm）。余裕でくぐれます。" % oh
-        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4":
+        "door_to_room":
+            if h > oh:
+                return "家の玄関（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "家の玄関（%dcm）。ただいま！" % oh
+        "door_to_train":
+            if h > oh:
+                return "駅の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "駅の入口（%dcm）。電車に乗りましょう。" % oh
+        "door_to_school":
+            if h > oh:
+                return "学校の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "学校の入口（%dcm）。いってらっしゃい！" % oh
+        "door_left", "door_right", "side_door", "door_2", "door_3", "door_4", "door_to_myroom":
             if h > oh:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
@@ -895,7 +1552,9 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "浴室の天井（%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "浴室の天井（%dcm）。低めの天井ですね。" % oh
-        "strap_1", "strap_2", "strap_3":
+        "train_seat_1", "train_seat_2", "train_seat_3":
+            return "電車のロングシート（%dcm）。\n長身だと膝が高くなりがちです。" % oh
+        "strap_1", "strap_2", "strap_3", "strap_4", "strap_5", "strap_6", "strap_7", "strap_8", "strap_9", "strap_10":
             if h >= oh:
                 return "吊り革バー（%dcm）が目の前！楽々手が届きます！" % oh
             else:
@@ -922,7 +1581,23 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "黒板の上の方は少し背伸びが必要かもしれません。"
         "desk_1", "desk_2", "teacher_desk":
             return "学校の机（%dcm）。\n昔はこんなに小さかったですね。" % oh
-    
+        "student_chair_1", "student_chair_2":
+            return "学校の椅子（%dcm）。\n大人には少し小さく感じますね。" % oh
+        "bed":
+            return "自分のベッド（高さ%dcm）。\n背が高いと足がはみ出してしまいますね。" % oh
+        "bookshelf":
+            if h > oh:
+                return "本棚（高さ%dcm）。\nあなた（%dcm）より低い！上の棚まで余裕で手が届きますね。" % [oh, h]
+            else:
+                return "本棚（高さ%dcm）。\n上の棚に少し背伸びが必要かもしれません。" % oh
+        "desk_myroom":
+            if h > 170:
+                return "学習机（高さ%dcm）。\n少し低く感じるかもしれません。" % oh
+            else:
+                return "学習机（高さ%dcm）です。" % oh
+        "randoseru":
+            return "ランドセル。\n小学校の頃を思い出しますね。"
+
     if h > oh:
         return "オブジェクト（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, math_round(h - oh)]
     return "オブジェクト（高さ%dcm）。" % oh

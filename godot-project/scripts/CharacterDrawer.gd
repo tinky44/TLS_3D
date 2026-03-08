@@ -30,7 +30,9 @@ func _draw() -> void:
 	var flip = (dir == -1 and facing == "side")
 
 	# 見た目データの取得
-	var appearance = Global.current_appearance
+	var appearance = player.get("appearance")
+	if appearance == null or appearance.is_empty():
+		appearance = Global.current_appearance
 
 	var skin_color = Color("#ffe4c4")
 	var base_shirt_color = Color(appearance.get("tops_color", "#ab82a8"))
@@ -423,7 +425,7 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 	draw_polygon(pts, PackedColorArray([bottoms_color]))
 
 # --- 正面・背面 描画 ---
-func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, _pants_dark, shoulder_w, thigh_w, shin_w, arm_w, neck_w):
+func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, _pants_dark, shoulder_w, thigh_w, shin_w, arm_w, _neck_w):
 	var facing = player.facing
 	var body_w = shoulder_w * 0.6
 	var body_w_half = body_w / 2.0

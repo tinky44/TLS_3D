@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://d3e4f5g6h7i8j"]
+
+[ext_resource type="Script" path="res://scripts/SkeletalNPC.gd" id="1_npc_script"]
+[ext_resource type="Script" path="res://scripts/CharacterDrawer.gd" id="2_drawer"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_npc"]
+radius = 20.0
+height = 160.0
+
+[node name="NPC" type="CharacterBody2D"]
+script = ExtResource("1_npc_script")
+
+[node name="CharacterDrawer" type="Node2D" parent="."]
+script = ExtResource("2_drawer")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -80)
+shape = SubResource("CapsuleShape2D_npc")

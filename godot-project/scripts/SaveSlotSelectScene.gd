@@ -149,7 +149,8 @@ func _on_slot_pressed(slot: int) -> void:
     if not global: return
     if global.slot_select_mode == "save":
         global.save_slot(slot)
-        get_tree().change_scene_to_file("res://Main.tscn")
+        # 新規ゲーム開始時は導入シーンへ
+        get_tree().change_scene_to_file("res://scenes/IntroScene.tscn")
     else:
         if global.load_slot(slot):
             get_tree().change_scene_to_file("res://Main.tscn")

@@ -187,7 +187,7 @@ func _on_leg_ratio_changed(val: float):
 func _on_next_pressed() -> void:
     var global = get_node_or_null("/root/Global")
     if global:
-        global.current_stage_id = "room"
+        global.current_stage_id = "myroom"
         global.slot_select_mode = "save"
     get_tree().change_scene_to_file("res://scenes/SaveSlotSelectScene.tscn")
 

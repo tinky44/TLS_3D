@@ -7,13 +7,20 @@ var p: float = 2.0
 
 # UI用
 var ui_layer: CanvasLayer
+var sidebar: PanelContainer # Qキーでトグル表示するステータスサイドバー
 var status_label: Label
 var bubble_panel: PanelContainer
 var bubble_label: Label
 
+var minimap_bg: ColorRect
+var minimap_player: ColorRect
+
 # ポーズメニュー用
 var pause_menu: Control
 var pause_save_label: Label
+
+# ステージ遷移用
+var _nearby_transition_door: String = ""
 
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
@@ -31,8 +38,8 @@ func _ready() -> void:
 		player.process_mode = Node.PROCESS_MODE_PAUSABLE
 		
 	_setup_ui()
-	_setup_pause_menu()
-	_setup_bubble()
+	_setup_bubble() # bubble_panel を先に追加（下層に描画）
+	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_load_stage()
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
@@ -142,6 +149,22 @@ func _setup_bubble():
 func _process(_delta: float) -> void:
 	_update_ui()
 	_update_bubble()
+	_update_minimap()
+
+func _update_minimap():
+	if not player or not minimap_bg or not minimap_player: return
+	var global = get_node_or_null("/root/Global")
+	var stage_id = global.current_stage_id if global else "room"
+	var stage_w_cm = 2000.0
+	if StageBuilder.STAGES.has(stage_id):
+		stage_w_cm = float(StageBuilder.STAGES[stage_id]["width"])
+		
+	var px_cm = clamp(player.global_position.x / p, 0.0, stage_w_cm)
+	var ratio = px_cm / max(1.0, stage_w_cm)
+	
+	# clamp to keep within the bar visually
+	var target_x = ratio * minimap_bg.size.x - minimap_player.size.x * 0.5
+	minimap_player.position.x = target_x
 	
 func _update_bubble():
 	if not player or not bubble_panel: return
@@ -171,10 +194,18 @@ func _update_bubble():
 		var obs_id = closest_obs.get_meta("obs_id")
 		var oh = closest_obs.get_meta("obs_height_cm")
 		var h = m["height"]
-		
+
 		bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
+
+		# 遷移ドア（"door_to_XXX"）の近くにいる場合はヒントを追加
+		if obs_id.begins_with("door_to_"):
+			_nearby_transition_door = obs_id
+			bubble_label.text += "\n[Eキーで移動]"
+		else:
+			_nearby_transition_door = ""
+
 		bubble_panel.show()
-		
+
 		# プレイヤーの2D座標をCanvasLayer上のスクリーン座標に変換して配置
 		var cam = player.get_node_or_null("Camera2D")
 		var screen_pos: Vector2
@@ -185,6 +216,7 @@ func _update_bubble():
 		var offset_y = player.visual_height_cm * p + 80
 		bubble_panel.position = screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
 	else:
+		_nearby_transition_door = ""
 		bubble_panel.hide()
 	
 	pass
@@ -192,8 +224,8 @@ func _update_bubble():
 func _setup_ui():
 	ui_layer = CanvasLayer.new()
 	
-	# サイドバー全体を覆うパネル
-	var sidebar = PanelContainer.new()
+	# サイドバー全体を覆うパネル（クラス変数を使用）
+	sidebar = PanelContainer.new()
 	sidebar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	sidebar.custom_minimum_size = Vector2(320, 0)
 	
@@ -219,12 +251,58 @@ func _setup_ui():
 	status_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(status_label)
 
+	var speed_label = Label.new()
+	speed_label.text = "歩き速度"
+	speed_label.add_theme_color_override("font_color", Color("#495057"))
+	speed_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(speed_label)
+	
+	var speed_slider = HSlider.new()
+	speed_slider.min_value = 50.0
+	speed_slider.max_value = 600.0
+	speed_slider.step = 10.0
+	speed_slider.value = 250.0
+	speed_slider.value_changed.connect(func(v: float):
+		if player:
+			var ratio = v / 250.0
+			player.set("SPEED", v)
+			player.set("walk_speed", 12.0 * ratio)
+	)
+	vbox.add_child(speed_slider)
+
 	vbox.add_child(HSeparator.new())
 	_setup_appearance_debug(vbox)
 
+	sidebar.hide() # 初期状態は非表示。Qキーでトグル
 	ui_layer.add_child(sidebar)
+
+	# 常時表示する「Q: ステータス」ヒントラベル
+	var hint = Label.new()
+	hint.text = "Q: ステータス設定"
+	hint.add_theme_font_size_override("font_size", 14)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	hint.add_theme_constant_override("outline_size", 4)
+	hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	hint.position = Vector2(20, 10)
+	ui_layer.add_child(hint)
+
+	# ステージ上の自分の位置を示す線（ミニマップ）
+	minimap_bg = ColorRect.new()
+	minimap_bg.color = Color(0, 0, 0, 0.5)
+	minimap_bg.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	minimap_bg.position = Vector2(20, 32)
+	minimap_bg.size = Vector2(200, 4)
+	ui_layer.add_child(minimap_bg)
+	
+	minimap_player = ColorRect.new()
+	minimap_player.color = Color(0.2, 0.8, 1.0, 1.0) # 水色
+	minimap_player.position = Vector2(0, -2)
+	minimap_player.size = Vector2(6, 8)
+	minimap_bg.add_child(minimap_player)
+
 	add_child(ui_layer)
-	# ui_layerはsidebar追加後に子として登録するため、_setup_bubble()より先に呼ぶ必要がある
+	# ui_layer は _setup_ui() で add_child 済み。_setup_bubble() / _setup_pause_menu() はその後に呼ぶ
 
 func _setup_pause_menu() -> void:
 	pause_menu = ColorRect.new()
@@ -310,6 +388,11 @@ func _setup_pause_menu() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
 		_toggle_pause()
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_Q:
+			if sidebar: sidebar.visible = not sidebar.visible
+		elif event.keycode == KEY_E and _nearby_transition_door != "":
+			_enter_transition_door()
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -358,6 +441,7 @@ func _update_ui():
 	text += "矢印キー左右: 移動\n"
 	text += "矢印キー下: 正面向き\n"
 	text += "矢印キー上: 後ろ向き\n"
+	text += "Eキー: ドアを通る\n"
 	
 	status_label.text = text
 
@@ -367,6 +451,8 @@ func _load_stage():
 	
 	# 床や障害物を生成
 	StageBuilder.build_stage(stage_id, self , p)
+	
+	_spawn_npcs(stage_id)
 
 	# 自動セーブ（スロット選択済みの場合）
 	if global and global.current_slot >= 1:
@@ -383,13 +469,133 @@ func _load_stage():
 			var m = player.get("m")
 			if m and m.has("height"):
 				# キャラクターの身長の40〜50%あたり（腰〜胸付近）を中心にする
-				# X軸に -160 を指定し、キャラクターを画面右側に寄せる（左側のUI領域を確保）
-				cam.offset = Vector2(-160, -m["height"] * p * 0.4)
+				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
 			cam.limit_bottom = 250
+
+func _spawn_npcs(stage_id: String) -> void:
+	var npc_scene = load("res://NPC.tscn")
+	if not npc_scene: return
+	
+	for child in get_children():
+		if child.has_meta("is_npc"):
+			child.queue_free()
+
+	if stage_id == "outdoor":
+		var npc = npc_scene.instantiate()
+		npc.set_meta("is_npc", true)
+		npc.custom_params = {
+			"height": 158.0,
+			"ratio": 7.0,
+			"legRatio": 45.0,
+			"sex": "female"
+		}
+		npc.position = Vector2(300 * p, 0)
+		add_child(npc)
+		
+		# 街にいる小さな子供
+		var kid = npc_scene.instantiate()
+		kid.set_meta("is_npc", true)
+		kid.custom_params = {
+			"height": 110.0,
+			"ratio": 5.5,
+			"legRatio": 45.0,
+			"sex": "female"
+		}
+		kid.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#885533",
+			"tops_type": "t_shirt",
+			"tops_color": "#ffdd00",
+			"bottoms_type": "pants",
+			"bottoms_color": "#33aa33",
+			"shoes_type": "sneakers",
+			"shoes_color": "#ffffff"
+		}
+		kid.position = Vector2(500 * p, 0)
+		add_child(kid)
+
+	elif stage_id == "school":
+		# 背の低い先生/生徒用など
+		var npc1 = npc_scene.instantiate()
+		npc1.set_meta("is_npc", true)
+		npc1.custom_params = {
+			"height": 152.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}
+		npc1.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#222222",
+			"tops_type": "blouse",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_short",
+			"bottoms_color": "#111166",
+			"shoes_type": "sneakers",
+			"shoes_color": "#ffffff"
+		}
+		npc1.position = Vector2(500 * p, 0)
+		add_child(npc1)
+
+		# 背の高い男性教師のようなダミー（身長175cm）
+		var npc2 = npc_scene.instantiate()
+		npc2.set_meta("is_npc", true)
+		npc2.custom_params = {
+			"height": 175.0,
+			"ratio": 7.2,
+			"legRatio": 46.0,
+			"sex": "male"
+		}
+		npc2.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#111111",
+			"tops_type": "sweater",
+			"tops_color": "#333333",
+			"bottoms_type": "pants",
+			"bottoms_color": "#111111",
+			"shoes_type": "sneakers",
+			"shoes_color": "#000000"
+		}
+		npc2.position = Vector2(900 * p, 0) # 先生の机付近
+		add_child(npc2)
 
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
 	if global.current_slot >= 1:
 		global.save_slot(global.current_slot)
+
+func _enter_transition_door() -> void:
+	# "door_to_XXX" → 遷移先ステージID = "XXX"
+	var new_stage_id = _nearby_transition_door.substr("door_to_".length())
+	if not StageBuilder.STAGES.has(new_stage_id):
+		return
+
+	var from_stage_id = ""
+	var global = get_node_or_null("/root/Global")
+	if global:
+		from_stage_id = global.current_stage_id
+		global.current_stage_id = new_stage_id
+
+	_nearby_transition_door = ""
+	_load_stage()
+
+	# 遷移先の「戻り口ドア」の近くにスポーン
+	if player and from_stage_id != "" and StageBuilder.STAGES.has(new_stage_id):
+		var return_door_id = "door_to_" + from_stage_id
+		var stage_width = float(StageBuilder.STAGES[new_stage_id]["width"])
+		for obs in StageBuilder.STAGES[new_stage_id]["obstacles"]:
+			if obs["id"] == return_door_id:
+				var obs_x = float(obs["x"])
+				var obs_x2 = float(obs["x2"])
+				var obs_center = (obs_x + obs_x2) / 2.0
+				var spawn_x: float
+				# ドアが右半分 → 左に出現、左半分 → 右に出現
+				if obs_center > stage_width / 2.0:
+					spawn_x = obs_x - 50.0
+				else:
+					spawn_x = obs_x2 + 50.0
+				spawn_x = clamp(spawn_x, 50.0, stage_width - 50.0)
+				player.position = Vector2(spawn_x * p, 0)
+				break

@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-const SPEED = 250.0
+var SPEED: float = 250.0
 const JUMP_VELOCITY = -500.0
 const GRAVITY = 1200.0
 var CM_TO_PX: float = 2.0 # Updated in _ready from Global
@@ -29,6 +29,7 @@ var m: Dictionary
 var sensors: Array = []
 
 func _ready() -> void:
+    collision_layer = 0 # NPCから押し出されないように自身の当たり判定レイヤーを消す
     collision_mask |= 4 # 天井(layer4)にも物理的に当たるように
     update_measurements()
 
@@ -222,6 +223,6 @@ func _mock_measurements() -> Dictionary:
     var arm = h - leg - ht - 2 * n
     return {
         "height": h, "head": ht, "headWidth": ht * 0.702, "neck": n,
-        "shoulder": ht * 1.872, "arm": arm, "armLength": ht * 3.2, "leg": leg,
+        "shoulder": ht * 1.872, "arm": arm, "armLength": arm, "leg": leg,
         "landmarks": {"top": h, "eye": h - ht * 0.5, "shoulder": h - ht - 2 * n}
     }
