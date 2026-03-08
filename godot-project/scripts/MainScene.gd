@@ -7,6 +7,7 @@ var p: float = 2.0
 
 # UI用
 var ui_layer: CanvasLayer
+var sidebar: PanelContainer  # Qキーでトグル表示するステータスサイドバー
 var status_label: Label
 var bubble_panel: PanelContainer
 var bubble_label: Label
@@ -34,8 +35,8 @@ func _ready() -> void:
 		player.process_mode = Node.PROCESS_MODE_PAUSABLE
 		
 	_setup_ui()
-	_setup_pause_menu()
-	_setup_bubble()
+	_setup_bubble()    # bubble_panel を先に追加（下層に描画）
+	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_load_stage()
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
@@ -204,8 +205,8 @@ func _update_bubble():
 func _setup_ui():
 	ui_layer = CanvasLayer.new()
 	
-	# サイドバー全体を覆うパネル
-	var sidebar = PanelContainer.new()
+	# サイドバー全体を覆うパネル（クラス変数を使用）
+	sidebar = PanelContainer.new()
 	sidebar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	sidebar.custom_minimum_size = Vector2(320, 0)
 	
@@ -234,9 +235,20 @@ func _setup_ui():
 	vbox.add_child(HSeparator.new())
 	_setup_appearance_debug(vbox)
 
+	sidebar.hide() # 初期状態は非表示。Qキーでトグル
 	ui_layer.add_child(sidebar)
+
+	# 常時表示する「Q: ステータス」ヒントラベル
+	var hint = Label.new()
+	hint.text = "Q: ステータス"
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+	hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	hint.position = Vector2(8, 8)
+	ui_layer.add_child(hint)
+
 	add_child(ui_layer)
-	# ui_layerはsidebar追加後に子として登録するため、_setup_bubble()より先に呼ぶ必要がある
+	# ui_layer は _setup_ui() で add_child 済み。_setup_bubble() / _setup_pause_menu() はその後に呼ぶ
 
 func _setup_pause_menu() -> void:
 	pause_menu = ColorRect.new()
@@ -323,7 +335,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
 		_toggle_pause()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_E and _nearby_transition_door != "":
+		if event.keycode == KEY_Q:
+			if sidebar: sidebar.visible = not sidebar.visible
+		elif event.keycode == KEY_E and _nearby_transition_door != "":
 			_enter_transition_door()
 
 func _toggle_pause() -> void:
@@ -399,8 +413,7 @@ func _load_stage():
 			var m = player.get("m")
 			if m and m.has("height"):
 				# キャラクターの身長の40〜50%あたり（腰〜胸付近）を中心にする
-				# X軸に -160 を指定し、キャラクターを画面右側に寄せる（左側のUI領域を確保）
-				cam.offset = Vector2(-160, -m["height"] * p * 0.4)
+				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
 			cam.limit_bottom = 250
 
