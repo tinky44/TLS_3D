@@ -94,18 +94,18 @@ func _draw_sleeve_arm(p_torso_shoulder: Vector2, p_shoulder: Vector2, p_elbow: V
 
 # パンツ付き脚を描画するヘルパー
 # 肌色の脚を描画した後、パンツの場合は台形で上書きする
-func _draw_pants_leg(p_pants_top: Vector2, p_hip: Vector2, p_knee: Vector2, p_ankle: Vector2,
+func _draw_pants_leg(p_hip: Vector2, p_knee: Vector2, p_ankle: Vector2,
 		thigh_w: float, shin_w: float, skin: Color, pants: Color,
 		bottoms_type: String) -> void:
 	# 肌色の脚を描画
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_hip, p_knee, thigh_w, skin)
 	CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_knee, p_ankle, shin_w, skin)
-	# パンツの場合は台形で上書き（腰位置から開始してジョイントをカバー）
+	# パンツの場合は台形で上書き（股から開始してジョイントをカバー）
 	if bottoms_type == "pants":
 		var pants_thigh_w = thigh_w * 1.3
 		var pants_knee_w = thigh_w * 1.1
 		var pants_ankle_w = shin_w * 1.15
-		CharacterDrawUtils.draw_trapezoid(self , p_pants_top, p_knee, pants_thigh_w, pants_knee_w, pants)
+		CharacterDrawUtils.draw_trapezoid(self , p_hip, p_knee, pants_thigh_w, pants_knee_w, pants)
 		CharacterDrawUtils.draw_trapezoid(self , p_knee, p_ankle, pants_knee_w, pants_ankle_w, pants)
 
 # 髪型描画ヘルパー
@@ -385,25 +385,29 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	var is_skirt = bottoms_type.begins_with("skirt")
 
 	# 1. 両足
-	var p_pants_top_l = Vector2(p_hip_l.x, d["front_hip_y"])
-	var p_pants_top_r = Vector2(p_hip_r.x, d["front_hip_y"])
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_hip_l.x, p_hip_l.y, d["thigh_l"], f_leg_l_ang)
 	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, d["shin_l"], f_leg_l_ang + d["knee_l"] * 0.2)
-	_draw_pants_leg(p_pants_top_l, p_hip_l, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_color, pants_color, bottoms_type)
+	_draw_pants_leg(p_hip_l, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_color, pants_color, bottoms_type)
 	CharacterDrawUtils.draw_foot_front(self , p_shin_l, foot_w, foot_h, shoe_color)
 
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_hip_r.x, p_hip_r.y, d["thigh_l"], f_leg_r_ang)
 	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, d["shin_l"], f_leg_r_ang + d["knee_r"] * 0.2)
-	_draw_pants_leg(p_pants_top_r, p_hip_r, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type)
+	_draw_pants_leg(p_hip_r, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type)
 	CharacterDrawUtils.draw_foot_front(self , p_shin_r, foot_w, foot_h, shoe_color)
 
 	# 2. 胴体 (シャツ) — 正面ビュー用座標を使用
 	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_lower"], Vector2(d["front_navel_x"], d["front_navel_y"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
 	CharacterDrawUtils.draw_torso_part(self , part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_navel_x"], d["front_navel_y"]), body_w, body_w, base_shirt_color)
 
-	# 3. スカート（該当する場合）
+	# 3. ボトムス（骨盤部分またはスカート）
 	if is_skirt:
 		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w)
+	elif bottoms_type == "pants":
+		var p_pelvis_top = Vector2(d["front_hip_x"], d["front_hip_y"])
+		var p_crotch = Vector2(d["cx"], d["cy"])
+		var pants_thigh_w = thigh_w * 1.3
+		var pelvis_w = (p_hip_r.x - p_hip_l.x) + pants_thigh_w
+		CharacterDrawUtils.draw_trapezoid(self , p_pelvis_top, p_crotch, body_w, pelvis_w, pants_color)
 
 	# 4. 頭 + 髪
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
@@ -497,10 +501,9 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark)
 
 	# 2. 奥の足
-	var p_pants_top = Vector2(p_crotch.x, d["hip_y"])
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
 	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, d["shin_l"], d["leg_l_angle"] * PI / 180 + PI / 2 + d["knee_l"])
-	_draw_pants_leg(p_pants_top, p_crotch, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_dark, pants_dark, bottoms_type)
+	_draw_pants_leg(p_crotch, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_dark, pants_dark, bottoms_type)
 	CharacterDrawUtils.draw_foot_side(self , p_shin_l, foot_w, foot_h, shoe_color.darkened(0.15))
 
 	# 3. 胴体（服）: 腰で曲がるように分割
@@ -511,12 +514,17 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	# 4. 手前の足
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
 	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, d["shin_l"], d["leg_r_angle"] * PI / 180 + PI / 2 + d["knee_r"])
-	_draw_pants_leg(p_pants_top, p_crotch, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type)
+	_draw_pants_leg(p_crotch, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type)
 	CharacterDrawUtils.draw_foot_side(self , p_shin_r, foot_w, foot_h, shoe_color)
 
-	# 5. スカート（該当する場合 — 手前の足の上に重ねる）
+	# 5. ボトムス（骨盤部分またはスカート — 足の上に重ねる）
 	if is_skirt:
 		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["hip_x"], d["hip_y"]), torso_thickness)
+	elif bottoms_type == "pants":
+		var p_pelvis_top = Vector2(d["hip_x"], d["hip_y"])
+		var pants_thigh_w = thigh_w * 1.3
+		var p_crotch_center = Vector2(d["cx"], d["cy"])
+		CharacterDrawUtils.draw_trapezoid(self , p_pelvis_top, p_crotch_center, torso_thickness, pants_thigh_w, pants_color)
 
 	# 6. 頭 + 髪
 	var head_angle = d["waist_angle"] * 0.6
