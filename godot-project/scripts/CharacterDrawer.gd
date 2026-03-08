@@ -525,7 +525,9 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 		var p_pelvis_top = Vector2(d["hip_x"], d["hip_y"])
 		var pants_thigh_w = thigh_w * 1.3
 		var p_crotch_center = Vector2(d["cx"], d["cy"])
-		CharacterDrawUtils.draw_trapezoid(self , p_pelvis_top, p_crotch_center, torso_thickness, pants_thigh_w, pants_color)
+		var pelvis_top_w = torso_thickness * 1.05
+		var pelvis_bottom_w = max(torso_thickness * 1.08, pants_thigh_w)
+		CharacterDrawUtils.draw_trapezoid(self , p_pelvis_top, p_crotch_center, pelvis_top_w, pelvis_bottom_w, pants_color)
 
 	# 6. 頭 + 髪
 	var head_angle = d["waist_angle"] * 0.6
