@@ -407,7 +407,8 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 		var p_crotch = Vector2(d["cx"], d["cy"])
 		var pants_thigh_w = thigh_w * 1.3
 		var pelvis_w = (p_hip_r.x - p_hip_l.x) + pants_thigh_w
-		CharacterDrawUtils.draw_trapezoid(self , p_pelvis_top, p_crotch, body_w, pelvis_w, pants_color)
+		var pelvis_top_w = body_w * 1.05
+		CharacterDrawUtils.draw_trapezoid(self , p_pelvis_top, p_crotch, pelvis_top_w, pelvis_w, pants_color)
 
 	# 4. 頭 + 髪
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
