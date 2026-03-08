@@ -27,7 +27,8 @@ var _nearby_height_scale: bool = false
 var measurement_panel: Control
 var measurement_content_label: Label
 var history_panel: Control
-var history_content_label: Label
+var history_header_label: Label
+var growth_graph: Control
 var bump_alert_label: Label
 var _bump_alert_time_left: float = 0.0
 
@@ -871,7 +872,7 @@ func _setup_history_panel() -> void:
 	center.add_child(panel)
 
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 12)
 	panel.add_child(vbox)
 
 	var title = Label.new()
@@ -881,11 +882,17 @@ func _setup_history_panel() -> void:
 	title.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(title)
 
-	history_content_label = Label.new()
-	history_content_label.add_theme_font_size_override("font_size", 18)
-	history_content_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
-	history_content_label.custom_minimum_size = Vector2(520, 320)
-	vbox.add_child(history_content_label)
+	history_header_label = Label.new()
+	history_header_label.add_theme_font_size_override("font_size", 15)
+	history_header_label.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	history_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(history_header_label)
+
+	# 折れ線グラフ
+	var GrowthGraphScript = load("res://scripts/GrowthGraph.gd")
+	growth_graph = GrowthGraphScript.new()
+	growth_graph.custom_minimum_size = Vector2(560, 300)
+	vbox.add_child(growth_graph)
 
 	var close_hint = Label.new()
 	close_hint.text = "[G] で閉じる"
@@ -909,16 +916,12 @@ func _toggle_history_panel() -> void:
 	if not global:
 		return
 
-	var lines: PackedStringArray = global.get_growth_history_lines(14)
-	var header := "現在 %.1fcm / %d歳 / 第%d学期\n\n" % [
+	history_header_label.text = "現在 %.1fcm  /  %d歳  /  第%d学期" % [
 		float(global.current_params["height"]),
 		int(global.age),
 		int(global.term) + 1
 	]
-	if lines.is_empty():
-		history_content_label.text = header + "まだ記録がありません。"
-	else:
-		history_content_label.text = header + "\n".join(lines)
+	growth_graph.set_data(global.growth_history)
 
 	history_panel.show()
 	get_tree().paused = true

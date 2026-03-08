@@ -33,6 +33,7 @@ var slot_select_mode: String = "save" # "save" or "load"
 var age: int = 6
 var term: int = 6
 var growth_factor: float = 1.0
+var growth_type: String = "normal"  # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
 var growth_history: Array = []
 
@@ -43,6 +44,14 @@ const AVG_HEIGHT_FEMALE: Dictionary = {
 	13: 154.0, 14: 156.0, 15: 157.0,
 	16: 158.0, 17: 158.5, 18: 158.5
 }
+
+# 年齢から開始学期番号を返す（term_to_age の逆変換）
+static func age_to_term(a: int) -> int:
+	if a <= 2: return 0
+	elif a <= 5: return (a - 3) * 2
+	elif a <= 12: return 6 + (a - 6) * 3
+	elif a <= 15: return 27 + (a - 13) * 3
+	else: return 36 + (a - 16) * 3
 
 # TODO flooriを使う
 @warning_ignore("integer_division")
@@ -119,6 +128,10 @@ func load_settings():
 		current_params["ratio"] = config.get_value("Player", "ratio", current_params["ratio"])
 		current_params["legRatio"] = config.get_value("Player", "legRatio", current_params["legRatio"])
 		current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
+		age = config.get_value("Player", "age", age)
+		term = config.get_value("Player", "term", term)
+		growth_factor = config.get_value("Player", "growth_factor", growth_factor)
+		growth_type = config.get_value("Player", "growth_type", growth_type)
 		for key in current_appearance.keys():
 			current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
 		for key in system_settings.keys():
@@ -130,6 +143,10 @@ func save_settings():
 	config.set_value("Player", "ratio", current_params["ratio"])
 	config.set_value("Player", "legRatio", current_params["legRatio"])
 	config.set_value("Player", "sex", current_params["sex"])
+	config.set_value("Player", "age", age)
+	config.set_value("Player", "term", term)
+	config.set_value("Player", "growth_factor", growth_factor)
+	config.set_value("Player", "growth_type", growth_type)
 	for key in current_appearance.keys():
 		config.set_value("Appearance", key, current_appearance[key])
 	for key in system_settings.keys():
@@ -149,6 +166,8 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "age", age)
 	config.set_value(section, "term", term)
 	config.set_value(section, "prev_height", prev_height)
+	config.set_value(section, "growth_factor", growth_factor)
+	config.set_value(section, "growth_type", growth_type)
 	config.set_value(section, "growth_history", growth_history)
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
@@ -171,6 +190,8 @@ func load_slot(slot: int) -> bool:
 	age = config.get_value(section, "age", 6)
 	term = config.get_value(section, "term", 6)
 	prev_height = config.get_value(section, "prev_height", 0.0)
+	growth_factor = config.get_value(section, "growth_factor", 1.0)
+	growth_type = config.get_value(section, "growth_type", "normal")
 	growth_history = config.get_value(section, "growth_history", [])
 	# 旧セーブデータのマイグレーション（age=0 or term=0 の不整合を修正）
 	if age <= 0 or term == 0:
