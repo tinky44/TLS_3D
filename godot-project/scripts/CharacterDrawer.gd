@@ -69,23 +69,35 @@ func _draw() -> void:
 # p_shoulder: 腕の実際の開始位置
 func _draw_sleeve_arm(p_torso_shoulder: Vector2, p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
 		arm_w: float, hand_hw: float, hand_hh: float, hand_angle: float,
-		tops_type: String, skin: Color, shirt: Color) -> void:
+		tops_type: String, skin: Color, shirt: Color, is_side: bool = false) -> void:
 	var sleeve_top_w = arm_w * 1.5 # 袖の肩側の太さ（肩をカバー）
 	var sleeve_bot_w = arm_w * 1.8 # 袖口の太さ（末広がり）
+
+	var p_top_center = p_torso_shoulder
+	if is_side:
+		# 横向きの場合、背中側の位置を固定にして、前側を絞る（上すぼみ）
+		var original_top_w = sleeve_top_w
+		sleeve_top_w = arm_w * 1.15
+		var shaved = original_top_w - sleeve_top_w
+		var d = p_elbow - p_torso_shoulder
+		if d.length() > 0.01:
+			var n = Vector2(-d.y, d.x).normalized()
+			# nは向かって左(背中側)を向くので、中心を+n方向に半分(すぼめた分)だけ移動させる
+			p_top_center = p_torso_shoulder + n * (shaved / 2.0)
 
 	var outline_color = Color(0.8, 0.8, 0.8, 0.5) # 薄いグレー(半透明)
 	if tops_type == "sweater" or tops_type == "blouse":
 		# 長袖: 肩→肘 台形（末広がり）、肘→手首 台形（やや絞り）
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
-		CharacterDrawUtils.draw_trapezoid(self , p_torso_shoulder, p_elbow, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
+		CharacterDrawUtils.draw_trapezoid(self , p_top_center, p_elbow, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
 		CharacterDrawUtils.draw_trapezoid(self , p_elbow, p_hand, sleeve_bot_w, arm_w * 1.3, shirt, outline_color)
 	elif tops_type == "t_shirt":
 		# 半袖: 肩→上腕60%地点まで台形袖（末広がり）、残りは肌色limb
-		var sleeve_end = p_torso_shoulder.lerp(p_elbow, 0.6)
+		var sleeve_end = p_top_center.lerp(p_elbow, 0.6)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
-		CharacterDrawUtils.draw_trapezoid(self , p_torso_shoulder, sleeve_end, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
+		CharacterDrawUtils.draw_trapezoid(self , p_top_center, sleeve_end, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
 	else:
 		# ノースリーブ等: 通常の腕描画のみ
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
@@ -501,7 +513,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
 	var s_arm_l_ang = d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
-	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark)
+	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark, true)
 
 	# 2. 奥の足
 	var pants_thigh_w = thigh_w * 1.3
@@ -539,7 +551,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	var hair_color = Color(appearance.get("hair_color", "#4a3c31"))
 	_draw_hair(Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
-	var eye_offset = Vector2(head_r * 0.5, 0.0) # 高さオフセットなし
+	var eye_offset = Vector2(head_r * 0.7, 0.0) # 高さオフセットなし
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
 	draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
 
@@ -553,4 +565,4 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
 	var s_arm_r_ang = d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
-	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color)
+	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true)
