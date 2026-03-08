@@ -1188,7 +1188,8 @@ func _on_next_term_pressed() -> void:
 	await tw2.finished
 	fade.queue_free()
 
-	# 自室で主人公モノローグ
+	# 少し歩き込んでから主人公モノローグ
+	await get_tree().create_timer(1.8).timeout
 	_start_dialogue("player", "new_semester")
 
 func _setup_history_panel() -> void:
