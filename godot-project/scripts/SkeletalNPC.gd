@@ -102,6 +102,6 @@ func _mock_measurements() -> Dictionary:
 	var arm = h - leg - ht - 2 * n
 	return {
 		"height": h, "head": ht, "headWidth": ht * 0.702, "neck": n,
-		"shoulder": ht * 1.872, "arm": arm, "armLength": ht * 3.2, "leg": leg,
+		"shoulder": ht * 1.872, "arm": arm, "armLength": arm, "leg": leg,
 		"landmarks": {"top": h, "eye": h - ht * 0.5, "shoulder": h - ht - 2 * n}
 	}

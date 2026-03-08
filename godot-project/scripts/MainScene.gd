@@ -499,7 +499,7 @@ func _spawn_npcs(stage_id: String) -> void:
 		kid.custom_params = {
 			"height": 110.0,
 			"ratio": 5.5,
-			"legRatio": 40.0,
+			"legRatio": 45.0,
 			"sex": "female"
 		}
 		kid.custom_appearance = {
