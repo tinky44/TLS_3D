@@ -21,6 +21,11 @@ var pause_save_label: Label
 
 # ステージ遷移用
 var _nearby_transition_door: String = ""
+var _nearby_height_scale: bool = false
+
+# 測定結果パネル
+var measurement_panel: Control
+var measurement_content_label: Label
 
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
@@ -40,6 +45,7 @@ func _ready() -> void:
 	_setup_ui()
 	_setup_bubble() # bubble_panel を先に追加（下層に描画）
 	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
+	_setup_measurement_panel()
 	_load_stage()
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
@@ -197,12 +203,18 @@ func _update_bubble():
 
 		bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
 
-		# 遷移ドア（"door_to_XXX"）の近くにいる場合はヒントを追加
+		# 近くのオブジェクトに応じたインタラクションヒントを追加
 		if obs_id.begins_with("door_to_"):
 			_nearby_transition_door = obs_id
+			_nearby_height_scale = false
 			bubble_label.text += "\n[Eキーで移動]"
+		elif obs_id == "height_scale":
+			_nearby_transition_door = ""
+			_nearby_height_scale = true
+			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
+			_nearby_height_scale = false
 
 		bubble_panel.show()
 
@@ -217,8 +229,9 @@ func _update_bubble():
 		bubble_panel.position = screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
 	else:
 		_nearby_transition_door = ""
+		_nearby_height_scale = false
 		bubble_panel.hide()
-	
+
 	pass
 
 func _setup_ui():
@@ -261,12 +274,24 @@ func _setup_ui():
 	speed_slider.min_value = 50.0
 	speed_slider.max_value = 600.0
 	speed_slider.step = 10.0
-	speed_slider.value = 250.0
+	speed_slider.value = Global.system_settings.get("move_speed", 250.0)
+	
+	# 初期値をプレイヤーに適用
+	if player:
+		var initial_v = speed_slider.value
+		var ratio = initial_v / 250.0
+		player.set("SPEED", initial_v)
+		player.set("walk_speed", 12.0 * ratio)
+
 	speed_slider.value_changed.connect(func(v: float):
+		Global.system_settings["move_speed"] = v
 		if player:
 			var ratio = v / 250.0
 			player.set("SPEED", v)
 			player.set("walk_speed", 12.0 * ratio)
+	)
+	speed_slider.drag_ended.connect(func(_val: bool):
+		Global.save_settings()
 	)
 	vbox.add_child(speed_slider)
 
@@ -391,8 +416,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Q:
 			if sidebar: sidebar.visible = not sidebar.visible
-		elif event.keycode == KEY_E and _nearby_transition_door != "":
-			_enter_transition_door()
+		elif event.keycode == KEY_E:
+			if _nearby_transition_door != "":
+				_enter_transition_door()
+			elif _nearby_height_scale:
+				_show_measurement_result()
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -515,6 +543,29 @@ func _spawn_npcs(stage_id: String) -> void:
 		kid.position = Vector2(500 * p, 0)
 		add_child(kid)
 
+	elif stage_id == "school_hallway":
+		# 廊下にいる生徒
+		var npc_hall = npc_scene.instantiate()
+		npc_hall.set_meta("is_npc", true)
+		npc_hall.custom_params = {
+			"height": 140.0,
+			"ratio": 6.2,
+			"legRatio": 43.0,
+			"sex": "female"
+		}
+		npc_hall.custom_appearance = {
+			"hair_style": "long",
+			"hair_color": "#443322",
+			"tops_type": "blouse",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_short",
+			"bottoms_color": "#111166",
+			"shoes_type": "sneakers",
+			"shoes_color": "#ffffff"
+		}
+		npc_hall.position = Vector2(700 * p, 0) # 掲示板付近
+		add_child(npc_hall)
+
 	elif stage_id == "school":
 		# 背の低い先生/生徒用など
 		var npc1 = npc_scene.instantiate()
@@ -560,6 +611,29 @@ func _spawn_npcs(stage_id: String) -> void:
 		npc2.position = Vector2(900 * p, 0) # 先生の机付近
 		add_child(npc2)
 
+	elif stage_id == "infirmary":
+		# 保健室の先生（小柄な女性、机の前に立っている）
+		var nurse = npc_scene.instantiate()
+		nurse.set_meta("is_npc", true)
+		nurse.custom_params = {
+			"height": 155.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}
+		nurse.custom_appearance = {
+			"hair_style": "short",
+			"hair_color": "#334422",
+			"tops_type": "blouse",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_long",
+			"bottoms_color": "#ffffff",
+			"shoes_type": "sneakers",
+			"shoes_color": "#cccccc"
+		}
+		nurse.position = Vector2(680 * p, 0) # 机のそば
+		add_child(nurse)
+
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
@@ -599,3 +673,116 @@ func _enter_transition_door() -> void:
 				spawn_x = clamp(spawn_x, 50.0, stage_width - 50.0)
 				player.position = Vector2(spawn_x * p, 0)
 				break
+
+# ─── 成長システム ───────────────────────────────────────────────
+
+func _setup_measurement_panel() -> void:
+	measurement_panel = ColorRect.new()
+	measurement_panel.color = Color(0, 0, 0, 0.75)
+	measurement_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	measurement_panel.hide()
+	measurement_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	measurement_panel.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#1a2a3a")
+	style.corner_radius_top_left = 16
+	style.corner_radius_top_right = 16
+	style.corner_radius_bottom_right = 16
+	style.corner_radius_bottom_left = 16
+	style.content_margin_left = 48
+	style.content_margin_right = 48
+	style.content_margin_top = 40
+	style.content_margin_bottom = 40
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "身体測定結果"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title)
+
+	vbox.add_child(HSeparator.new())
+
+	measurement_content_label = Label.new()
+	measurement_content_label.add_theme_font_size_override("font_size", 18)
+	measurement_content_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	measurement_content_label.custom_minimum_size = Vector2(380, 0)
+	vbox.add_child(measurement_content_label)
+
+	vbox.add_child(HSeparator.new())
+
+	var btn_row = HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 24)
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(btn_row)
+
+	var close_btn = Button.new()
+	close_btn.text = "閉じる"
+	close_btn.custom_minimum_size = Vector2(140, 48)
+	close_btn.add_theme_font_size_override("font_size", 16)
+	close_btn.focus_mode = Control.FOCUS_NONE
+	close_btn.pressed.connect(func():
+		measurement_panel.hide()
+		get_tree().paused = false
+	)
+	btn_row.add_child(close_btn)
+
+	var next_btn = Button.new()
+	next_btn.text = "次の学期へ"
+	next_btn.custom_minimum_size = Vector2(160, 48)
+	next_btn.add_theme_font_size_override("font_size", 16)
+	next_btn.focus_mode = Control.FOCUS_NONE
+	next_btn.pressed.connect(_on_next_term_pressed)
+	btn_row.add_child(next_btn)
+
+	ui_layer.add_child(measurement_panel)
+
+func _show_measurement_result() -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global: return
+
+	var h: float = global.current_params["height"]
+	var prev_h: float = global.prev_height
+	var a: int = global.age
+	var avg_h: float = global.get_avg_height(a)
+	var diff_avg: float = h - avg_h
+
+	var text = "年齢：%d歳  第%d学期\n\n" % [a, global.term + 1]
+	text += "身長：  %.1f cm\n" % h
+	if prev_h > 0.0:
+		text += "前回比：%+.1f cm\n" % (h - prev_h)
+	else:
+		text += "前回比：（初回測定）\n"
+	text += "同学年平均：%.1f cm\n" % avg_h
+	text += "差：    %+.1f cm\n\n" % diff_avg
+	text += global.get_measurement_comment(diff_avg)
+
+	measurement_content_label.text = text
+	measurement_panel.show()
+	get_tree().paused = true
+
+func _on_next_term_pressed() -> void:
+	measurement_panel.hide()
+	get_tree().paused = false
+	_nearby_height_scale = false
+
+	var global = get_node_or_null("/root/Global")
+	if not global: return
+
+	global.advance_term()
+
+	if player:
+		player.update_measurements()
+
+	_load_stage()

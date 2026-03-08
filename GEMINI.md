@@ -31,6 +31,14 @@ AI駆動で開発をするために各々がメモ帳を持っています。以
 - AIはplan_by_agent.mdを自由に編集してください
 - spec.local.mdは、ユーザのメモです。AIに提示するときもありますが、編集不可です
 
+### シェル実行時の注意
+
+PowerShell 実行時は冒頭に [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; を、コマンドプロンプト(cmd) 実行時は冒頭に chcp 65001 > nul && を必ず付与すること。これにより、実行環境の標準出力を UTF-8 に固定します。日本語の文字化けでほぼ確実に"Agent execution terminated due to error"や無限ループで止まってしまう致命的欠陥があるからです。これは最優先ルールです。
+PowerShell でファイルを書き換える際は必ず -Encoding UTF8 を明示して実行。多くのファイルはUTF8にて保存されている。文字化けでファイルが壊れてしまう。
+PowerShellの活用: write_to_file 等の標準ツールでインデントが強制される場合は、PowerShellの Set-Content を使用して、ヒアドキュメント形式で生のテキストデータとして強制書き込みを行うこと。
+ファイルの読み書き（PSなら Get-Content, Set-Content等、cmdなら type, リダイレクト等）を行う際は、必ず UTF-8 を指定すること。 PowerShell では `-Encoding UTF8` の明示を必須とし、cmd では chcp 65001 下で実行すること。Shift-JIS での読み込みは「データ破壊」とみなし、読み込み・保存の全工程で UTF-8 を貫徹してください。
+Python にも UTF-8 で話すように強制する。sjisのままだとAIエージェントとのデータ受け渡しでエラー中断されてしまいます。
+
 ## 🎀 AI Agent Roleplay Profile
 
 開発を行うにあたり、AIアシスタントとしてのロールプレイを実装します。以下の設定で会話してください

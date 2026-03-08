@@ -18,6 +18,12 @@ var visual_height_cm: float = 158.0
 var m: Dictionary
 var appearance: Dictionary
 
+var look_pitch: float = 0.0
+var look_head_angle: float = 0.0
+var _reaction_label: Label = null
+var _has_reacted: bool = false
+const REACTION_DIST = 150.0
+
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var character_drawer: Node2D = $CharacterDrawer
 
@@ -43,6 +49,65 @@ func _ready() -> void:
 	collision_layer = 0 # 当たり判定なし（プレイヤーがすり抜けられるようにする）
 	collision_mask |= 4
 	update_measurements()
+
+	_reaction_label = Label.new()
+	_reaction_label.text = ""
+	_reaction_label.add_theme_font_size_override("font_size", 16)
+	_reaction_label.add_theme_color_override("font_color", Color.BLACK)
+	_reaction_label.add_theme_color_override("font_outline_color", Color.WHITE)
+	_reaction_label.add_theme_constant_override("outline_size", 4)
+	_reaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reaction_label.position = Vector2(-100, -100)
+	_reaction_label.size = Vector2(200, 30)
+	_reaction_label.z_index = 100
+	add_child(_reaction_label)
+
+func _process(delta: float) -> void:
+	var p_node = get_parent().get_node_or_null("Player")
+	if not p_node:
+		var global = get_node_or_null("/root/Global")
+		if global and global.get("player"):
+			p_node = global.player
+			
+	if p_node and m and p_node.get("m"):
+		var dist = global_position.x - p_node.global_position.x
+		var abs_dist = abs(dist)
+		if abs_dist < REACTION_DIST:
+			var self_eye_y = global_position.y - m["landmarks"]["eye"] * CM_TO_PX
+			var p_eye_y = p_node.global_position.y - p_node.m["landmarks"]["eye"] * CM_TO_PX
+			var diff_y = p_eye_y - self_eye_y
+			
+			# abs_distとdiff_yで角度を計算。diff_yは下がプラスなので、見上げるときdiff_yはマイナス
+			var angle = clamp(atan2(diff_y, abs_dist), -PI / 3, PI / 3) # 首の可動限界
+			look_head_angle = angle
+			
+			var max_pitch = m["head"] * CM_TO_PX * 0.2
+			look_pitch = sin(angle) * max_pitch
+			
+			if dist < 0: # 相手が右にいる
+				dir = 1
+				facing = "side"
+			else:
+				dir = -1
+				facing = "side"
+				
+			if not _has_reacted:
+				_has_reacted = true
+				if diff_y < -15.0: # 相手のほうが15cm以上高い(画面上ではYが小さい)
+					_reaction_label.text = "大きい…！"
+				elif diff_y > 15.0:
+					_reaction_label.text = "小柄だ"
+				else:
+					_reaction_label.text = "こんにちは"
+					
+			_reaction_label.position.y = - (visual_height_cm * CM_TO_PX) - 40.0
+		else:
+			look_pitch = lerp(look_pitch, 0.0, 5.0 * delta)
+			look_head_angle = lerp(look_head_angle, 0.0, 5.0 * delta)
+			_reaction_label.text = ""
+			_has_reacted = false
+			# そのままの向きを維持
+
 
 func setup(params: Dictionary, app: Dictionary):
 	for k in params.keys():
