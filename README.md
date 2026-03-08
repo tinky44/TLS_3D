@@ -44,6 +44,3 @@
 ## ドキュメント
 - [詳細仕様書 (spec.md)](specs/spec.md)
 - [開発用メモ (GEMINI.md)](GEMINI.md)
-
----
-*Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>*

@@ -384,15 +384,25 @@ func _update_minimap():
 	
 func _update_bubble():
 	if not player or not bubble_panel: return
-	
+
 	var m = player.get("m")
 	if not m: return
-	
+
 	var px = player.global_position.x / p
 	var hit_dist = 60.0 # 60cm以内に近づいたら表示
 	var closest_obs: Node2D = null
 	var min_dist = INF
-	
+
+	# NPC検知を先に行う（ステージオブジェクトより優先）
+	_nearby_npc = _get_nearby_named_npc(150.0)
+	if _nearby_npc:
+		_nearby_transition_door = ""
+		_nearby_height_scale = false
+		bubble_label.text = "[Eキー] 話しかける"
+		bubble_panel.show()
+		bubble_panel.position = _get_bubble_screen_pos()
+		return
+
 	for child in get_children():
 		if child.has_meta("is_stage_obj") and child.has_meta("obs_x"):
 			# AABBチェックのようなもの。
@@ -401,11 +411,11 @@ func _update_bubble():
 			var dist = 0.0
 			if px < ox1: dist = ox1 - px
 			elif px > ox2: dist = px - ox2
-			
+
 			if dist < hit_dist and dist < min_dist:
 				min_dist = dist
 				closest_obs = child
-				
+
 	if closest_obs:
 		var obs_id = closest_obs.get_meta("obs_id")
 		var oh = closest_obs.get_meta("obs_height_cm")
@@ -417,31 +427,21 @@ func _update_bubble():
 		if obs_id.begins_with("door_to_"):
 			_nearby_transition_door = obs_id
 			_nearby_height_scale = false
-			_nearby_npc = null
 			bubble_label.text += "\n[Eキーで移動]"
 		elif obs_id == "height_scale":
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
-			_nearby_npc = null
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
-			_nearby_npc = null
 
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
 	else:
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
-		# NPC近接検知（名前付きNPCのみ対象。200pxに広げて逃げるNPCでも反応できるよう設定）
-		_nearby_npc = _get_nearby_named_npc(200.0)
-		if _nearby_npc:
-			bubble_label.text = "[Eキー] 話しかける"
-			bubble_panel.show()
-			bubble_panel.position = _get_bubble_screen_pos()
-		else:
-			bubble_panel.hide()
+		bubble_panel.hide()
 
 func _setup_ui():
 	ui_layer = CanvasLayer.new()
