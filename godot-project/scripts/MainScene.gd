@@ -912,6 +912,8 @@ var _meas_height_label: Label = null
 var _meas_diff_label: Label = null
 var _meas_btn_row: HBoxContainer = null
 var _measurement_showing: bool = false
+var _mini_proxy: Node2D = null
+var _mini_drawer: Node2D = null
 
 func _setup_measurement_panel() -> void:
 	measurement_panel = ColorRect.new()
@@ -938,9 +940,39 @@ func _setup_measurement_panel() -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	center.add_child(panel)
 
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 24)
+	panel.add_child(hbox)
+
+	# --- 左: ミニアバタービュー ---
+	var svc = SubViewportContainer.new()
+	svc.custom_minimum_size = Vector2(160, 0)
+	svc.stretch = true
+	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hbox.add_child(svc)
+
+	var sv = SubViewport.new()
+	sv.size = Vector2i(160, 380)
+	sv.transparent_bg = true
+	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	sv.process_mode = Node.PROCESS_MODE_ALWAYS
+	svc.add_child(sv)
+
+	_mini_proxy = Node2D.new()
+	_mini_proxy.set_script(load("res://scripts/MiniPlayerProxy.gd"))
+	_mini_proxy.position = Vector2(80, 365)
+	_mini_proxy.process_mode = Node.PROCESS_MODE_ALWAYS
+	sv.add_child(_mini_proxy)
+
+	_mini_drawer = Node2D.new()
+	_mini_drawer.set_script(load("res://scripts/CharacterDrawer.gd"))
+	_mini_drawer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_mini_proxy.add_child(_mini_drawer)
+
+	# --- 右: テキストUI ---
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 14)
-	panel.add_child(vbox)
+	hbox.add_child(vbox)
 
 	var title = Label.new()
 	title.text = "身体測定結果"
@@ -1007,6 +1039,18 @@ func _setup_measurement_panel() -> void:
 
 	ui_layer.add_child(measurement_panel)
 
+func _update_mini_avatar(h_cm: float) -> void:
+	if not is_instance_valid(_mini_proxy) or not is_instance_valid(_mini_drawer):
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var temp_params = global.current_params.duplicate()
+	temp_params["height"] = h_cm
+	_mini_proxy.m = global.get_custom_body_measurements(temp_params)
+	_mini_proxy.visual_height_cm = h_cm
+	_mini_drawer.queue_redraw()
+
 func _show_measurement_result() -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
@@ -1036,6 +1080,7 @@ func _show_measurement_result() -> void:
 	measurement_content_label.modulate.a = 0.0
 	_meas_btn_row.modulate.a = 0.0
 	_meas_diff_label.scale = Vector2(0.7, 0.7)
+	_update_mini_avatar(prev_h if prev_h > 0.0 else h)
 
 	_measurement_showing = true
 	measurement_panel.show()
@@ -1045,9 +1090,12 @@ func _show_measurement_result() -> void:
 	var tween = create_tween()
 	tween.tween_property(measurement_panel, "color", Color(0, 0, 0, 0.75), 0.4)
 
-	# 身長カウントアップ（前回値 → 現在値）
+	# 身長カウントアップ（前回値 → 現在値）＋アバターがリアルタイムで成長
 	if prev_h > 0.0:
-		tween.tween_method(func(v: float): _meas_height_label.text = "%.1f cm" % v, prev_h, h, 1.4)
+		tween.tween_method(func(v: float):
+			_meas_height_label.text = "%.1f cm" % v
+			_update_mini_avatar(v)
+		, prev_h, h, 1.4)
 	else:
 		tween.tween_interval(0.5)
 
