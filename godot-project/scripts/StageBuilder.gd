@@ -17,8 +17,8 @@ const STAGES = {
             {"id": "chair", "x": 700, "x2": 740, "height": 45, "type": "ground"},
             {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
             {"id": "window_1", "x": 920, "x2": 1050, "height": 160, "type": "background"},
-            {"id": "poster", "x": 1080, "x2": 1130, "height": 170, "type": "background"},
-            {"id": "side_door", "x": 1150, "x2": 1180, "height": 200, "type": "overhead"},
+            {"id": "door_to_myroom", "x": 1080, "x2": 1155, "height": 200, "type": "overhead"},
+            {"id": "side_door", "x": 1175, "x2": 1205, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1250, "x2": 1350, "height": 180, "type": "background"},
             {"id": "bathroom_wall", "x": 1610, "x2": 1630, "height": 240, "type": "background"},
             {"id": "bathroom_bg", "x": 1640, "x2": 1950, "height": 240, "type": "background"},
@@ -973,7 +973,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "出入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "外への出入口（%dcm）。余裕でくぐれます。" % oh
-        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4", "door_to_room":
+        "door_left", "door_right", "side_door", "school_door_1", "door_1", "door_2", "door_3", "door_4", "door_to_room", "door_to_myroom":
             if h > oh:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:

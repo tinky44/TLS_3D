@@ -15,6 +15,9 @@ var bubble_label: Label
 var pause_menu: Control
 var pause_save_label: Label
 
+# ステージ遷移用
+var _nearby_transition_door: String = ""
+
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
 	if has_node("Floor"): get_node("Floor").queue_free()
@@ -171,10 +174,18 @@ func _update_bubble():
 		var obs_id = closest_obs.get_meta("obs_id")
 		var oh = closest_obs.get_meta("obs_height_cm")
 		var h = m["height"]
-		
+
 		bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
+
+		# 遷移ドア（"door_to_XXX"）の近くにいる場合はヒントを追加
+		if obs_id.begins_with("door_to_"):
+			_nearby_transition_door = obs_id
+			bubble_label.text += "\n[Eキーで移動]"
+		else:
+			_nearby_transition_door = ""
+
 		bubble_panel.show()
-		
+
 		# プレイヤーの2D座標をCanvasLayer上のスクリーン座標に変換して配置
 		var cam = player.get_node_or_null("Camera2D")
 		var screen_pos: Vector2
@@ -185,6 +196,7 @@ func _update_bubble():
 		var offset_y = player.visual_height_cm * p + 80
 		bubble_panel.position = screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
 	else:
+		_nearby_transition_door = ""
 		bubble_panel.hide()
 	
 	pass
@@ -310,6 +322,9 @@ func _setup_pause_menu() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
 		_toggle_pause()
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_E and _nearby_transition_door != "":
+			_enter_transition_door()
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -358,6 +373,7 @@ func _update_ui():
 	text += "矢印キー左右: 移動\n"
 	text += "矢印キー下: 正面向き\n"
 	text += "矢印キー上: 後ろ向き\n"
+	text += "Eキー: ドアを通る\n"
 	
 	status_label.text = text
 
@@ -393,3 +409,37 @@ func _on_save_pressed() -> void:
 	if not global: return
 	if global.current_slot >= 1:
 		global.save_slot(global.current_slot)
+
+func _enter_transition_door() -> void:
+	# "door_to_XXX" → 遷移先ステージID = "XXX"
+	var new_stage_id = _nearby_transition_door.substr("door_to_".length())
+	if not StageBuilder.STAGES.has(new_stage_id):
+		return
+
+	var from_stage_id = ""
+	var global = get_node_or_null("/root/Global")
+	if global:
+		from_stage_id = global.current_stage_id
+		global.current_stage_id = new_stage_id
+
+	_nearby_transition_door = ""
+	_load_stage()
+
+	# 遷移先の「戻り口ドア」の近くにスポーン
+	if player and from_stage_id != "" and StageBuilder.STAGES.has(new_stage_id):
+		var return_door_id = "door_to_" + from_stage_id
+		var stage_width = float(StageBuilder.STAGES[new_stage_id]["width"])
+		for obs in StageBuilder.STAGES[new_stage_id]["obstacles"]:
+			if obs["id"] == return_door_id:
+				var obs_x = float(obs["x"])
+				var obs_x2 = float(obs["x2"])
+				var obs_center = (obs_x + obs_x2) / 2.0
+				var spawn_x: float
+				# ドアが右半分 → 左に出現、左半分 → 右に出現
+				if obs_center > stage_width / 2.0:
+					spawn_x = obs_x - 50.0
+				else:
+					spawn_x = obs_x2 + 50.0
+				spawn_x = clamp(spawn_x, 50.0, stage_width - 50.0)
+				player.position = Vector2(spawn_x * p, 0)
+				break
