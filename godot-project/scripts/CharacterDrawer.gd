@@ -120,6 +120,25 @@ func _draw_pants_leg(p_hip: Vector2, p_knee: Vector2, p_ankle: Vector2,
 		CharacterDrawUtils.draw_trapezoid(self , p_hip, p_knee, pants_top_w, pants_knee_w, pants)
 		CharacterDrawUtils.draw_trapezoid(self , p_knee, p_ankle, pants_knee_w, pants_ankle_w, pants)
 
+# 後ろ髪などのベース部分（体の奥に配置されるレイヤー）を描画するヘルパー
+func _draw_hair_base_layer(head_center: Vector2, head_r: float, hair_style: String, hair_color: Color) -> void:
+	var hr = head_r
+	var hair_outer_w = hr * 1.12
+	var hair_top_h = hr * 1.08
+	var hair_bottom_y = head_center.y + hr * 1.3
+	if hair_style == "long":
+		hair_bottom_y = head_center.y + hr * 3.5
+
+	var dome_offset_y = - hr * 0.1
+	CharacterDrawUtils.draw_ellipse(self , head_center + Vector2(0, dome_offset_y), hair_outer_w, hair_top_h, hair_color)
+	var back_pts = PackedVector2Array([
+		Vector2(head_center.x - hair_outer_w, head_center.y),
+		Vector2(head_center.x + hair_outer_w, head_center.y),
+		Vector2(head_center.x + hair_outer_w * 1.0, hair_bottom_y),
+		Vector2(head_center.x - hair_outer_w * 1.0, hair_bottom_y)
+	])
+	draw_polygon(back_pts, PackedColorArray([hair_color]))
+
 # 髪型描画ヘルパー
 # 後髪 → 頭（肌色） → 前髪 の順で描画する
 func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
@@ -131,27 +150,14 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 		# 【調整用】髪の横幅。大きいほど頭が横に膨らむ（側面1.05、背面1.08に合わせた値）
 		var hair_outer_w = hr * 1.12
 		# 【調整用】ドーム（頭頂部の丸み）の高さ。大きいほど頭が縦に膨らむ
-		var hair_top_h = hr * 1.08
 
 		# 【調整用】髪の下端位置（ショート/ロング）。値を大きくすると髪が長くなる
 		var hair_bottom_y = head_center.y + hr * 1.3 # 短い場合
 		if hair_style == "long":
 			hair_bottom_y = head_center.y + hr * 3.5 # ロングの場合
 
-		# 1. 後ろ髪（顔の背面に描画）
-		# 【調整用】ドーム中心のYオフセット。マイナスで上にずれる
-		var dome_offset_y = - hr * 0.1
-		CharacterDrawUtils.draw_ellipse(self , head_center + Vector2(0, dome_offset_y), hair_outer_w, hair_top_h, hair_color)
-		# そこから下へ落ちるベース
-		var back_pts = PackedVector2Array([
-			Vector2(head_center.x - hair_outer_w, head_center.y),
-			Vector2(head_center.x + hair_outer_w, head_center.y),
-			Vector2(head_center.x + hair_outer_w * 1.0, hair_bottom_y),
-			Vector2(head_center.x - hair_outer_w * 1.0, hair_bottom_y)
-		])
-		draw_polygon(back_pts, PackedColorArray([hair_color]))
-
-		# 2. 顔（肌色の円）
+		# 1. 後ろ髪（顔の背面に描画）は事前描画されるため省略
+		var dome_offset_y = - hr * 0.1 # 2. 顔（肌色の円）
 		CharacterDrawUtils.draw_ellipse(self , head_center, hr, hr, skin_color)
 
 		# 3. サイドヘア（顔の左右の手前にかぶせる髪）
@@ -209,11 +215,7 @@ func _draw_hair(head_center: Vector2, head_r: float, head_w: float,
 
 	elif facing == "back":
 		# 背面: 髪全体が見える
-		CharacterDrawUtils.draw_ellipse(self , head_center, hr * 1.08, hr * 1.08, hair_color)
-		if hair_style == "long":
-			# ロングヘア: 肩まで垂れる
-			var hair_bottom = head_center + Vector2(0, hr * 2.0)
-			CharacterDrawUtils.draw_trapezoid(self , head_center + Vector2(0, hr * 0.3), hair_bottom, head_w * 0.9, head_w * 0.6, hair_color)
+		_draw_hair_base_layer(head_center, hr, hair_style, hair_color)
 
 	else: # side
 		var down_dir = Vector2(0, 1).rotated(head_angle)
@@ -391,10 +393,16 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = Color(appearance.get("shoes_color", "#e5d6ba"))
 
-	# 服装タイプの判定
 	var bottoms_type = appearance.get("bottoms_type", "pants")
 	var tops_type = appearance.get("tops_type", "t_shirt")
 	var is_skirt = bottoms_type.begins_with("skirt")
+
+	# 0. 髪のベースレイヤー（正面向きの場合、体の後ろに描画する）
+	var hair_style = appearance.get("hair_style", "short")
+	var hair_color = Color(appearance.get("hair_color", "#4a3c31"))
+	var head_r = d["head_h"] / 2.0
+	if facing == "front":
+		_draw_hair_base_layer(Vector2(d["front_hx"], d["front_hy"]), head_r, hair_style, hair_color)
 
 	# 1. 両足
 	var pants_thigh_w = thigh_w * 1.3
@@ -426,9 +434,6 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 
 	# 4. 頭 + 髪
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
-	var head_r = d["head_h"] / 2.0
-	var hair_style = appearance.get("hair_style", "short")
-	var hair_color = Color(appearance.get("hair_color", "#4a3c31"))
 	_draw_hair(Vector2(d["front_hx"], d["front_hy"]), head_r, head_w, hair_style, hair_color, skin_color, facing)
 
 	# 5. 両腕（台形袖の描画）
