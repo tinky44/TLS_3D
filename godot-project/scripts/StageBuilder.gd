@@ -711,6 +711,126 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
             tgask.z_index = -1
             node.add_child(tgask)
 
+    elif o_id == "side_door":
+        # 側面から見たドア（細長い茶色の線）
+        # 背景を透明にする
+        cr.color = Color(0, 0, 0, 0)
+        
+        # ドア本体（細い線）
+        var door_line = ColorRect.new()
+        door_line.color = Color(0.36, 0.25, 0.20) # ドアパネルと同じ茶色
+        # w_px の中央付近に少しだけ幅を持たせて配置（幅は適当に10px程度）
+        var door_w = min(10.0, w_px)
+        door_line.position = cr.position + Vector2((w_px - door_w) * 0.5, 0)
+        door_line.size = Vector2(door_w, h_draw_px)
+        door_line.z_index = -1
+        node.add_child(door_line)
+        
+        # ドアノブ
+        var knob_w = 12.0
+        var knob_h = 4.0
+        var d_knob = ColorRect.new()
+        d_knob.color = Color(0.7, 0.7, 0.7) # シルバー
+        # ドアの中心付近、高さの半分くらいに配置
+        d_knob.position = door_line.position + Vector2(-knob_w * 0.5 + door_w * 0.5, h_draw_px * 0.5)
+        d_knob.size = Vector2(knob_w, knob_h)
+        d_knob.z_index = -1
+        node.add_child(d_knob)
+
+    elif o_id == "vending_machine":
+        cr.color = Color(0, 0, 0, 0)
+        
+        # 本体 (白系ベース)
+        var body = ColorRect.new()
+        body.color = Color(0.92, 0.92, 0.95)
+        body.position = cr.position
+        body.size = cr.size
+        node.add_child(body)
+        
+        # 上部の看板部分 (LEDで光るイメージ)
+        var ad_panel = ColorRect.new()
+        ad_panel.color = Color(0.85, 0.90, 1.0)
+        ad_panel.position = cr.position + Vector2(w_px * 0.05, h_draw_px * 0.02)
+        ad_panel.size = Vector2(w_px * 0.9, h_draw_px * 0.08)
+        node.add_child(ad_panel)
+        
+        # 商品ディスプレイ窓
+        var display = ColorRect.new()
+        display.color = Color(0.12, 0.12, 0.18)
+        var disp_w = w_px * 0.86
+        var disp_h = h_draw_px * 0.45
+        display.position = cr.position + Vector2(w_px * 0.07, h_draw_px * 0.12)
+        display.size = Vector2(disp_w, disp_h)
+        node.add_child(display)
+        
+        # 窓の光沢/ガラス感
+        var glass = ColorRect.new()
+        glass.color = Color(0.8, 0.9, 1.0, 0.15)
+        glass.position = display.position
+        glass.size = display.size
+        node.add_child(glass)
+        
+        # 商品のダミー並べ (ランダムな色でジュース缶を表現)
+        var rows = 3
+        var cols = 5
+        var item_w = disp_w * 0.12
+        var item_h = disp_h * 0.22
+        for r in range(rows):
+            # 各段に棚を引く
+            var shelf = ColorRect.new()
+            shelf.color = Color(0.4, 0.4, 0.45)
+            shelf.position = display.position + Vector2(0, (r + 1) * (disp_h / rows) - 10)
+            shelf.size = Vector2(disp_w, 4)
+            node.add_child(shelf)
+            
+            for c in range(cols):
+                var drink = ColorRect.new()
+                drink.color = Color(randf_range(0.2, 0.9), randf_range(0.2, 0.9), randf_range(0.2, 0.9))
+                var dx = 10 + c * (disp_w / float(cols))
+                var dy = 10 + r * (disp_h / float(rows))
+                drink.position = display.position + Vector2(dx, dy)
+                drink.size = Vector2(item_w, item_h)
+                node.add_child(drink)
+                # 押しボタン
+                var btn = ColorRect.new()
+                btn.color = Color(0.8, 0.8, 0.8) if randi() % 2 == 0 else Color(0.8, 0.2, 0.2)
+                btn.position = drink.position + Vector2(0, drink.size.y + 6)
+                btn.size = Vector2(item_w, 6)
+                node.add_child(btn)
+
+        # お札/硬貨投入口
+        var slot_panel = ColorRect.new()
+        slot_panel.color = Color(0.2, 0.2, 0.25)
+        slot_panel.position = cr.position + Vector2(w_px * 0.72, h_draw_px * 0.6)
+        slot_panel.size = Vector2(w_px * 0.2, h_draw_px * 0.12)
+        node.add_child(slot_panel)
+        
+        var coin_slot = ColorRect.new()
+        coin_slot.color = Color(0.05, 0.05, 0.05)
+        coin_slot.position = slot_panel.position + Vector2(5, 5)
+        coin_slot.size = Vector2(4, 15)
+        node.add_child(coin_slot)
+        
+        # 取り出し口
+        var out_box_frame = ColorRect.new()
+        out_box_frame.color = Color(0.2, 0.2, 0.22)
+        out_box_frame.position = cr.position + Vector2(w_px * 0.15, h_draw_px * 0.82)
+        out_box_frame.size = Vector2(w_px * 0.7, h_draw_px * 0.12)
+        node.add_child(out_box_frame)
+        
+        var out_box = ColorRect.new()
+        out_box.color = Color(0.05, 0.05, 0.05)
+        out_box.position = out_box_frame.position + Vector2(5, 5)
+        out_box.size = Vector2(out_box_frame.size.x - 10, out_box_frame.size.y - 10)
+        node.add_child(out_box)
+        
+        # 自販機の影/立体感
+        var shadow = ColorRect.new()
+        shadow.color = Color(0, 0, 0, 0.15)
+        shadow.position = cr.position + Vector2(w_px * 0.9, 0)
+        shadow.size = Vector2(w_px * 0.1, h_draw_px)
+        node.add_child(shadow)
+
     elif "door" in o_id:
         # 元の梁（上枠）の色をドアの枠色に合わせる
         cr.color = Color(0.24, 0.16, 0.12)
