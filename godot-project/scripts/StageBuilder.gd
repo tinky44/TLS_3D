@@ -848,34 +848,73 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float) ->
         node.add_child(footboard)
 
     elif o_id == "bookshelf":
-        cr.color = Color(0.45, 0.30, 0.18)
-        # 棚板（4枚）
-        var shelf_count = 4
-        var shelf_spacing = h_draw_px / (shelf_count + 1)
+        cr.color = Color(0, 0, 0, 0)
+        var frame_color = Color(0.45, 0.30, 0.18)
+        var shelf_color = Color(0.52, 0.35, 0.20)
+        var ft = 7.0   # フレーム厚
+        var st = 5.0   # 棚板厚
+        var shelf_count = 4  # 棚板4枚 = 5段
+
+        # 左右のパネル（正面から見た柱）
+        for dx in [0.0, w_px - ft]:
+            var panel = ColorRect.new()
+            panel.color = frame_color
+            panel.position = Vector2(cr.position.x + dx, cr.position.y)
+            panel.size = Vector2(ft, h_draw_px)
+            node.add_child(panel)
+
+        # 上下のパネル
+        for dy in [0.0, h_draw_px - ft]:
+            var plank = ColorRect.new()
+            plank.color = frame_color
+            plank.position = Vector2(cr.position.x, cr.position.y + dy)
+            plank.size = Vector2(w_px, ft)
+            node.add_child(plank)
+
+        # 背板（少し暗い茶色）
+        var back = ColorRect.new()
+        back.color = Color(0.30, 0.20, 0.12)
+        back.position = Vector2(cr.position.x + ft, cr.position.y + ft)
+        back.size = Vector2(w_px - ft * 2, h_draw_px - ft * 2)
+        node.add_child(back)
+
+        # 棚板（横仕切り）
+        var inner_h = h_draw_px - ft * 2
+        var section_h = inner_h / (shelf_count + 1)
         for i in range(1, shelf_count + 1):
             var shelf = ColorRect.new()
-            shelf.color = Color(0.55, 0.38, 0.22)
-            shelf.position = Vector2(cr.position.x, cr.position.y + shelf_spacing * i)
-            shelf.size = Vector2(w_px, 5)
+            shelf.color = shelf_color
+            shelf.position = Vector2(cr.position.x + ft, cr.position.y + ft + section_h * i)
+            shelf.size = Vector2(w_px - ft * 2, st)
             node.add_child(shelf)
-        # 本（固定パターン）
-        var book_colors_shelf = [Color(0.75, 0.15, 0.15), Color(0.15, 0.45, 0.75), Color(0.15, 0.65, 0.25), Color(0.85, 0.65, 0.10), Color(0.55, 0.15, 0.70)]
-        var book_widths_arr = [10, 8, 12, 9, 11, 8]
+
+        # 本（各段に左右対称に詰めて配置）
+        var book_colors_shelf = [Color(0.80, 0.15, 0.15), Color(0.15, 0.40, 0.80), Color(0.15, 0.65, 0.25), Color(0.85, 0.65, 0.10), Color(0.55, 0.15, 0.70), Color(0.85, 0.45, 0.10)]
+        var book_widths_arr = [9, 7, 11, 8, 10, 7, 9, 11, 8]
+        var inner_x = cr.position.x + ft + 1.0
+        var inner_w = w_px - ft * 2 - 2.0
         for i in range(shelf_count + 1):
-            var sy = cr.position.y + shelf_spacing * i + (0.0 if i == 0 else 5.0)
-            var ey = cr.position.y + (shelf_spacing * (i + 1) if i < shelf_count else h_draw_px)
-            var bh = ey - sy - 4.0
-            var bx = cr.position.x + 5.0
-            for j in range(book_widths_arr.size()):
-                var bw = float(book_widths_arr[j])
-                if bx + bw > cr.position.x + w_px - 5.0:
+            var book_top: float
+            var book_h: float
+            if i == 0:
+                book_top = cr.position.y + ft + 2.0
+                book_h = section_h - 4.0
+            else:
+                book_top = cr.position.y + ft + section_h * i + st + 2.0
+                book_h = section_h - st - 4.0
+            var bx = inner_x
+            var c_idx = i * 3
+            while bx < inner_x + inner_w - 5.0:
+                var bw = float(book_widths_arr[c_idx % book_widths_arr.size()])
+                if bx + bw > inner_x + inner_w - 1.0:
                     break
                 var book = ColorRect.new()
-                book.color = book_colors_shelf[(i + j) % book_colors_shelf.size()]
-                book.position = Vector2(bx, sy + 3.0)
-                book.size = Vector2(bw, bh)
+                book.color = book_colors_shelf[c_idx % book_colors_shelf.size()]
+                book.position = Vector2(bx, book_top)
+                book.size = Vector2(bw, book_h)
                 node.add_child(book)
                 bx += bw + 1.0
+                c_idx += 1
 
     elif o_id == "desk_myroom":
         cr.color = Color(0, 0, 0, 0)
