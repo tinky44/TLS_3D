@@ -523,13 +523,17 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	if facing == "front":
 		var hx = d["front_hx"]
 		var hy = d["front_hy"]
+		
+		var look_pitch = player.get("look_pitch")
+		if look_pitch == null:
+			look_pitch = 0.0
 
 		var eye_off_x = head_w * 0.2
-		var eye_y = hy # 真ん中（高さオフセットなし）
+		var eye_y = hy + look_pitch
 		draw_circle(Vector2(hx - eye_off_x, eye_y), 2.5, Color("#333333"))
 		draw_circle(Vector2(hx + eye_off_x, eye_y), 2.5, Color("#333333"))
 
-		var mouth_y = hy + (d["head_h"] * 0.25) # 目と顎の中間
+		var mouth_y = hy + (d["head_h"] * 0.25) + look_pitch # 目と顎の中間
 		var m_pts = PackedVector2Array()
 		for i in range(11):
 			var t = float(i) / 10.0
@@ -612,12 +616,17 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 
 	# 6. 頭 + 髪
 	var head_angle = d["waist_angle"] * 0.6
+	
+	var look_angle = player.get("look_head_angle")
+	if look_angle != null:
+		head_angle += look_angle
+
 	var head_r = d["head_h"] / 2.0
 	var hair_style = appearance.get("hair_style", "short")
 	var hair_color = Color(appearance.get("hair_color", "#4a3c31"))
 	_draw_hair(Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
-	var eye_offset = Vector2(head_r * 0.7, 0.0) # 高さオフセットなし
+	var eye_offset = Vector2(head_r * 0.7, 0.0) # 高さオフセットなし（回転に任せる）
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
 	draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
 
