@@ -372,8 +372,14 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 	# 両足首のおおよその位置を計算して、脚が大きく開いているなら裾を広げる
 	var f_leg_l_ang = (d["leg_l_angle"] * 0.2) * PI / 180 + PI / 2
 	var f_leg_r_ang = (d["leg_r_angle"] * 0.2) * PI / 180 + PI / 2
-	var ankle_l_x = d["hip_l"].x + (d["thigh_l"] + d["shin_l"]) * cos(f_leg_l_ang)
-	var ankle_r_x = d["hip_r"].x + (d["thigh_l"] + d["shin_l"]) * cos(f_leg_r_ang)
+	
+	# 正面の腰の左右のオフセット（_draw_front_back内で計算しているものと同じ）
+	var hip_off = base_width * 0.25
+	var p_hip_l_x = waist_pos.x - hip_off
+	var p_hip_r_x = waist_pos.x + hip_off
+	
+	var ankle_l_x = p_hip_l_x + (d["thigh_l"] + d["shin_l"]) * cos(f_leg_l_ang)
+	var ankle_r_x = p_hip_r_x + (d["thigh_l"] + d["shin_l"]) * cos(f_leg_r_ang)
 	var legs_spread = abs(ankle_r_x - ankle_l_x)
 	
 	var actual_hem_w = max(hem_w, legs_spread * 0.9) # 足幅の90%まではスカートが追従して広がる
