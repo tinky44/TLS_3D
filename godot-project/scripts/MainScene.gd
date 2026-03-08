@@ -913,7 +913,7 @@ func _spawn_npcs(stage_id: String) -> void:
 			}
 			haruka_inf.custom_appearance = {
 				"hair_style": "long",
-				"hair_color": "#111111",
+				"hair_color": "#885533",
 				"tops_type": "sweater",
 				"tops_color": "#ffffff",
 				"bottoms_type": "skirt_long",

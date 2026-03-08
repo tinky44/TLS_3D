@@ -110,6 +110,9 @@ func advance_term() -> void:
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
+	# 身長に合わせて頭身を自動更新（最大9頭身）
+	var h: float = current_params["height"]
+	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
 	record_growth_history("growth")
 	queue_event("semester_start")  # 学期開始イベントを予約
 	haruka_invited_this_term = false
