@@ -1,59 +1,59 @@
 extends CharacterBody2D
 
+signal head_bump(obs_id: String, obs_height_cm: float)
+
 var SPEED: float = 250.0
 const JUMP_VELOCITY = -500.0
 const GRAVITY = 1200.0
-var CM_TO_PX: float = 2.0 # Updated in _ready from Global
+const HEAD_BUMP_COOLDOWN := 0.35
+const HEAD_BUMP_SHAKE_TIME := 0.18
+const HEAD_BUMP_SHAKE_STRENGTH := 6.0
+var CM_TO_PX: float = 2.0
 
-# 状態
-var facing: String = "side" # "side", "front", "back"
-var dir: int = 1 # 1: right, -1: left
+var facing: String = "side"
+var dir: int = 1
 var is_walking: bool = false
 var walk_phase: float = 0.0
-var walk_speed: float = 12.0 # 位相の進行速度
-var pose: String = "normal" # "normal", "taiiku_suwari"
+var walk_speed: float = 12.0
+var pose: String = "normal"
 
 var auto_crouch: bool = true
 var target_crouch_cm: float = -1.0
-var visual_height_cm: float = 180.0 # 補間用の現在の高さ
+var visual_height_cm: float = 180.0
 
-# 計測データ
 var m: Dictionary
 
-# Node References
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var character_drawer: Node2D = $CharacterDrawer
 
-# 物理センサー (Auto-Crouch用)
-# 配列として持たせ、前方の複数の高さをチェックする
 var sensors: Array = []
+var _head_bump_cooldown_left: float = 0.0
+var _head_bump_shake_left: float = 0.0
+var _camera_base_offset: Vector2 = Vector2.ZERO
+var _camera_shake_active: bool = false
 
 func _ready() -> void:
-    collision_layer = 0 # NPCから押し出されないように自身の当たり判定レイヤーを消す
-    collision_mask |= 4 # 天井(layer4)にも物理的に当たるように
+    collision_layer = 0
+    collision_mask |= 4
     update_measurements()
 
 func update_measurements() -> void:
-    # Globalオートロードが設定されていれば取得
     if has_node("/root/Global"):
         var global = get_node("/root/Global")
         m = global.get_body_measurements()
         CM_TO_PX = global.CM_TO_PX
         visual_height_cm = m["height"]
     else:
-        # フォールバック (とりあえず180cm女性)
         m = _mock_measurements()
-        visual_height_cm = m["height"] # Initialize for fallback too
+        visual_height_cm = m["height"]
 
-    # 古いセンサーを破棄
     for s in sensors:
         s.queue_free()
     sensors.clear()
 
     _setup_sensors()
     _update_collision()
-    
-    # 描画更新
+
     if character_drawer:
         character_drawer.queue_redraw()
 
@@ -64,17 +64,13 @@ func _physics_process(delta: float) -> void:
     if Input.is_action_just_pressed("ui_accept") and is_on_floor():
         velocity.y = JUMP_VELOCITY
 
-    # キー入力によるポーズと向き
     _handle_input()
 
-    # 移動処理
     var direction := Input.get_axis("ui_left", "ui_right")
     if direction:
         velocity.x = direction * SPEED
         dir = int(sign(direction))
-        if Input.is_action_pressed("ui_up") or Input.is_action_pressed("ui_down"):
-            pass # 上下入力中は向きを上書きしない
-        else:
+        if not (Input.is_action_pressed("ui_up") or Input.is_action_pressed("ui_down")):
             facing = "side"
     else:
         velocity.x = move_toward(velocity.x, 0, SPEED)
@@ -83,57 +79,59 @@ func _physics_process(delta: float) -> void:
     if is_walking:
         walk_phase += walk_speed * delta
     else:
-        # ゆっくり基本状態(0)に戻す
         walk_phase = lerp_angle(walk_phase, 0.0, 10.0 * delta)
 
     _handle_auto_crouch()
     _update_visual_height(delta)
     _update_collision()
     move_and_slide()
-    character_drawer.queue_redraw() # 毎フレーム再描画
+    _process_head_bump(delta)
+    _update_camera_shake()
+    character_drawer.queue_redraw()
 
-func _handle_input():
-    # 上下で向き変更
+func _handle_input() -> void:
     if Input.is_action_pressed("ui_up"):
         facing = "back"
     elif Input.is_action_pressed("ui_down"):
         facing = "front"
 
-    # 数字キー等で基本ポーズ手動切り替え
-    if Input.is_key_pressed(KEY_1): pose = "normal"
-    elif Input.is_key_pressed(KEY_2): pose = "taiiku_suwari"
+    if Input.is_key_pressed(KEY_1):
+        pose = "normal"
+    elif Input.is_key_pressed(KEY_2):
+        pose = "taiiku_suwari"
 
-func _setup_sensors():
-    # 進行方向の前方 40cm に RayCast を複数配置
+func _setup_sensors() -> void:
     var look_ahead_px: float = 40.0 * CM_TO_PX
-    var heights_cm = [m["landmarks"]["top"], m["landmarks"]["eye"], m["landmarks"]["shoulder"], m["height"] * 0.75]
-    
+    var heights_cm = [
+        m["landmarks"]["top"],
+        m["landmarks"]["eye"],
+        m["landmarks"]["shoulder"],
+        m["height"] * 0.75
+    ]
+
     for h_cm in heights_cm:
         var ray = RayCast2D.new()
-        # 自分自身の足元を0とした時のY座標 (Godotは下が正なのでマイナス)
         ray.position = Vector2(0, -h_cm * CM_TO_PX)
         ray.target_position = Vector2(look_ahead_px, 0)
-        # 障害物はレイヤー2に配置する想定（頭上のみレイヤー2等）
         ray.collision_mask = 1 | 2 | 4
-        ray.hit_from_inside = true # 薄いColliderの内部からでも拾えるように
+        ray.hit_from_inside = true
         add_child(ray)
         sensors.append(ray)
-        
-    # 天井検知用レーダー (立ち上がる時用) - 上方向へ飛ばす
+
     var ceil_ray = RayCast2D.new()
     ceil_ray.position = Vector2(0, -m["height"] * 0.5 * CM_TO_PX)
-    # 真上に向かって、身長の1.2倍くらいまでチェック
     ceil_ray.target_position = Vector2(0, -m["height"] * 0.7 * CM_TO_PX)
     ceil_ray.collision_mask = 1 | 2 | 4
     ceil_ray.hit_from_inside = true
     add_child(ceil_ray)
-    sensors.append(ceil_ray) # index 4
+    sensors.append(ceil_ray)
 
-func _handle_auto_crouch():
-    if not auto_crouch: return
-    if pose != "normal": return
+func _handle_auto_crouch() -> void:
+    if not auto_crouch:
+        return
+    if pose != "normal":
+        return
 
-    # センサーの向き更新
     var look_px = 40.0 * CM_TO_PX * dir
     for i in range(4):
         sensors[i].target_position.x = look_px
@@ -148,43 +146,39 @@ func _handle_auto_crouch():
             var hit_point = ray.get_collision_point()
             var collider = ray.get_collider()
             var obs_cm = 0.0
-            
+
             if collider and collider.has_meta("obs_height_cm"):
                 obs_cm = float(collider.get_meta("obs_height_cm"))
             else:
                 var obj_y = global_position.y - hit_point.y
                 obs_cm = obj_y / CM_TO_PX
-                
+
             should_crouch = true
             if obs_cm < min_obs_h_cm:
                 min_obs_h_cm = obs_cm
 
-    # 天井の高さもチェック
     sensors[4].force_raycast_update()
     if sensors[4].is_colliding():
         var hit_point = sensors[4].get_collision_point()
         var ceil_y_px = global_position.y - hit_point.y
         var ceil_h_cm = ceil_y_px / CM_TO_PX
-        # 天井が身長より低い（または余裕がない）場合
         if ceil_h_cm <= m["landmarks"]["top"] + 2.0:
             should_crouch = true
             if ceil_h_cm < min_obs_h_cm:
                 min_obs_h_cm = ceil_h_cm
 
     if should_crouch:
-        # めり込み防止のため8cm余裕を持たせる
         target_crouch_cm = min_obs_h_cm - 8.0
     else:
-        # 天井が塞がっていなければ立つ
         target_crouch_cm = -1.0
 
 func _is_ceiling_blocked() -> bool:
     sensors[4].force_raycast_update()
     return sensors[4].is_colliding()
 
-func _update_visual_height(delta: float):
+func _update_visual_height(delta: float) -> void:
     var target_h_cm = m["height"]
-    
+
     if pose == "taiiku_suwari":
         target_h_cm = m["height"] * 0.5
     elif pose == "normal":
@@ -192,28 +186,87 @@ func _update_visual_height(delta: float):
             target_h_cm = target_crouch_cm
         elif Input.is_key_pressed(KEY_S):
             target_h_cm *= 0.8
-            
-    # 天井の高さでキャップする (reachポーズ等でも天井に引っかからないように)
+
     sensors[4].force_raycast_update()
     if sensors[4].is_colliding():
         var hit_point = sensors[4].get_collision_point()
         var ceil_y_px = global_position.y - hit_point.y
         var ceil_h_cm = ceil_y_px / CM_TO_PX
-        # 天井の高さ - 8cm (めり込み防止マージン) を上限とする
         if target_h_cm > ceil_h_cm - 8.0:
             target_h_cm = ceil_h_cm - 8.0
 
-    # 補間の速さ (15.0 くらいだとヌルっとしつつキビキビ動く)
     visual_height_cm = lerp(visual_height_cm, target_h_cm, 15.0 * delta)
 
-func _update_collision():
-    # 補間された高さに基づいてコリジョンの高さを調節
+func _update_collision() -> void:
     var h_px = visual_height_cm * CM_TO_PX
     var shape = collision_shape.shape as CapsuleShape2D
     if shape:
         shape.height = max(40.0, h_px)
-        collision_shape.position.y = - h_px / 2.0
+        collision_shape.position.y = -h_px / 2.0
 
+func _process_head_bump(delta: float) -> void:
+    _head_bump_cooldown_left = max(0.0, _head_bump_cooldown_left - delta)
+    _head_bump_shake_left = max(0.0, _head_bump_shake_left - delta)
+
+    if _head_bump_cooldown_left > 0.0:
+        return
+
+    for i in range(get_slide_collision_count()):
+        var collision := get_slide_collision(i)
+        if collision == null:
+            continue
+
+        var collider = collision.get_collider()
+        if collider == null:
+            continue
+        if not collider.has_meta("obs_type"):
+            continue
+        if String(collider.get_meta("obs_type")) != "overhead":
+            continue
+
+        var normal := collision.get_normal()
+        if normal.y < 0.55:
+            continue
+
+        var hit_point: Vector2 = collision.get_position()
+        var head_y := global_position.y - visual_height_cm * CM_TO_PX
+        if hit_point.y > head_y + 16.0:
+            continue
+
+        _trigger_head_bump(
+            String(collider.get_meta("obs_id")),
+            float(collider.get_meta("obs_height_cm"))
+        )
+        break
+
+func _trigger_head_bump(obs_id: String, obs_height_cm: float) -> void:
+    _head_bump_cooldown_left = HEAD_BUMP_COOLDOWN
+    _head_bump_shake_left = HEAD_BUMP_SHAKE_TIME
+    velocity.y = max(velocity.y, 90.0)
+    emit_signal("head_bump", obs_id, obs_height_cm)
+
+func _update_camera_shake() -> void:
+    var cam := get_node_or_null("Camera2D") as Camera2D
+    if cam == null:
+        return
+
+    if _head_bump_shake_left <= 0.0:
+        if _camera_shake_active:
+            cam.offset = _camera_base_offset
+            _camera_shake_active = false
+        else:
+            _camera_base_offset = cam.offset
+        return
+
+    if not _camera_shake_active:
+        _camera_base_offset = cam.offset
+        _camera_shake_active = true
+
+    var strength := HEAD_BUMP_SHAKE_STRENGTH * (_head_bump_shake_left / HEAD_BUMP_SHAKE_TIME)
+    cam.offset = _camera_base_offset + Vector2(
+        randf_range(-strength, strength),
+        randf_range(-strength * 0.6, strength * 0.6)
+    )
 
 func _mock_measurements() -> Dictionary:
     var h = 180.0
@@ -222,7 +275,17 @@ func _mock_measurements() -> Dictionary:
     var leg = h * 0.48
     var arm = h - leg - ht - 2 * n
     return {
-        "height": h, "head": ht, "headWidth": ht * 0.702, "neck": n,
-        "shoulder": ht * 1.872, "arm": arm, "armLength": arm, "leg": leg,
-        "landmarks": {"top": h, "eye": h - ht * 0.5, "shoulder": h - ht - 2 * n}
+        "height": h,
+        "head": ht,
+        "headWidth": ht * 0.702,
+        "neck": n,
+        "shoulder": ht * 1.872,
+        "arm": arm,
+        "armLength": arm,
+        "leg": leg,
+        "landmarks": {
+            "top": h,
+            "eye": h - ht * 0.5,
+            "shoulder": h - ht - 2 * n
+        }
     }

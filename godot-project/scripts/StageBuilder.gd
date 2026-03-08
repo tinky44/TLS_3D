@@ -2680,5 +2680,32 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
         return "オブジェクト（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, math_round(h - oh)]
     return "オブジェクト（高さ%dcm）。" % oh
 
+static func get_head_bump_comment(obs_id: String, obs_height_cm: float) -> String:
+    match obs_id:
+        "door_to_train":
+            return "電車のドア上に頭が当たった。少しかがまないと危ない。"
+        "door_to_station":
+            return "駅の入口は低い。頭を下げて抜けたい。"
+        "door_to_school", "door_to_schoolyard", "door_to_infirmary", "door_to_outdoor", "door_to_room", "door_to_myroom":
+            return "頭上注意。もっとかがまないと通れない。"
+        "door_left", "door_right", "side_door", "door_2", "door_3", "door_4":
+            return "低いドア枠に頭をぶつけた。"
+        "bathroom_ceiling":
+            return "浴室の天井が近い。立つとすぐ頭が当たる。"
+        "ceiling_light":
+            return "照明に頭が当たった。"
+        "range_hood":
+            return "レンジフードに頭が当たった。"
+        "horizontal_bar_low", "horizontal_bar_high":
+            return "低い遊具に頭をぶつけた。"
+        _:
+            if obs_id.find("ceiling") >= 0:
+                return "低い天井に頭をぶつけた。"
+            if obs_id.find("door") >= 0:
+                return "頭上注意。もっとかがまないと通れない。"
+            if obs_height_cm < 190.0:
+                return "低い障害物に頭が当たった。"
+            return "頭が当たった。"
+
 static func math_round(val: float) -> int:
     return int(round(val))

@@ -26,6 +26,11 @@ var _nearby_height_scale: bool = false
 # 測定結果パネル
 var measurement_panel: Control
 var measurement_content_label: Label
+var history_panel: Control
+var history_header_label: Label
+var growth_graph: Control
+var bump_alert_label: Label
+var _bump_alert_time_left: float = 0.0
 
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
@@ -151,11 +156,54 @@ func _setup_bubble():
 	ui_layer.add_child(bubble_panel)
 	bubble_panel.hide()
 
+func _setup_bump_alert() -> void:
+	bump_alert_label = Label.new()
+	bump_alert_label.hide()
+	bump_alert_label.add_theme_font_size_override("font_size", 18)
+	bump_alert_label.add_theme_color_override("font_color", Color(1.0, 0.93, 0.75))
+	bump_alert_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	bump_alert_label.add_theme_constant_override("outline_size", 5)
+	bump_alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bump_alert_label.size = Vector2(360, 30)
+	ui_layer.add_child(bump_alert_label)
 
-func _process(_delta: float) -> void:
+func _update_bump_alert(delta: float) -> void:
+	if not bump_alert_label:
+		return
+	if _bump_alert_time_left <= 0.0:
+		bump_alert_label.hide()
+		return
+
+	_bump_alert_time_left = max(0.0, _bump_alert_time_left - delta)
+	if _bump_alert_time_left <= 0.0:
+		bump_alert_label.hide()
+		return
+
+	if not player:
+		return
+
+	var cam = player.get_node_or_null("Camera2D")
+	var screen_pos: Vector2
+	if cam:
+		screen_pos = player.global_position - cam.get_screen_center_position() + get_viewport().get_visible_rect().size / 2.0
+	else:
+		screen_pos = player.global_position
+	bump_alert_label.position = screen_pos + Vector2(-bump_alert_label.size.x / 2.0, -player.visual_height_cm * p - 120.0)
+	bump_alert_label.show()
+
+func _show_bump_alert(text: String) -> void:
+	if not bump_alert_label:
+		_setup_bump_alert()
+	bump_alert_label.text = text
+	_bump_alert_time_left = 0.9
+	bump_alert_label.show()
+
+
+func _process(delta: float) -> void:
 	_update_ui()
 	_update_bubble()
 	_update_minimap()
+	_update_bump_alert(delta)
 
 func _update_minimap():
 	if not player or not minimap_bg or not minimap_player: return
@@ -416,6 +464,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Q:
 			if sidebar: sidebar.visible = not sidebar.visible
+		elif event.keycode == KEY_G:
+			_toggle_history_panel()
 		elif event.keycode == KEY_E:
 			if _nearby_transition_door != "":
 				_enter_transition_door()
@@ -500,6 +550,12 @@ func _load_stage():
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
 			cam.limit_bottom = 250
+		var bump_handler := Callable(self, "_on_player_head_bump")
+		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
+			player.connect("head_bump", bump_handler)
+
+func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
+	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
 
 func _spawn_npcs(stage_id: String) -> void:
 	var npc_scene = load("res://NPC.tscn")
@@ -786,3 +842,86 @@ func _on_next_term_pressed() -> void:
 		player.update_measurements()
 
 	_load_stage()
+
+func _setup_history_panel() -> void:
+	if history_panel:
+		return
+
+	history_panel = ColorRect.new()
+	history_panel.color = Color(0, 0, 0, 0.72)
+	history_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	history_panel.hide()
+	history_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	history_panel.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#16202c")
+	style.corner_radius_top_left = 16
+	style.corner_radius_top_right = 16
+	style.corner_radius_bottom_right = 16
+	style.corner_radius_bottom_left = 16
+	style.content_margin_left = 36
+	style.content_margin_right = 36
+	style.content_margin_top = 28
+	style.content_margin_bottom = 28
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "成長記録"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title)
+
+	history_header_label = Label.new()
+	history_header_label.add_theme_font_size_override("font_size", 15)
+	history_header_label.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	history_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(history_header_label)
+
+	# 折れ線グラフ
+	var GrowthGraphScript = load("res://scripts/GrowthGraph.gd")
+	growth_graph = GrowthGraphScript.new()
+	growth_graph.custom_minimum_size = Vector2(560, 300)
+	vbox.add_child(growth_graph)
+
+	var close_hint = Label.new()
+	close_hint.text = "[G] で閉じる"
+	close_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	close_hint.add_theme_font_size_override("font_size", 14)
+	close_hint.add_theme_color_override("font_color", Color(0.75, 0.82, 0.9))
+	vbox.add_child(close_hint)
+
+	ui_layer.add_child(history_panel)
+
+func _toggle_history_panel() -> void:
+	if not history_panel:
+		_setup_history_panel()
+
+	if history_panel.visible:
+		history_panel.hide()
+		get_tree().paused = false
+		return
+
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+
+	history_header_label.text = "現在 %.1fcm  /  %d歳  /  第%d学期" % [
+		float(global.current_params["height"]),
+		int(global.age),
+		int(global.term) + 1
+	]
+	growth_graph.set_data(global.growth_history)
+
+	history_panel.show()
+	get_tree().paused = true

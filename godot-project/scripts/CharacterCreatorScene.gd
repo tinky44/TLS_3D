@@ -7,6 +7,8 @@ var CM_TO_PX: float = 2.0
 var h_lbl: Label
 var r_lbl: Label
 var l_lbl: Label
+var age_lbl: Label
+var growth_type_btns: Array = []  # [{btn, type, factor}]
 
 func _ready() -> void:
     var global = get_node_or_null("/root/Global")
@@ -55,57 +57,79 @@ func _process(_delta: float) -> void:
 
 func _setup_ui():
     var ui_layer = CanvasLayer.new()
-    
+
     var sidebar = PanelContainer.new()
     sidebar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
     sidebar.custom_minimum_size = Vector2(400, 0)
-    
+
     var style = StyleBoxFlat.new()
     style.bg_color = Color("#f8f9fa")
     style.border_width_right = 2
     style.border_color = Color("#dee2e6")
     sidebar.add_theme_stylebox_override("panel", style)
-    
+
+    # サイドバー全体を縦に分割：スクロール領域 + 固定ボタン領域
+    var outer_vbox = VBoxContainer.new()
+    outer_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+    sidebar.add_child(outer_vbox)
+
+    # ─── スクロール領域（スライダー群） ───
+    var scroll = ScrollContainer.new()
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    outer_vbox.add_child(scroll)
+
     var margin = MarginContainer.new()
     margin.add_theme_constant_override("margin_left", 30)
-    margin.add_theme_constant_override("margin_top", 40)
+    margin.add_theme_constant_override("margin_top", 30)
     margin.add_theme_constant_override("margin_right", 30)
-    margin.add_theme_constant_override("margin_bottom", 40)
-    sidebar.add_child(margin)
-    
+    margin.add_theme_constant_override("margin_bottom", 16)
+    margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroll.add_child(margin)
+
     var vbox = VBoxContainer.new()
-    vbox.add_theme_constant_override("separation", 30)
+    vbox.add_theme_constant_override("separation", 22)
     margin.add_child(vbox)
-    
+
     var title = Label.new()
-    title.text = "キャラクター作成プレビュー"
+    title.text = "キャラクター作成"
     title.add_theme_color_override("font_color", Color("#212529"))
-    title.add_theme_font_size_override("font_size", 24)
+    title.add_theme_font_size_override("font_size", 22)
     vbox.add_child(title)
-    
-    var sep = HSeparator.new()
-    vbox.add_child(sep)
-    
+
+    vbox.add_child(HSeparator.new())
+
     _build_sliders(vbox)
-    
-    var sep2 = HSeparator.new()
-    vbox.add_child(sep2)
-    
+
+    # ─── 固定ボタン領域（常に下部に表示） ───
+    var btn_margin = MarginContainer.new()
+    btn_margin.add_theme_constant_override("margin_left", 30)
+    btn_margin.add_theme_constant_override("margin_right", 30)
+    btn_margin.add_theme_constant_override("margin_top", 12)
+    btn_margin.add_theme_constant_override("margin_bottom", 24)
+    outer_vbox.add_child(btn_margin)
+
+    var btn_vbox = VBoxContainer.new()
+    btn_vbox.add_theme_constant_override("separation", 10)
+    btn_margin.add_child(btn_vbox)
+
+    btn_vbox.add_child(HSeparator.new())
+
     var next_btn = Button.new()
     next_btn.text = "このキャラで始める"
-    next_btn.custom_minimum_size = Vector2(0, 60)
+    next_btn.custom_minimum_size = Vector2(0, 56)
     next_btn.add_theme_font_size_override("font_size", 20)
     next_btn.focus_mode = Control.FOCUS_NONE
     next_btn.pressed.connect(_on_next_pressed)
-    vbox.add_child(next_btn)
-    
+    btn_vbox.add_child(next_btn)
+
     var back_btn = Button.new()
     back_btn.text = "タイトルに戻る"
-    back_btn.custom_minimum_size = Vector2(0, 50)
-    back_btn.add_theme_font_size_override("font_size", 18)
+    back_btn.custom_minimum_size = Vector2(0, 44)
+    back_btn.add_theme_font_size_override("font_size", 16)
     back_btn.focus_mode = Control.FOCUS_NONE
     back_btn.pressed.connect(_on_back_pressed)
-    vbox.add_child(back_btn)
+    btn_vbox.add_child(back_btn)
 
     ui_layer.add_child(sidebar)
     add_child(ui_layer)
@@ -157,6 +181,51 @@ func _build_sliders(parent_vbox: VBoxContainer):
     l_slider.value_changed.connect(_on_leg_ratio_changed)
     parent_vbox.add_child(l_slider)
 
+    parent_vbox.add_child(HSeparator.new())
+
+    # ─── 開始年齢 ───
+    age_lbl = Label.new()
+    age_lbl.text = "開始年齢: %d歳" % global.age
+    age_lbl.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(age_lbl)
+    var age_slider = HSlider.new()
+    age_slider.min_value = 3
+    age_slider.max_value = 15
+    age_slider.step = 1
+    age_slider.value = global.age
+    age_slider.focus_mode = Control.FOCUS_NONE
+    age_slider.value_changed.connect(_on_age_changed)
+    parent_vbox.add_child(age_slider)
+
+    # ─── 成長タイプ ───
+    var gt_title = Label.new()
+    gt_title.text = "成長タイプ:"
+    gt_title.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(gt_title)
+
+    var gt_box = HBoxContainer.new()
+    gt_box.add_theme_constant_override("separation", 6)
+    parent_vbox.add_child(gt_box)
+
+    var btn_group = ButtonGroup.new()
+    var gt_defs = [
+        ["ゆっくり", "slow",      0.5],
+        ["普通",     "normal",    1.0],
+        ["速い",     "fast",      1.5],
+        ["急成長",   "explosive", 2.5],
+    ]
+    for gt in gt_defs:
+        var btn = Button.new()
+        btn.text = gt[0]
+        btn.toggle_mode = true
+        btn.button_group = btn_group
+        btn.button_pressed = (global.growth_type == gt[1])
+        btn.focus_mode = Control.FOCUS_NONE
+        btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        growth_type_btns.append({"btn": btn, "type": gt[1], "factor": gt[2]})
+        gt_box.add_child(btn)
+    btn_group.pressed.connect(_on_growth_type_pressed)
+
 func _on_height_changed(val: float):
     if h_lbl: h_lbl.text = "身長: %.1f cm" % val
     var global = get_node_or_null("/root/Global")
@@ -184,9 +253,32 @@ func _on_leg_ratio_changed(val: float):
         if player and player.has_method("update_measurements"):
             player.update_measurements()
 
+func _on_age_changed(val: float) -> void:
+    var a := int(val)
+    if age_lbl: age_lbl.text = "開始年齢: %d歳" % a
+    var global = get_node_or_null("/root/Global")
+    if not global: return
+    global.age = a
+    global.term = preload("res://scripts/Global.gd").age_to_term(a)
+    global.save_settings()
+
+func _on_growth_type_pressed(btn: BaseButton) -> void:
+    var global = get_node_or_null("/root/Global")
+    if not global: return
+    for item in growth_type_btns:
+        if item["btn"] == btn:
+            global.growth_type = item["type"]
+            global.growth_factor = item["factor"]
+            global.save_settings()
+            return
+
 func _on_next_pressed() -> void:
     var global = get_node_or_null("/root/Global")
     if global:
+        # 新規ゲーム開始時に成長履歴をリセット
+        global.growth_history = []
+        global.prev_height = 0.0
+        global.record_growth_history("start")
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"
     get_tree().change_scene_to_file("res://scenes/SaveSlotSelectScene.tscn")
