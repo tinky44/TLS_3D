@@ -527,6 +527,29 @@ func _spawn_npcs(stage_id: String) -> void:
 		kid.position = Vector2(500 * p, 0)
 		add_child(kid)
 
+	elif stage_id == "school_hallway":
+		# 廊下にいる生徒
+		var npc_hall = npc_scene.instantiate()
+		npc_hall.set_meta("is_npc", true)
+		npc_hall.custom_params = {
+			"height": 140.0,
+			"ratio": 6.2,
+			"legRatio": 43.0,
+			"sex": "female"
+		}
+		npc_hall.custom_appearance = {
+			"hair_style": "long",
+			"hair_color": "#443322",
+			"tops_type": "blouse",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_short",
+			"bottoms_color": "#111166",
+			"shoes_type": "sneakers",
+			"shoes_color": "#ffffff"
+		}
+		npc_hall.position = Vector2(700 * p, 0) # 掲示板付近
+		add_child(npc_hall)
+
 	elif stage_id == "school":
 		# 背の低い先生/生徒用など
 		var npc1 = npc_scene.instantiate()

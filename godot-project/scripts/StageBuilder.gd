@@ -60,7 +60,19 @@ const STAGES = {
             {"id": "door_to_room", "x": 50, "x2": 130, "height": 200, "type": "overhead"},
             {"id": "vending_machine", "x": 450, "x2": 530, "height": 183, "type": "ground"},
             {"id": "door_to_train", "x": 650, "x2": 750, "height": 200, "type": "overhead"},
-            {"id": "door_to_school", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"}
+            {"id": "door_to_school_hallway", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"}
+        ]
+    },
+    "school_hallway": {
+        "name": "学校の廊下",
+        "width": 2500,
+        "ceiling_height": 280,
+        "obstacles": [
+            {"id": "door_to_outdoor", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
+            {"id": "shoes_locker", "x": 350, "x2": 550, "height": 180, "type": "background"},
+            {"id": "bulletin_board", "x": 800, "x2": 1050, "height": 180, "type": "background"},
+            {"id": "door_to_school", "x": 1300, "x2": 1440, "height": 200, "type": "overhead"},
+            {"id": "fire_hydrant", "x": 1800, "x2": 1860, "height": 120, "type": "background"}
         ]
     },
     "school": {
@@ -68,7 +80,7 @@ const STAGES = {
         "width": 1600,
         "ceiling_height": 300,
         "obstacles": [
-            {"id": "door_to_outdoor", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
+            {"id": "door_to_school_hallway", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
             {"id": "blackboard", "x": 300, "x2": 800, "height": 210, "type": "background"},
             {"id": "teacher_desk", "x": 840, "x2": 990, "height": 100, "type": "ground"},
             {"id": "desk_1", "x": 1100, "x2": 1160, "height": 75, "type": "ground"},
@@ -121,6 +133,8 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
     var floor_rect = ColorRect.new()
     if stage_id == "room" or stage_id == "myroom" or stage_id == "school":
         floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風
+    elif stage_id == "school_hallway":
+        floor_rect.color = Color(0.50, 0.55, 0.50) # リノリウム風グレーグリーン
     elif stage_id == "outdoor":
         floor_rect.color = Color(0.55, 0.53, 0.50) # アスファルト
     else: # train
@@ -368,6 +382,66 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float) 
                 scw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
                 out_bg.add_child(scw)
         parent_node.add_child(out_bg)
+
+    # 学校ステージ: 廊下背景
+    elif stage_id == "school_hallway" and stage_data.get("ceiling_height") != null:
+        var hw_bg = Node2D.new()
+        hw_bg.set_meta("is_stage_obj", true)
+        hw_bg.z_index = -5
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var stage_w_px = stage_data["width"] * cm_to_px
+        # 壁（上部 オフホワイト）
+        var hw_top = ColorRect.new()
+        hw_top.color = Color(0.95, 0.93, 0.88)
+        hw_top.position = Vector2(0, -ceil_h_px)
+        hw_top.size = Vector2(stage_w_px, ceil_h_px * 0.55)
+        hw_bg.add_child(hw_top)
+        # 腰壁（やや暗めの木目調またはアイボリー）
+        var hw_btm = ColorRect.new()
+        hw_btm.color = Color(0.70, 0.65, 0.55)
+        hw_btm.position = Vector2(0, -ceil_h_px * 0.45)
+        hw_btm.size = Vector2(stage_w_px, ceil_h_px * 0.45)
+        hw_bg.add_child(hw_btm)
+        # 見切り材
+        var hw_mold = ColorRect.new()
+        hw_mold.color = Color(0.45, 0.40, 0.33)
+        hw_mold.position = Vector2(0, -ceil_h_px * 0.45 - 5)
+        hw_mold.size = Vector2(stage_w_px, 10)
+        hw_bg.add_child(hw_mold)
+        # 巾木
+        var hw_base = ColorRect.new()
+        hw_base.color = Color(0.35, 0.25, 0.15)
+        hw_base.position = Vector2(0, -15)
+        hw_base.size = Vector2(stage_w_px, 15)
+        hw_bg.add_child(hw_base)
+        # 窓（左側の外が見える窓等）
+        for wx_cm in [600, 1500, 2100]:
+            if wx_cm > stage_data["width"] - 200: continue
+            var win_w = 180 * cm_to_px
+            var win_h = 130 * cm_to_px
+            var win_y = -220 * cm_to_px
+            var hwf2 = ColorRect.new()
+            hwf2.color = Color(0.55, 0.52, 0.45)
+            hwf2.position = Vector2(wx_cm * cm_to_px - 5, win_y - 5)
+            hwf2.size = Vector2(win_w + 10, win_h + 10)
+            hw_bg.add_child(hwf2)
+            var hwg2 = ColorRect.new()
+            hwg2.color = Color(0.62, 0.80, 0.95, 0.72)
+            hwg2.position = Vector2(wx_cm * cm_to_px, win_y)
+            hwg2.size = Vector2(win_w, win_h)
+            hw_bg.add_child(hwg2)
+            var hsky2 = ColorRect.new()
+            hsky2.color = Color(0.48, 0.72, 0.98, 0.45)
+            hsky2.position = Vector2(wx_cm * cm_to_px + 5, win_y + 5)
+            hsky2.size = Vector2(win_w - 10, win_h * 0.65)
+            hw_bg.add_child(hsky2)
+            # 中桟
+            var hmid2 = ColorRect.new()
+            hmid2.color = Color(0.55, 0.52, 0.45)
+            hmid2.position = Vector2(wx_cm * cm_to_px, win_y + win_h * 0.65 - 3)
+            hmid2.size = Vector2(win_w, 6)
+            hw_bg.add_child(hmid2)
+        parent_node.add_child(hw_bg)
 
     # 学校ステージ: 教室背景
     elif stage_id == "school" and stage_data.get("ceiling_height") != null:
@@ -739,6 +813,58 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         d_knob.size = Vector2(knob_w, knob_h)
         d_knob.z_index = -1
         node.add_child(d_knob)
+
+    elif o_id == "shoes_locker":
+        cr.color = Color(0.75, 0.73, 0.68)
+        var cols = 5
+        var rows = 8
+        var cell_w = w_px / cols
+        var cell_h = h_draw_px / rows
+        for r in range(rows):
+            for c in range(cols):
+                var frame = ReferenceRect.new()
+                frame.editor_only = false
+                frame.border_color = Color(0.5, 0.48, 0.42)
+                frame.border_width = 2
+                frame.position = Vector2(c * cell_w, r * cell_h)
+                frame.size = Vector2(cell_w, cell_h)
+                cr.add_child(frame)
+                
+    elif o_id == "bulletin_board":
+        cr.color = Color(0.35, 0.55, 0.35) # グリーン系
+        var frame = ReferenceRect.new()
+        frame.editor_only = false
+        frame.border_color = Color(0.6, 0.45, 0.25)
+        frame.border_width = 8
+        frame.position = Vector2(0, 0)
+        frame.size = Vector2(w_px, h_draw_px)
+        cr.add_child(frame)
+        for i in range(4):
+            var paper = ColorRect.new()
+            paper.color = Color(0.95, 0.95, 0.9)
+            paper.position = Vector2(20 + i * (w_px / 4.0), 20 + (i % 2) * 10)
+            paper.size = Vector2((w_px - 40) / 4.0 - 10, h_draw_px * 0.7)
+            cr.add_child(paper)
+
+    elif o_id == "fire_hydrant":
+        cr.color = Color(0.85, 0.2, 0.2)
+        var frame = ReferenceRect.new()
+        frame.editor_only = false
+        frame.border_color = Color(0.6, 0.1, 0.1)
+        frame.border_width = 3
+        frame.position = Vector2(0, 0)
+        frame.size = Vector2(w_px, h_draw_px)
+        cr.add_child(frame)
+        var lamp = ColorRect.new()
+        lamp.color = Color(1.0, 0.4, 0.4)
+        lamp.position = Vector2(w_px * 0.5 - 12, 12)
+        lamp.size = Vector2(24, 24)
+        cr.add_child(lamp)
+        var door_line = ColorRect.new()
+        door_line.color = Color(0.6, 0.1, 0.1)
+        door_line.position = Vector2(w_px * 0.5 - 2, 45)
+        door_line.size = Vector2(4, h_draw_px - 45)
+        cr.add_child(door_line)
 
     elif o_id == "vending_machine":
         cr.color = Color(0, 0, 0, 0)
