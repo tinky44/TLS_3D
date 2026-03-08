@@ -1159,7 +1159,7 @@ func _on_next_term_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
 	if global:
 		global.advance_term()
-		global.current_stage_id = "room"
+		global.current_stage_id = "myroom"
 
 	if player:
 		player.update_measurements()
