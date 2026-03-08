@@ -1,6 +1,0 @@
-fix: NPCの腕の長さと子供の股下比率の調整
-
-- 手首が常に体の半分（股の位置）に来るよう、腕の長さの計算を修正 (`Global.get_body_measurements` 等)
-- 街の子供NPCの股下比率を40%から45%に変更し、プロポーションをより自然に修正
-
-Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>
