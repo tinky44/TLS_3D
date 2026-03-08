@@ -40,6 +40,8 @@ var dialogue_text_label: Label
 var _in_dialogue: bool = false
 var _dialogue_lines: Array = []
 var _dialogue_index: int = 0
+var _current_dialogue_npc: String = ""
+var _current_dialogue_key: String = ""
 
 const DIALOGUES: Dictionary = {
 	"haruka": {
@@ -56,6 +58,14 @@ const DIALOGUES: Dictionary = {
 		"huge": [
 			{"speaker": "はるか", "text": "（見上げながら）……首が痛い"},
 			{"speaker": "はるか", "text": "ちょっと、近づかないでよ〜 迫力ありすぎ"},
+		],
+		"measure_invite": [
+			{"speaker": "はるか", "text": "ねえ……また背、伸びてない？"},
+			{"speaker": "はるか", "text": "保健室、行こうよ。一緒に測ろう"},
+		],
+		"measure_after": [
+			{"speaker": "はるか", "text": "……やっぱり伸びてる"},
+			{"speaker": "はるか", "text": "次の学期も、また測ろうね"},
 		],
 	},
 	"teacher": {
@@ -259,6 +269,8 @@ func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	var npc_data: Dictionary = DIALOGUES[npc_id]
 	if not npc_data.has(key): return
 
+	_current_dialogue_npc = npc_id
+	_current_dialogue_key = key
 	_dialogue_lines = npc_data[key]
 	_dialogue_index = 0
 	_in_dialogue = true
@@ -282,6 +294,15 @@ func _end_dialogue() -> void:
 	_in_dialogue = false
 	get_tree().paused = false
 	dialogue_panel.hide()
+	# measure_invite 終了 → はるかがプレイヤーに追随し始める
+	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
+		var global = get_node_or_null("/root/Global")
+		if global:
+			global.haruka_following = true
+		for child in get_children():
+			if child.has_meta("is_npc") and child.get("npc_id") == "haruka":
+				child.follow_target = player
+				break
 
 func _get_bubble_screen_pos() -> Vector2:
 	var cam = player.get_node_or_null("Camera2D")
@@ -315,9 +336,13 @@ func _interact_with_npc(npc: Node) -> void:
 	if player_m and npc_m:
 		var npc_data = DIALOGUES.get(npc_id, {})
 		var diff = float(player_m["height"]) - float(npc_m["height"])
+		var global = get_node_or_null("/root/Global")
 		if npc_data.has("first_meet") and not npc.get_meta("met_player", false):
 			key = "first_meet"
 			npc.set_meta("met_player", true)
+		elif npc_id == "haruka" and global and not global.haruka_invited_this_term:
+			key = "measure_invite"
+			global.haruka_invited_this_term = true
 		elif diff >= 35.0 and npc_data.has("huge"):
 			key = "huge"
 		elif diff >= 15.0 and npc_data.has("tall"):
@@ -874,6 +899,30 @@ func _spawn_npcs(stage_id: String) -> void:
 		nurse.npc_id = "nurse"
 		nurse.position = Vector2(680 * p, 0) # 机のそば
 		add_child(nurse)
+		# はるかが追随中なら身長計の横にスポーン
+		var global_inf = get_node_or_null("/root/Global")
+		if global_inf and global_inf.haruka_following:
+			var haruka_inf = npc_scene.instantiate()
+			haruka_inf.set_meta("is_npc", true)
+			haruka_inf.npc_id = "haruka"
+			haruka_inf.custom_params = {
+				"height": 152.0,
+				"ratio": 6.8,
+				"legRatio": 44.0,
+				"sex": "female"
+			}
+			haruka_inf.custom_appearance = {
+				"hair_style": "long",
+				"hair_color": "#111111",
+				"tops_type": "sweater",
+				"tops_color": "#ffffff",
+				"bottoms_type": "skirt_long",
+				"bottoms_color": "#333333",
+				"shoes_type": "sneakers",
+				"shoes_color": "#aa3333"
+			}
+			haruka_inf.position = Vector2(350 * p, 0) # 身長計付近
+			add_child(haruka_inf)
 
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -1039,11 +1088,7 @@ func _setup_measurement_panel() -> void:
 	close_btn.custom_minimum_size = Vector2(140, 48)
 	close_btn.add_theme_font_size_override("font_size", 16)
 	close_btn.focus_mode = Control.FOCUS_NONE
-	close_btn.pressed.connect(func():
-		_measurement_showing = false
-		measurement_panel.hide()
-		get_tree().paused = false
-	)
+	close_btn.pressed.connect(_on_measurement_panel_closed)
 	_meas_btn_row.add_child(close_btn)
 
 	var next_btn = Button.new()
@@ -1136,6 +1181,16 @@ func _show_measurement_result() -> void:
 	tween.tween_interval(0.2)
 	tween.tween_property(measurement_content_label, "modulate:a", 1.0, 0.4)
 	tween.tween_property(_meas_btn_row, "modulate:a", 1.0, 0.3)
+
+func _on_measurement_panel_closed() -> void:
+	_measurement_showing = false
+	measurement_panel.hide()
+	get_tree().paused = false
+	# はるかが追随中なら測定後セリフを再生
+	var global = get_node_or_null("/root/Global")
+	if global and global.haruka_following:
+		global.haruka_following = false
+		_start_dialogue("haruka", "measure_after")
 
 func _on_next_term_pressed() -> void:
 	_measurement_showing = false

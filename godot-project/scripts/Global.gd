@@ -37,6 +37,9 @@ var growth_type: String = "normal"  # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
 var growth_history: Array = []
 
+var haruka_following: bool = false
+var haruka_invited_this_term: bool = false
+
 const AVG_HEIGHT_FEMALE: Dictionary = {
 	3: 95.0, 4: 101.0, 5: 107.0,
 	6: 113.0, 7: 119.0, 8: 124.0, 9: 130.0,
@@ -109,6 +112,8 @@ func advance_term() -> void:
 	current_params["height"] += calc_growth()
 	record_growth_history("growth")
 	queue_event("semester_start")  # 学期開始イベントを予約
+	haruka_invited_this_term = false
+	haruka_following = false
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)

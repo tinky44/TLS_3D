@@ -22,6 +22,7 @@ var m: Dictionary
 var appearance: Dictionary
 
 var npc_id: String = ""  # コアNPCの識別子。空文字は匿名NPC
+var follow_target: Node2D = null  # セットされると追随モードになる
 var look_pitch: float = 0.0
 var look_head_angle: float = 0.0
 var _reaction_label: Label = null
@@ -119,7 +120,16 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 
-	velocity.x = _avoid_dir * SPEED * CM_TO_PX
+	if follow_target:
+		var dx = follow_target.global_position.x - global_position.x
+		if abs(dx) > 100.0 * CM_TO_PX:
+			velocity.x = sign(dx) * SPEED * CM_TO_PX
+			dir = int(sign(dx))
+			facing = "side"
+		else:
+			velocity.x = lerp(velocity.x, 0.0, 10.0 * delta)
+	else:
+		velocity.x = _avoid_dir * SPEED * CM_TO_PX
 	is_walking = abs(velocity.x) > 1.0
 	if is_walking:
 		walk_phase += walk_speed * delta
