@@ -708,8 +708,12 @@ func _update_ui():
 	
 	var params = global.current_params if global else m
 	
+	var age_val = global.age if global else 0
+	var term_val = global.term if global else 0
+	var school_type = StageBuilder.get_stage_name("school", age_val)
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
+	text += "%d歳 / %d学期 (%s)\n" % [age_val, term_val + 1, school_type]
 	text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
 	text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
 	
