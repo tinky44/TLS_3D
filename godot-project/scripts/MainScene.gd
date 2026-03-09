@@ -22,7 +22,7 @@ var pause_save_label: Label
 # ステージ遷移用
 var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
-var _nearby_npc: Node = null  # Eキーで話しかけられる近くのNPC
+var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
 
 # 測定結果パネル
 var measurement_panel: Control
@@ -192,30 +192,33 @@ func _ready() -> void:
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	var section_label = Label.new()
-	section_label.text = "【服装デバッグ】"
+	section_label.text = "【服装】"
 	section_label.add_theme_font_size_override("font_size", 14)
 	section_label.add_theme_color_override("font_color", Color("#6c757d"))
 	vbox.add_child(section_label)
 
-	# トップス選択
+	# トップス選択（全6種類）
 	var tops_row = HBoxContainer.new()
 	vbox.add_child(tops_row)
 	var tops_label = Label.new()
 	tops_label.text = "トップス:"
-	tops_label.custom_minimum_size = Vector2(90, 0)
+	tops_label.custom_minimum_size = Vector2(76, 0)
 	tops_row.add_child(tops_label)
 	var tops_opt = OptionButton.new()
 	tops_opt.focus_mode = Control.FOCUS_NONE
 	tops_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var tops_values = ["t_shirt", "sweater", "blouse"]
-	tops_opt.add_item("Tシャツ", 0)
-	tops_opt.add_item("セーター(長袖)", 1)
-	tops_opt.add_item("ブラウス(長袖)", 2)
-	tops_opt.selected = tops_values.find(Global.current_appearance.get("tops_type", "t_shirt"))
+	var tops_values = ["sailor", "blazer", "blazer_dark", "blouse_bow", "jumper_skirt", "sweater", "t_shirt"]
+	tops_opt.add_item("セーラー服", 0)
+	tops_opt.add_item("ブレザー", 1)
+	tops_opt.add_item("ダークブレザー", 2)
+	tops_opt.add_item("リボンブラウス", 3)
+	tops_opt.add_item("ジャンパースカート", 4)
+	tops_opt.add_item("スウェッター", 5)
+	tops_opt.add_item("Tシャツ", 6)
+	var cur_tops = tops_values.find(Global.current_appearance.get("tops_type", "t_shirt"))
+	tops_opt.selected = max(0, cur_tops)
 	tops_opt.item_selected.connect(func(idx: int) -> void:
-		Global.current_appearance["tops_type"] = tops_values[idx]
-		var drawer = player.get_node_or_null("CharacterDrawer")
-		if drawer: drawer.queue_redraw()
+		_apply_tops_type(tops_values[idx])
 	)
 	tops_row.add_child(tops_opt)
 
@@ -224,16 +227,17 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	vbox.add_child(bottoms_row)
 	var bottoms_label = Label.new()
 	bottoms_label.text = "ボトムス:"
-	bottoms_label.custom_minimum_size = Vector2(90, 0)
+	bottoms_label.custom_minimum_size = Vector2(76, 0)
 	bottoms_row.add_child(bottoms_label)
 	var bottoms_opt = OptionButton.new()
 	bottoms_opt.focus_mode = Control.FOCUS_NONE
 	bottoms_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var bottoms_values = ["pants", "skirt_short", "skirt_long"]
-	bottoms_opt.add_item("パンツ", 0)
-	bottoms_opt.add_item("ミニスカート", 1)
-	bottoms_opt.add_item("ロングスカート", 2)
-	bottoms_opt.selected = bottoms_values.find(Global.current_appearance.get("bottoms_type", "pants"))
+	var bottoms_values = ["skirt", "skirt_long", "pants"]
+	bottoms_opt.add_item("スカート", 0)
+	bottoms_opt.add_item("ロングスカート", 1)
+	bottoms_opt.add_item("パンツ", 2)
+	var cur_btm = bottoms_values.find(Global.current_appearance.get("bottoms_type", "pants"))
+	bottoms_opt.selected = max(0, cur_btm)
 	bottoms_opt.item_selected.connect(func(idx: int) -> void:
 		Global.current_appearance["bottoms_type"] = bottoms_values[idx]
 		var drawer = player.get_node_or_null("CharacterDrawer")
@@ -246,7 +250,7 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	vbox.add_child(hair_row)
 	var hair_label = Label.new()
 	hair_label.text = "髪型:"
-	hair_label.custom_minimum_size = Vector2(90, 0)
+	hair_label.custom_minimum_size = Vector2(76, 0)
 	hair_row.add_child(hair_label)
 	var hair_opt = OptionButton.new()
 	hair_opt.focus_mode = Control.FOCUS_NONE
@@ -261,6 +265,13 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 		if drawer: drawer.queue_redraw()
 	)
 	hair_row.add_child(hair_opt)
+
+	# ヒント
+	var hint_lbl = Label.new()
+	hint_lbl.text = "[Q] 服装を順番に切り替え"
+	hint_lbl.add_theme_font_size_override("font_size", 12)
+	hint_lbl.add_theme_color_override("font_color", Color("#888"))
+	vbox.add_child(hint_lbl)
 
 func _setup_bubble():
 	bubble_panel = PanelContainer.new()
@@ -685,7 +696,7 @@ func _setup_ui():
 	sidebar.hide() # 初期状態は非表示。Qキーでトグル
 	ui_layer.add_child(sidebar)
 
-	# 常時表示する「Q: ステータス」ヒントラベル
+	# 常時表示する「Q: ステータス設定」ヒントラベル
 	var hint = Label.new()
 	hint.text = "Q: ステータス設定"
 	hint.add_theme_font_size_override("font_size", 14)
@@ -814,6 +825,24 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _nearby_npc:
 				_interact_with_npc(_nearby_npc)
 
+# 服装タイプを適用するヘルパー（サイドバーのドロップダウンから使用）
+func _apply_tops_type(tops_type: String) -> void:
+	const COLOR_MAP = {
+		"sailor": "#1a2a5e",
+		"blazer": "#6a7da8",
+		"blazer_dark": "#212840",
+		"blouse_bow": "#f0e8e0",
+		"jumper_skirt": "#212840",
+		"sweater": "#7a9a7a",
+		"t_shirt": "#ab82a8",
+	}
+	Global.current_appearance["tops_type"] = tops_type
+	if COLOR_MAP.has(tops_type):
+		Global.current_appearance["tops_color"] = COLOR_MAP[tops_type]
+	var drawer = player.get_node_or_null("CharacterDrawer") if player else null
+	if drawer: drawer.queue_redraw()
+
+
 func _toggle_pause() -> void:
 	if pause_menu:
 		var is_paused = not get_tree().paused
@@ -874,7 +903,7 @@ func _load_stage():
 	var stage_id = global.current_stage_id if global else "room"
 	
 	# 床や障害物を生成
-	StageBuilder.build_stage(stage_id, self, p, global.age if global else 0)
+	StageBuilder.build_stage(stage_id, self , p, global.age if global else 0)
 	
 	_spawn_npcs(stage_id)
 
@@ -896,7 +925,7 @@ func _load_stage():
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
 			cam.limit_bottom = 250
-		var bump_handler := Callable(self, "_on_player_head_bump")
+		var bump_handler := Callable(self , "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)
 
@@ -930,10 +959,10 @@ func _load_stage():
 				await get_tree().create_timer(1.2).timeout
 				_start_dialogue("player", _get_entrance_dialogue_key(global.age))
 			else:
-				global.pending_events.push_front(ev)  # myroom に入るまで保留
+				global.pending_events.push_front(ev) # myroom に入るまで保留
 
 func _get_entrance_dialogue_key(age: int) -> String:
-	if age <= 6:  return "entrance_elementary"
+	if age <= 6: return "entrance_elementary"
 	if age <= 12: return "entrance_middle"
 	return "entrance_high"
 
@@ -1366,7 +1395,7 @@ func _show_measurement_result() -> void:
 			"diff_prev": diff_prev, "diff_avg": diff_avg,
 		})
 		_meas_graph.set_data(preview)
-		_meas_graph.animate_new_point(1.4)  # カウントアップ(1.4秒)と同期
+		_meas_graph.animate_new_point(1.4) # カウントアップ(1.4秒)と同期
 
 	_measurement_showing = true
 	measurement_panel.show()
