@@ -240,6 +240,76 @@ func _build_sliders(parent_vbox: VBoxContainer):
         gt_box.add_child(btn)
     btn_group.pressed.connect(_on_growth_type_pressed)
 
+    parent_vbox.add_child(HSeparator.new())
+
+    # ─── トップス（上着） ───
+    var tops_title = Label.new()
+    tops_title.text = "トップス:"
+    tops_title.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(tops_title)
+
+    var tops_row1 = HBoxContainer.new()
+    tops_row1.add_theme_constant_override("separation", 6)
+    parent_vbox.add_child(tops_row1)
+    var tops_row2 = HBoxContainer.new()
+    tops_row2.add_theme_constant_override("separation", 6)
+    parent_vbox.add_child(tops_row2)
+
+    var tops_group = ButtonGroup.new()
+    var tops_defs = [
+        ["セーラー服",   "sailor",     "#1a2a5e"],
+        ["ブレザー",     "blazer",     "#6a7da8"],
+        ["ダークブレザー", "blazer_dark", "#212840"],
+        ["リボンブラウス", "blouse_bow", "#f0e8e0"],
+        ["スウェッター", "sweater",    "#7a9a7a"],
+        ["Tシャツ",     "t_shirt",    "#ab82a8"],
+    ]
+    for i in range(tops_defs.size()):
+        var td = tops_defs[i]
+        var row = tops_row1 if i < 3 else tops_row2
+        var tb = Button.new()
+        tb.text = td[0]
+        tb.toggle_mode = true
+        tb.button_group = tops_group
+        tb.button_pressed = (global.current_appearance.get("tops_type", "t_shirt") == td[1])
+        tb.focus_mode = Control.FOCUS_NONE
+        tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        tb.custom_minimum_size = Vector2(0, 42)
+        var t_type: String = td[1]
+        var t_color: String = td[2]
+        tb.pressed.connect(func(): _on_tops_type_pressed(t_type, t_color))
+        row.add_child(tb)
+
+    # ─── ボトムス（下着） ───
+    var btm_title = Label.new()
+    btm_title.text = "ボトムス:"
+    btm_title.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(btm_title)
+
+    var btm_box = HBoxContainer.new()
+    btm_box.add_theme_constant_override("separation", 6)
+    parent_vbox.add_child(btm_box)
+
+    var btm_group = ButtonGroup.new()
+    var btm_defs = [
+        ["スカート",       "skirt",      "#3a5f8a"],
+        ["ロングスカート", "skirt_long", "#3a5f8a"],
+        ["パンツ",         "pants",      "#3a5f8a"],
+    ]
+    for bd in btm_defs:
+        var bb = Button.new()
+        bb.text = bd[0]
+        bb.toggle_mode = true
+        bb.button_group = btm_group
+        bb.button_pressed = (global.current_appearance.get("bottoms_type", "pants") == bd[1])
+        bb.focus_mode = Control.FOCUS_NONE
+        bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        bb.custom_minimum_size = Vector2(0, 42)
+        var b_type: String = bd[1]
+        var b_color: String = bd[2]
+        bb.pressed.connect(func(): _on_bottoms_type_pressed(b_type, b_color))
+        btm_box.add_child(bb)
+
 func _on_height_changed(val: float):
     if h_lbl: h_lbl.text = "身長: %.1f cm" % val
     var global = get_node_or_null("/root/Global")
@@ -283,6 +353,25 @@ func _on_growth_type_pressed(btn: BaseButton) -> void:
             global.growth_factor = item["factor"]
             global.save_settings()
             return
+
+func _on_tops_type_pressed(tops_type: String, default_color: String) -> void:
+    var global = get_node_or_null("/root/Global")
+    if not global: return
+    global.current_appearance["tops_type"] = tops_type
+    # デフォルト色を設定（即時プレビューに反映）
+    global.current_appearance["tops_color"] = default_color
+    global.save_settings()
+    if player and player.has_method("update_measurements"):
+        player.update_measurements()
+
+func _on_bottoms_type_pressed(bottoms_type: String, default_color: String) -> void:
+    var global = get_node_or_null("/root/Global")
+    if not global: return
+    global.current_appearance["bottoms_type"] = bottoms_type
+    global.current_appearance["bottoms_color"] = default_color
+    global.save_settings()
+    if player and player.has_method("update_measurements"):
+        player.update_measurements()
 
 func _on_next_pressed() -> void:
     var global = get_node_or_null("/root/Global")
