@@ -37,6 +37,9 @@ func _draw() -> void:
 	var skin_color = Color("#ffe4c4")
 	var base_shirt_color = Color(appearance.get("tops_color", "#ab82a8"))
 	var pants_color = Color(appearance.get("bottoms_color", "#e5d6ba"))
+	# ジャンパースカートは下に白いブラウスを着るのでベースシャツ色を白に上書き
+	if appearance.get("tops_type", "t_shirt") == "jumper_skirt":
+		base_shirt_color = Color(0.97, 0.97, 0.97)
 
 	var skin_dark = skin_color.darkened(0.15)
 	var pants_dark = pants_color.darkened(0.15)
@@ -90,7 +93,8 @@ func _draw_sleeve_arm(p_torso_shoulder: Vector2, p_shoulder: Vector2, p_elbow: V
 	var outline_color = Color(0.8, 0.8, 0.8, 0.5) # 薄いグレー(半透明)
 	if tops_type == "sweater" or tops_type == "blouse" \
 			or tops_type == "sailor" or tops_type == "blazer" \
-			or tops_type == "blazer_dark" or tops_type == "blouse_bow":
+			or tops_type == "blazer_dark" or tops_type == "blouse_bow" \
+			or tops_type == "jumper_skirt":
 		# 長袖（セーラー/ブレザー/リボン含む）: 肩→肘 台形、肘→手首 台形
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
@@ -698,21 +702,23 @@ func _draw_tops_detail_front(d: Dictionary, p: float, m: Dictionary,
 			_draw_blazer_front(sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
 			_draw_bow_front(sx, sy, neck_y, half_body, tops_color)
+		"jumper_skirt":
+			_draw_jumper_front(sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
 
 # セーラー服オーバーレイ（正面）
 func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 		half_sh: float, half_body: float, sailor_color: Color) -> void:
-	var v_y = lerp(sy, navel_y, 0.45)  # Vの底点Y
+	var v_y = lerp(sy, navel_y, 0.45) # Vの底点Y
 
 	# セーラーカラー本体（両肩から首に広がり、胸でVに収束する台形ポリゴン）
 	var collar_pts = PackedVector2Array([
-		Vector2(sx - half_sh * 1.05, sy),           # 左肩外端
+		Vector2(sx - half_sh * 1.05, sy), # 左肩外端
 		Vector2(sx - half_sh * 0.85, neck_y + 4.0), # 左上（首付近）
-		Vector2(sx - half_body * 0.18, sy + 6.0),   # V左縁
-		Vector2(sx, v_y),                             # V底
-		Vector2(sx + half_body * 0.18, sy + 6.0),   # V右縁
+		Vector2(sx - half_body * 0.18, sy + 6.0), # V左縁
+		Vector2(sx, v_y), # V底
+		Vector2(sx + half_body * 0.18, sy + 6.0), # V右縁
 		Vector2(sx + half_sh * 0.85, neck_y + 4.0), # 右上
-		Vector2(sx + half_sh * 1.05, sy),           # 右肩外端
+		Vector2(sx + half_sh * 1.05, sy), # 右肩外端
 	])
 	draw_polygon(collar_pts, PackedColorArray([sailor_color]))
 
@@ -783,9 +789,9 @@ func _draw_blazer_front(sx: float, sy: float, neck_y: float, navel_y: float,
 	# 左ラペル（折り返し襟）
 	var left_lapel_pts = PackedVector2Array([
 		Vector2(sx - half_sh * 0.75, neck_y + 6.0), # 首付近の端
-		Vector2(sx - half_body * 0.22, sy),           # 内側上端
-		Vector2(sx - half_body * 0.07, lapel_inner_y),# 内側下端
-		Vector2(sx - half_sh * 0.58, sy + 22.0),     # 外側下端
+		Vector2(sx - half_body * 0.22, sy), # 内側上端
+		Vector2(sx - half_body * 0.07, lapel_inner_y), # 内側下端
+		Vector2(sx - half_sh * 0.58, sy + 22.0), # 外側下端
 	])
 	draw_polygon(left_lapel_pts, PackedColorArray([jacket_color]))
 
@@ -817,9 +823,9 @@ func _draw_blazer_front(sx: float, sy: float, neck_y: float, navel_y: float,
 
 # リボン（蝶結び）オーバーレイ（正面）
 func _draw_bow_front(sx: float, sy: float, neck_y: float, half_body: float, bow_color: Color) -> void:
-	var bow_y = lerp(neck_y, sy, 0.65)  # 首元〜肩の65%の高さにリボン
-	var bow_w = half_body * 0.55  # リボンの横方向の広がり
-	var bow_h = half_body * 0.28  # リボンの縦の高さ
+	var bow_y = lerp(neck_y, sy, 0.65) # 首元〜肩の65%の高さにリボン
+	var bow_w = half_body * 0.55 # リボンの横方向の広がり
+	var bow_h = half_body * 0.28 # リボンの縦の高さ
 
 	# 左ウィング（五角形: 中央から外側に膨らんで先が細い形）
 	var left_wing = PackedVector2Array([
@@ -876,7 +882,7 @@ func _draw_tops_detail_side(d: Dictionary, p: float, m: Dictionary,
 	var waist_angle = d["waist_angle"]
 
 	# 体の前方方向ベクトル（胴体の前面）
-	var fwd = Vector2(cos(waist_angle), sin(waist_angle))  # 前方
+	var fwd = Vector2(cos(waist_angle), sin(waist_angle)) # 前方
 	var up_v = Vector2(-sin(waist_angle), cos(waist_angle)) # 上方
 	var half_t = torso_thickness * 0.5
 
@@ -889,6 +895,8 @@ func _draw_tops_detail_side(d: Dictionary, p: float, m: Dictionary,
 			_draw_blazer_side(sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, true)
 		"blouse_bow":
 			_draw_bow_side(nx, ny, hx, hy, half_t, fwd, up_v, waist_angle, tops_color)
+		"jumper_skirt":
+			_draw_jumper_side(sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
 
 # セーラー服オーバーレイ（側面）
 func _draw_sailor_side(sx: float, sy: float, navel_y: float, navel_x: float,
@@ -896,7 +904,7 @@ func _draw_sailor_side(sx: float, sy: float, navel_y: float, navel_x: float,
 		waist_angle: float, sailor_color: Color) -> void:
 	# 胴体上部の前方点（首元〜肩のライン）
 	var p_sh_front = Vector2(sx, sy) + fwd * half_t * 0.95
-	var p_nk = Vector2(sx, sy) + up_v * 12.0  # 首付近
+	var p_nk = Vector2(sx, sy) + up_v * 12.0 # 首付近
 	var p_nk_front = p_nk + fwd * half_t * 0.8
 
 	# セーラーカラーの大きな三角形フラップ（背中から肩に）
@@ -931,7 +939,7 @@ func _draw_blazer_side(sx: float, sy: float, navel_y: float, navel_x: float,
 		waist_angle: float, jacket_color: Color, is_dark: bool) -> void:
 	var p_sh = Vector2(sx, sy)
 	var p_sh_front = p_sh + fwd * half_t * 0.9
-	var p_sh_back  = p_sh - fwd * half_t * 0.9
+	var p_sh_back = p_sh - fwd * half_t * 0.9
 	var p_nk = p_sh + up_v * 10.0
 	var p_nk_front = p_nk + fwd * half_t * 0.7
 	var lapel_tip = p_sh_front + Vector2(0, (navel_y - sy) * 0.25)
@@ -992,3 +1000,102 @@ func _draw_bow_side(nx: float, ny: float, sx: float, sy: float,
 	# リボンの垂れ
 	var tail_end = center + Vector2(0, bow_h * 3.0)
 	draw_line(center, tail_end, bow_color, 3.0)
+
+# ============================================================
+# ジャンパースカート（小学校制服）描画関数
+# ============================================================
+
+# ジャンパースカート 正面オーバーレイ
+# 白いブラウスの上から濃色の向こうみのストラップを演出
+func _draw_jumper_front(sx: float, sy: float, neck_y: float, navel_y: float,
+		half_sh: float, half_body: float, jumper_color: Color) -> void:
+	var strap_outer = half_sh * 0.98 # ストラップ外端（肩幅満杖）
+	var strap_inner = half_body * 0.30 # ストラップ内端（白い部分の境界）
+	var strap_top_y = sy - 4.0 # ストラップ上端
+	var strap_bot_y = navel_y + 10.0 # ストラップ下端
+
+	# 左ストラップ
+	var left_pts = PackedVector2Array([
+		Vector2(sx - strap_outer, strap_top_y),
+		Vector2(sx - strap_inner, strap_top_y),
+		Vector2(sx - strap_inner, strap_bot_y),
+		Vector2(sx - strap_outer, strap_bot_y),
+	])
+	draw_polygon(left_pts, PackedColorArray([jumper_color]))
+
+	# 右ストラップ
+	var right_pts = PackedVector2Array([
+		Vector2(sx + strap_inner, strap_top_y),
+		Vector2(sx + strap_outer, strap_top_y),
+		Vector2(sx + strap_outer, strap_bot_y),
+		Vector2(sx + strap_inner, strap_bot_y),
+	])
+	draw_polygon(right_pts, PackedColorArray([jumper_color]))
+
+	# ストラップ内側繁（陷影感）
+	var edge_dark = jumper_color.darkened(0.28)
+	draw_line(Vector2(sx - strap_inner, strap_top_y), Vector2(sx - strap_inner, strap_bot_y), edge_dark, 1.6)
+	draw_line(Vector2(sx + strap_inner, strap_top_y), Vector2(sx + strap_inner, strap_bot_y), edge_dark, 1.6)
+
+	# 小さな折り返し襟（ブラウスの襟）
+	var collar_white = Color(1.0, 1.0, 1.0)
+	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
+	# 左襟フラップ
+	var lc = PackedVector2Array([
+		Vector2(sx - half_body * 0.22, neck_y + 2.0),
+		Vector2(sx - half_body * 0.04, sy + 4.0),
+		Vector2(sx + half_body * 0.06, neck_y + 4.0),
+		Vector2(sx - half_body * 0.08, neck_y + 2.0),
+	])
+	draw_polygon(lc, PackedColorArray([collar_white]))
+	# 右襟フラップ
+	var rc = PackedVector2Array([
+		Vector2(sx + half_body * 0.22, neck_y + 2.0),
+		Vector2(sx + half_body * 0.04, sy + 4.0),
+		Vector2(sx - half_body * 0.06, neck_y + 4.0),
+		Vector2(sx + half_body * 0.08, neck_y + 2.0),
+	])
+	draw_polygon(rc, PackedColorArray([collar_white]))
+	# 襟の縁取りライン
+	draw_line(Vector2(sx - half_body * 0.22, neck_y + 2.0), Vector2(sx, sy + 4.0), collar_shadow, 1.2)
+	draw_line(Vector2(sx + half_body * 0.22, neck_y + 2.0), Vector2(sx, sy + 4.0), collar_shadow, 1.2)
+
+# ジャンパースカート 側面オーバーレイ
+func _draw_jumper_side(sx: float, sy: float, navel_y: float,
+		half_t: float, fwd: Vector2, up_v: Vector2,
+		waist_angle: float, jumper_color: Color) -> void:
+	var p_sh = Vector2(sx, sy)
+	var p_sh_front = p_sh + fwd * half_t * 0.95
+	var p_sh_back = p_sh - fwd * half_t * 0.95
+	var strap_len = Vector2(0, (navel_y - sy) + 10.0)
+	var fw = half_t * 0.40 # ストラップの幅
+
+	# 前面ストラップ（胴体前面側の帯）
+	var front_band = PackedVector2Array([
+		p_sh_front,
+		p_sh_front - fwd * fw,
+		p_sh_front - fwd * fw + strap_len,
+		p_sh_front + strap_len,
+	])
+	draw_polygon(front_band, PackedColorArray([jumper_color]))
+
+	# 背面ストラップ（胴体背面側の帯）
+	var back_band = PackedVector2Array([
+		p_sh_back,
+		p_sh_back + fwd * fw,
+		p_sh_back + fwd * fw + strap_len,
+		p_sh_back + strap_len,
+	])
+	draw_polygon(back_band, PackedColorArray([jumper_color]))
+
+	# 側面から見える小さな襟（白いブラウス）
+	var collar_white = Color(1.0, 1.0, 1.0)
+	var p_nk = p_sh + up_v * 9.0
+	var p_nk_f = p_nk + fwd * half_t * 0.5
+	var collar_pts = PackedVector2Array([
+		p_nk_f,
+		p_nk_f + fwd * 5.0,
+		p_nk_f + fwd * 4.0 + Vector2(0, 11.0),
+		p_nk_f + Vector2(0, 9.0),
+	])
+	draw_polygon(collar_pts, PackedColorArray([collar_white]))
