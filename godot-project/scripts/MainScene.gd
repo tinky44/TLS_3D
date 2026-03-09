@@ -37,7 +37,10 @@ var _bump_alert_time_left: float = 0.0
 var dialogue_panel: Control
 var dialogue_name_label: Label
 var dialogue_text_label: Label
+var dialogue_hint_label: Label
+var choice_container: VBoxContainer
 var _in_dialogue: bool = false
+var _choice_pending: bool = false
 var _dialogue_lines: Array = []
 var _dialogue_index: int = 0
 var _current_dialogue_npc: String = ""
@@ -62,7 +65,30 @@ const DIALOGUES: Dictionary = {
 		],
 		"measure_invite": [
 			{"speaker": "ほのか", "text": "ねえ……また背、伸びてない？"},
-			{"speaker": "ほのか", "text": "保健室、行こうよ。一緒に測ろう"},
+			{
+				"speaker": "ほのか",
+				"text": "保健室、行こうよ。…正直、最近どんな気持ち？",
+				"choices": [
+					{"label": "ちょっと嬉しいかも", "next": "measure_invite_proud", "emotion": "confidence"},
+					{"label": "目立つし、恥ずかしい……", "next": "measure_invite_shy", "emotion": "complex"},
+					{"label": "よくわからない", "next": "measure_invite_unsure"},
+				]
+			},
+		],
+		"measure_invite_proud": [
+			{"speaker": "（主人公）", "text": "うん……ちょっと誇らしい気がする。"},
+			{"speaker": "ほのか", "text": "そっか！ 似合ってるよ、その高さ。"},
+			{"speaker": "ほのか", "text": "じゃあ行こ！ 何センチか確かめてこよう。"},
+		],
+		"measure_invite_shy": [
+			{"speaker": "（主人公）", "text": "……正直、目立って恥ずかしくて。"},
+			{"speaker": "ほのか", "text": "気にしないって！ みんな気にしてないよ。"},
+			{"speaker": "ほのか", "text": "ほら、一緒に行けば怖くない。行こっ。"},
+		],
+		"measure_invite_unsure": [
+			{"speaker": "（主人公）", "text": "……うーん、自分でもよくわかんない。"},
+			{"speaker": "ほのか", "text": "そっか。まず測ってみようよ。"},
+			{"speaker": "ほのか", "text": "数字で見ると、なんか気持ちが整理できるかもよ？"},
 		],
 		"measure_after": [
 			{"speaker": "ほのか", "text": "……やっぱり伸びてる。"},
@@ -307,12 +333,18 @@ func _setup_dialogue_panel() -> void:
 	dialogue_text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(dialogue_text_label)
 
-	var hint = Label.new()
-	hint.text = "Eキーで次へ"
-	hint.add_theme_font_size_override("font_size", 13)
-	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	vbox.add_child(hint)
+	# 選択肢コンテナ
+	choice_container = VBoxContainer.new()
+	choice_container.add_theme_constant_override("separation", 6)
+	choice_container.hide()
+	vbox.add_child(choice_container)
+
+	dialogue_hint_label = Label.new()
+	dialogue_hint_label.text = "Eキーで次へ"
+	dialogue_hint_label.add_theme_font_size_override("font_size", 13)
+	dialogue_hint_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	dialogue_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	vbox.add_child(dialogue_hint_label)
 
 	ui_layer.add_child(dialogue_panel)
 
@@ -338,13 +370,72 @@ func _show_dialogue_line() -> void:
 	var line: Dictionary = _dialogue_lines[_dialogue_index]
 	dialogue_name_label.text = line.get("speaker", "")
 	dialogue_text_label.text = line.get("text", "")
+	if line.has("choices"):
+		_show_choices(line["choices"])
+	else:
+		choice_container.hide()
+		_choice_pending = false
+		dialogue_hint_label.show()
+
+func _show_choices(choices: Array) -> void:
+	_choice_pending = true
+	dialogue_hint_label.hide()
+	for child in choice_container.get_children():
+		child.queue_free()
+	var choice_style = StyleBoxFlat.new()
+	choice_style.bg_color = Color("#2a2a44")
+	choice_style.border_color = Color("#e8c872")
+	choice_style.border_width_bottom = 1
+	choice_style.content_margin_left = 12
+	choice_style.content_margin_right = 12
+	choice_style.content_margin_top = 6
+	choice_style.content_margin_bottom = 6
+	var hover_style = choice_style.duplicate()
+	hover_style.bg_color = Color("#3a3a60")
+	for c in choices:
+		var btn = Button.new()
+		btn.text = c.get("label", "")
+		btn.add_theme_font_size_override("font_size", 17)
+		btn.add_theme_stylebox_override("normal", choice_style.duplicate())
+		btn.add_theme_stylebox_override("hover", hover_style.duplicate())
+		btn.add_theme_color_override("font_color", Color.WHITE)
+		btn.connect("pressed", _on_choice_selected.bind(c))
+		choice_container.add_child(btn)
+	choice_container.show()
+
+func _on_choice_selected(choice: Dictionary) -> void:
+	_choice_pending = false
+	choice_container.hide()
+	dialogue_hint_label.show()
+	# 感情パラメータ更新
+	var emotion: String = choice.get("emotion", "")
+	var global = get_node_or_null("/root/Global")
+	if global and emotion != "":
+		if emotion == "confidence":
+			global.self_confidence += 1
+		elif emotion == "complex":
+			global.self_complex += 1
+	# 分岐先へ
+	var next_key: String = choice.get("next", "")
+	if next_key != "":
+		var npc_data: Dictionary = DIALOGUES.get(_current_dialogue_npc, {})
+		if npc_data.has(next_key):
+			_dialogue_lines = npc_data[next_key]
+			_dialogue_index = 0
+			_show_dialogue_line()
+			return
+	_advance_dialogue()
 
 func _advance_dialogue() -> void:
+	if _choice_pending: return
 	_dialogue_index += 1
 	_show_dialogue_line()
 
 func _end_dialogue() -> void:
 	_in_dialogue = false
+	_choice_pending = false
+	choice_container.hide()
+	dialogue_hint_label.show()
 	get_tree().paused = false
 	dialogue_panel.hide()
 	# measure_invite 終了 → はるかがプレイヤーに追随し始める

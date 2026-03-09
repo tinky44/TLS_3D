@@ -43,6 +43,10 @@ var haruka_invited_this_term: bool = false # ほのかが今学期測定に誘�
 var haruka_following: bool = false # ほのかが追随中か
 var senior_gym_invited: bool = false # 先輩から体育館に誘われたか（1回のみ）
 
+# ─── 感情パラメータ ────────────────────────────────────────────
+var self_confidence: int = 0  # 自信：高身長を肯定的に受け入れた選択の累積
+var self_complex: int = 0     # コンプレックス：高身長を否定的に感じた選択の累積
+
 # コアNPCの定義
 var core_npcs: Dictionary = {
 	"honoka": {
