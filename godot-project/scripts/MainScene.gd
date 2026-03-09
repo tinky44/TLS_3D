@@ -86,6 +86,18 @@ const DIALOGUES: Dictionary = {
 			{"speaker": "（主人公）", "text": "新学期か……。"},
 			{"speaker": "（主人公）", "text": "また少し背が伸びた気がする。今学期も色々あるんだろうな。"},
 		],
+		"entrance_elementary": [
+			{"speaker": "（主人公）", "text": "今日は小学校の入学式だ。"},
+			{"speaker": "（主人公）", "text": "ランドセルが重たい……でも、楽しみだな。"},
+		],
+		"entrance_middle": [
+			{"speaker": "（主人公）", "text": "今日は中学校の入学式だ。"},
+			{"speaker": "（主人公）", "text": "制服の袖が、もうギリギリだ。"},
+		],
+		"entrance_high": [
+			{"speaker": "（主人公）", "text": "今日は高校の入学式だ。"},
+			{"speaker": "（主人公）", "text": "式場に入ったら、また一番後ろに立たされた。"},
+		],
 	},
 }
 
@@ -765,6 +777,17 @@ func _load_stage():
 				_start_dialogue("teacher", "semester_start")
 			else:
 				global.pending_events.push_front(ev)  # 教室に入るまで保留
+		elif ev == "entrance_ceremony":
+			if stage_id == "myroom":
+				await get_tree().create_timer(1.2).timeout
+				_start_dialogue("player", _get_entrance_dialogue_key(global.age))
+			else:
+				global.pending_events.push_front(ev)  # myroom に入るまで保留
+
+func _get_entrance_dialogue_key(age: int) -> String:
+	if age <= 6:  return "entrance_elementary"
+	if age <= 12: return "entrance_middle"
+	return "entrance_high"
 
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
@@ -1248,9 +1271,12 @@ func _on_next_term_pressed() -> void:
 	await tw2.finished
 	fade.queue_free()
 
-	# 少し歩き込んでから主人公モノローグ
+	# 少し歩き込んでから主人公モノローグ（入学年は入学式セリフ）
 	await get_tree().create_timer(1.8).timeout
-	_start_dialogue("player", "new_semester")
+	var mono_key = "new_semester"
+	if global and global.age in [12, 15]:
+		mono_key = _get_entrance_dialogue_key(global.age)
+	_start_dialogue("player", mono_key)
 
 func _setup_history_panel() -> void:
 	if history_panel:
