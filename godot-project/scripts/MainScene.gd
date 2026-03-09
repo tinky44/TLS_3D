@@ -44,28 +44,62 @@ var _current_dialogue_npc: String = ""
 var _current_dialogue_key: String = ""
 
 const DIALOGUES: Dictionary = {
-	"haruka": {
+	"honoka": {
+		"name": "ほのか",
 		"first_meet": [
-			{"speaker": "はるか", "text": "うわっ、背高っ！"},
-			{"speaker": "はるか", "text": "ねえ、何年生？ 私と同じ？"},
-			{"speaker": "はるか", "text": "……え、マジで同い年？ 全然わかんなかった"},
-			{"speaker": "はるか", "text": "私、桐島はるか。よろしくね。"},
+			{"speaker": "ほのか", "text": "おはよう！ …って、あれ？"},
+			{"speaker": "ほのか", "text": "ねえ、視点高くない？ また少し伸びた？"},
+			{"speaker": "ほのか", "text": "あはは、見上げすぎて首が痛くなっちゃいそう。"},
+			{"speaker": "ほのか", "text": "私、ほのか。改めてよろしくね。"},
 		],
 		"tall": [
-			{"speaker": "はるか", "text": "うーん……また伸びた？"},
-			{"speaker": "はるか", "text": "なんか昨日より高くない？"},
+			{"speaker": "ほのか", "text": "あ、ほら。また私を肘置きにしようとしてるでしょ！"},
+			{"speaker": "ほのか", "text": "でも、人混みでもすぐ見つけられるから便利かも。"},
 		],
 		"huge": [
-			{"speaker": "はるか", "text": "（見上げながら）……首が痛い"},
-			{"speaker": "はるか", "text": "ちょっと、近づかないでよ〜 迫力ありすぎ"},
+			{"speaker": "ほのか", "text": "（見上げながら）……もう、どこまで伸びるの？"},
+			{"speaker": "ほのか", "text": "たまには屈んでよ。内緒話もできないじゃない。"},
 		],
 		"measure_invite": [
-			{"speaker": "はるか", "text": "ねえ……また背、伸びてない？"},
-			{"speaker": "はるか", "text": "保健室、行こうよ。一緒に測ろう"},
+			{"speaker": "ほのか", "text": "ねえ……また背、伸びてない？"},
+			{"speaker": "ほのか", "text": "保健室、行こうよ。一緒に測ろう"},
 		],
 		"measure_after": [
-			{"speaker": "はるか", "text": "……やっぱり伸びてる"},
-			{"speaker": "はるか", "text": "次の学期も、また測ろうね"},
+			{"speaker": "ほのか", "text": "……やっぱり伸びてる。"},
+			{"speaker": "ほのか", "text": "次の学期も、また測ろうね。抜け駆け禁止だよ！"},
+		],
+	},
+	"senior": {
+		"first_meet": [
+			{"speaker": "バレー部先輩", "text": "君、ちょっといいかな？"},
+			{"speaker": "バレー部先輩", "text": "……すごいな、ネットより頭一つ高いじゃないか"},
+			{"speaker": "バレー部先輩", "text": "バレー部、興味ない？ 君なら無敵のアタッカーになれるよ。"},
+		],
+		"huge": [
+			{"speaker": "バレー部先輩", "text": "（驚きながら）……また大きくなったか？"},
+			{"speaker": "バレー部先輩", "text": "体育館の入り口、頭ぶつけないように気をつけろよ。"},
+		],
+	},
+	"mother": {
+		"first_meet": [
+			{"speaker": "お母さん", "text": "おかえり。ご飯もうすぐできるよ。"},
+			{"speaker": "お母さん", "text": "立って？ ……また背、伸びたんじゃない？"},
+		],
+		"check": [
+			{"speaker": "お母さん", "text": "あら、また制服の丈が短くなったわね。"},
+			{"speaker": "お母さん", "text": "もうミニスカートどころじゃないわよ。"},
+			{"speaker": "お母さん", "text": "夏休みの間に何があったの？ 急成長しすぎじゃない？"},
+		],
+	},
+	"father": {
+		"first_meet": [
+			{"speaker": "お父さん", "text": "おかえり。"},
+			{"speaker": "お父さん", "text": "……背、伸びたな。"},
+		],
+		"check": [
+			{"speaker": "お父さん", "text": "……。"},
+			{"speaker": "お父さん", "text": "いつの間にか、お父さんより頭二つ分も大きいんだな。"},
+			{"speaker": "お父さん", "text": "天井の電球、替えてくれるかい？"},
 		],
 	},
 	"teacher": {
@@ -82,6 +116,13 @@ const DIALOGUES: Dictionary = {
 		],
 	},
 	"player": {
+		"summer_growth": [
+			{"speaker": "（主人公）", "text": "……制服のボタン、止まらない。"},
+			{"speaker": "（主人公）", "text": "夏休みの間に、こんなに伸びてたの？"},
+			{"speaker": "お母さん", "text": "ちょっと待って、また背が伸びた？"},
+			{"speaker": "お母さん", "text": "夏休みだけで10センチ？ そんなことある？"},
+			{"speaker": "お母さん", "text": "制服、買い直しね。もう丈が全然足りないわ。"},
+		],
 		"new_semester": [
 			{"speaker": "（主人公）", "text": "新学期か……。"},
 			{"speaker": "（主人公）", "text": "また少し背が伸びた気がする。今学期も色々あるんだろうな。"},
@@ -352,7 +393,7 @@ func _interact_with_npc(npc: Node) -> void:
 		if npc_data.has("first_meet") and not npc.get_meta("met_player", false):
 			key = "first_meet"
 			npc.set_meta("met_player", true)
-		elif npc_id == "haruka" and global and not global.haruka_invited_this_term:
+		elif (npc_id == "haruka" or npc_id == "honoka") and global and not global.haruka_invited_this_term:
 			key = "measure_invite"
 			global.haruka_invited_this_term = true
 		elif diff >= 35.0 and npc_data.has("huge"):
@@ -775,8 +816,24 @@ func _load_stage():
 			if stage_id == "school":
 				await get_tree().create_timer(0.5).timeout
 				_start_dialogue("teacher", "semester_start")
+				# 1学期（初回）のみ先輩招待をキュー
+				if not global.senior_gym_invited:
+					global.senior_gym_invited = true
+					global.queue_event("gym_senior_invite")
 			else:
 				global.pending_events.push_front(ev)  # 教室に入るまで保留
+		elif ev == "gym_senior_invite":
+			if stage_id == "gymnasium":
+				await get_tree().create_timer(0.8).timeout
+				_start_dialogue("senior", "first_meet")
+			else:
+				global.pending_events.push_front(ev)  # 体育館に入るまで保留
+		elif ev == "summer_growth":
+			if stage_id == "room":
+				await get_tree().create_timer(0.8).timeout
+				_start_dialogue("player", "summer_growth")
+			else:
+				global.pending_events.push_front(ev)  # room に入るまで保留
 		elif ev == "entrance_ceremony":
 			if stage_id == "myroom":
 				await get_tree().create_timer(1.2).timeout
@@ -834,7 +891,29 @@ func _spawn_npcs(stage_id: String) -> void:
 		kid.position = Vector2(500 * p, 0)
 		add_child(kid)
 
+	elif stage_id == "room":
+		# 母親
+		var mother = npc_scene.instantiate()
+		mother.set_meta("is_npc", true)
+		mother.npc_id = "mother"
+		mother.position = Vector2(400 * p, 0)
+		add_child(mother)
+		# 父親（男性パラメータを事前設定）
+		var father = npc_scene.instantiate()
+		father.set_meta("is_npc", true)
+		father.npc_id = "father"
+		father.custom_params = {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}
+		father.position = Vector2(700 * p, 0)
+		add_child(father)
+
 	elif stage_id == "school_hallway":
+		# 先輩（バレー部）
+		var senior = npc_scene.instantiate()
+		senior.set_meta("is_npc", true)
+		senior.npc_id = "senior"
+		senior.custom_params = {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}
+		senior.position = Vector2(1200 * p, 0)
+		add_child(senior)
 		# 廊下にいる生徒
 		var npc_hall = npc_scene.instantiate()
 		npc_hall.set_meta("is_npc", true)
@@ -858,6 +937,12 @@ func _spawn_npcs(stage_id: String) -> void:
 		add_child(npc_hall)
 
 	elif stage_id == "school":
+		# 友人「ほのか」
+		var honoka = npc_scene.instantiate()
+		honoka.set_meta("is_npc", true)
+		honoka.npc_id = "honoka"
+		honoka.position = Vector2(300 * p, 0)
+		add_child(honoka)
 		# コアNPC「桐島はるか」
 		var npc1 = npc_scene.instantiate()
 		npc1.set_meta("is_npc", true)
@@ -902,6 +987,15 @@ func _spawn_npcs(stage_id: String) -> void:
 		}
 		npc2.position = Vector2(900 * p, 0) # 先生の机付近
 		add_child(npc2)
+
+	elif stage_id == "gymnasium":
+		# バレー部先輩
+		var gym_senior = npc_scene.instantiate()
+		gym_senior.set_meta("is_npc", true)
+		gym_senior.npc_id = "senior"
+		gym_senior.custom_params = {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}
+		gym_senior.position = Vector2(1200 * p, 0)
+		add_child(gym_senior)
 
 	elif stage_id == "infirmary":
 		# 保健室の先生（小柄な女性、机の前に立っている）

@@ -33,12 +33,75 @@ var slot_select_mode: String = "save" # "save" or "load"
 var age: int = 6
 var term: int = 6
 var growth_factor: float = 1.0
-var growth_type: String = "normal"  # "slow" / "normal" / "fast" / "explosive"
+var growth_type: String = "normal" # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
 var growth_history: Array = []
 
-var haruka_following: bool = false
-var haruka_invited_this_term: bool = false
+var active_companion_id: String = "" # 現在同行しているNPCのID
+var met_npcs: Array = [] # 面識のあるNPCのIDリスト
+var haruka_invited_this_term: bool = false # ほのかが今学期測定に誘ったか
+var haruka_following: bool = false # ほのかが追随中か
+var senior_gym_invited: bool = false # 先輩から体育館に誘われたか（1回のみ）
+
+# コアNPCの定義
+var core_npcs: Dictionary = {
+	"honoka": {
+		"name": "ほのか",
+		"role": "friend",
+		"height_base": 155.0,
+		"height_mode": "avg", # 年齢平均に近い設定
+		"appearance": {
+			"hair_style": "long",
+			"hair_color": "#111111",
+			"tops_type": "school_uniform",
+			"tops_color": "#ffffff",
+			"bottoms_type": "skirt_short",
+			"bottoms_color": "#333333"
+		}
+	},
+	"senior": {
+		"name": "先輩",
+		"role": "senior",
+		"height_base": 168.0,
+		"height_mode": "fixed",
+		"appearance": {
+			"hair_style": "short",
+			"hair_color": "#223344",
+			"tops_type": "track_suit",
+			"tops_color": "#114422",
+			"bottoms_type": "pants",
+			"bottoms_color": "#114422"
+		}
+	},
+	"mother": {
+		"name": "お母さん",
+		"role": "family",
+		"height_base": 158.0,
+		"height_mode": "fixed",
+		"appearance": {
+			"hair_style": "long",
+			"hair_color": "#332211",
+			"tops_type": "sweater",
+			"tops_color": "#aa8866",
+			"bottoms_type": "skirt_long",
+			"bottoms_color": "#443322"
+		}
+	},
+	"father": {
+		"name": "お父さん",
+		"role": "family",
+		"height_base": 170.0,
+		"height_mode": "fixed",
+		"appearance": {
+			"hair_style": "short",
+			"hair_color": "#111111",
+			"tops_type": "shirt",
+			"tops_color": "#eeeeee",
+			"bottoms_type": "pants",
+			"bottoms_color": "#222222"
+		}
+	}
+}
 
 const AVG_HEIGHT_FEMALE: Dictionary = {
 	3: 95.0, 4: 101.0, 5: 107.0,
@@ -110,11 +173,15 @@ func advance_term() -> void:
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
+	# 夏休み（1学期→2学期）急成長: term>=6 かつ (term-6)%3==1
+	if term >= 6 and (term - 6) % 3 == 1:
+		current_params["height"] += 10.0
+		queue_event("summer_growth")
 	# 身長に合わせて頭身を自動更新（最大9頭身）
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
 	record_growth_history("growth")
-	queue_event("semester_start")  # 学期開始イベントを予約
+	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false
 	haruka_following = false
 

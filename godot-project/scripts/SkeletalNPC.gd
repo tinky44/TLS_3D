@@ -21,8 +21,8 @@ var visual_height_cm: float = 158.0
 var m: Dictionary
 var appearance: Dictionary
 
-var npc_id: String = ""  # コアNPCの識別子。空文字は匿名NPC
-var follow_target: Node2D = null  # セットされると追随モードになる
+var npc_id: String = "" # コアNPCの識別子。空文字は匿名NPC
+var follow_target: Node2D = null # セットされると追随モードになる
 var look_pitch: float = 0.0
 var look_head_angle: float = 0.0
 var _reaction_label: Label = null
@@ -54,7 +54,21 @@ var _avoid_dir: float = 0.0
 func _ready() -> void:
 	collision_layer = 0
 	collision_mask |= 4
-	update_measurements()
+	
+	var global = get_node_or_null("/root/Global")
+	if global and npc_id != "" and global.get("core_npcs") and global.core_npcs.has(npc_id):
+		var data = global.core_npcs[npc_id]
+		var params = custom_params.duplicate()
+		# 身長モードの判定
+		if data.get("height_mode") == "avg":
+			params["height"] = global.get_avg_height(global.age) + data.get("height_base", 155.0) - 158.5
+		else:
+			params["height"] = data.get("height_base", 158.0)
+		
+		# その他のパラメータ上書き（もしあれば）
+		setup(params, data.get("appearance", {}))
+	else:
+		update_measurements()
 
 	_reaction_label = Label.new()
 	_reaction_label.text = ""
@@ -115,7 +129,7 @@ func _process(delta: float) -> void:
 		_reaction_label.text = _get_reaction_text(reaction_key)
 		_reaction_time_left = 1.2
 
-	_reaction_label.position.y = -(visual_height_cm * CM_TO_PX) - 40.0
+	_reaction_label.position.y = - (visual_height_cm * CM_TO_PX) - 40.0
 	_reaction_label.visible = _reaction_time_left > 0.0 and _reaction_label.text != ""
 
 	if reaction_key == "very_huge":
@@ -213,7 +227,7 @@ func _update_collision() -> void:
 	var shape = collision_shape.shape as CapsuleShape2D
 	if shape:
 		shape.height = max(40.0, h_px)
-		collision_shape.position.y = -h_px / 2.0
+		collision_shape.position.y = - h_px / 2.0
 
 func _mock_measurements() -> Dictionary:
 	var h = 158.0
