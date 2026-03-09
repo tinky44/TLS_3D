@@ -507,12 +507,12 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         var wall_btm_col: Color
         var mold_col: Color
         var base_col: Color
-        if age <= 12:  # 小学校: 暖かみのある明るいクリーム + 鮮やかグリーン
+        if age <= 11:  # 小学校: 暖かみのある明るいクリーム + 鮮やかグリーン
             wall_top_col = Color(0.97, 0.95, 0.84)
             wall_btm_col = Color(0.55, 0.78, 0.45)
             mold_col     = Color(0.40, 0.62, 0.32)
             base_col     = Color(0.35, 0.25, 0.15)
-        elif age <= 15:  # 中学校: 落ち着いたクリーム + ブルーグレー
+        elif age <= 14:  # 中学校: 落ち着いたクリーム + ブルーグレー
             wall_top_col = Color(0.91, 0.91, 0.88)
             wall_btm_col = Color(0.42, 0.55, 0.70)
             mold_col     = Color(0.32, 0.42, 0.55)
@@ -543,7 +543,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         sw_base.size = Vector2(stage_w_px, 15)
         sch_bg.add_child(sw_base)
         # 小学校: 掲示板（カラフルな装飾帯）
-        if age <= 12:
+        if age <= 11:
             var disp = ColorRect.new()
             disp.color = Color(0.95, 0.85, 0.30, 0.70)
             disp.position = Vector2(stage_w_px * 0.55, -ceil_h_px * 0.85)
@@ -2736,8 +2736,8 @@ static func math_round(val: float) -> int:
 
 static func get_stage_name(stage_id: String, age: int) -> String:
     if stage_id == "school":
-        if age <= 12: return "小学校"
-        elif age <= 15: return "中学校"
+        if age <= 11: return "小学校"
+        elif age <= 14: return "中学校"
         else: return "高校"
     return STAGES.get(stage_id, {}).get("name", "Unknown")
 
@@ -2751,7 +2751,7 @@ static func get_obstacles(stage_id: String, age: int) -> Array:
             return STAGES[stage_id]["obstacles"] if STAGES.has(stage_id) else []
 
 static func _school_obstacles(age: int) -> Array:
-    if age <= 12:  # 小学校: JIS1-4号机(60cm)、低い黒板
+    if age <= 11:  # 小学校: JIS1-4号机(60cm)、低い黒板
         return [
             {"id": "door_to_school_hallway", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
             {"id": "blackboard", "x": 300, "x2": 800, "height": 190, "type": "background"},
@@ -2762,7 +2762,7 @@ static func _school_obstacles(age: int) -> Array:
             {"id": "desk_2", "x": 1350, "x2": 1410, "height": 60, "type": "ground"},
             {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": 38, "type": "ground"},
         ]
-    elif age <= 15:  # 中学校: JIS4-6号机(70cm)、ロッカー
+    elif age <= 14:  # 中学校: JIS4-6号机(70cm)、ロッカー
         return [
             {"id": "door_to_school_hallway", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
             {"id": "blackboard", "x": 300, "x2": 800, "height": 210, "type": "background"},
@@ -2789,13 +2789,13 @@ static func _school_obstacles(age: int) -> Array:
 static func _outdoor_obstacles(age: int) -> Array:
     # 中学以降は直接学校へ行かず、駅経由になるので door_to_school_hallway を除外
     var base: Array = STAGES["outdoor"]["obstacles"].duplicate()
-    if age >= 13:
+    if age >= 12:
         base = base.filter(func(o: Dictionary) -> bool: return o["id"] != "door_to_school_hallway")
     return base
 
 static func _station_obstacles(age: int) -> Array:
     var base: Array = STAGES["station"]["obstacles"].duplicate()
-    if age >= 13:
+    if age >= 12:
         # 駅から学校の廊下へ向かうドアを追加
         base.append({"id": "door_to_school_hallway", "x": 1650, "x2": 1800, "height": 200, "type": "overhead"})
     return base
@@ -2803,7 +2803,7 @@ static func _station_obstacles(age: int) -> Array:
 static func _school_hallway_obstacles(age: int) -> Array:
     var result: Array = []
     for o: Dictionary in STAGES["school_hallway"]["obstacles"]:
-        if age >= 13 and o["id"] == "door_to_outdoor":
+        if age >= 12 and o["id"] == "door_to_outdoor":
             # 中学以降: 廊下の外出口を「駅へ戻る」ドアに差し替え
             result.append({"id": "door_to_station", "x": o["x"], "x2": o["x2"], "height": o["height"], "type": o["type"]})
         else:
