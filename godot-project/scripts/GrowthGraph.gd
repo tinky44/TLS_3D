@@ -9,9 +9,23 @@ const MT: float = 16.0  # margin top
 const MR: float = 16.0  # margin right
 const MB: float = 28.0  # margin bottom
 
+var _anim_progress: float = 1.0   # 最新セグメントの描画進捗（0→1）
+var _new_dot_scale: float = 1.0   # 最新ドットのスケール（0→1.5→1）
+
 func set_data(history: Array) -> void:
 	data = history
 	queue_redraw()
+
+func animate_new_point(line_duration: float = 0.5) -> void:
+	_anim_progress = 0.0
+	_new_dot_scale = 0.0
+	queue_redraw()
+	var tw = create_tween()
+	# 線が line_duration 秒かけて伸びる
+	tw.tween_method(func(v: float): _anim_progress = v; queue_redraw(), 0.0, 1.0, line_duration)
+	# 線が完成した後にドットがポップイン
+	tw.tween_method(func(v: float): _new_dot_scale = v; queue_redraw(), 0.0, 1.5, 0.35)
+	tw.tween_method(func(v: float): _new_dot_scale = v; queue_redraw(), 1.5, 1.0, 0.15)
 
 func _get_pt(i: int, key: String, min_h: float, h_range: float, gw: float, gh: float) -> Vector2:
 	var n: int = data.size()
@@ -78,12 +92,15 @@ func _draw() -> void:
 		for i in range(n - 1):
 			var p1: Vector2 = _get_pt(i,     "height", min_h, h_range, gw, gh)
 			var p2: Vector2 = _get_pt(i + 1, "height", min_h, h_range, gw, gh)
+			if i == n - 2:
+				p2 = p1.lerp(p2, _anim_progress)
 			draw_line(p1, p2, player_col, 2.0)
 
 	# ─── ドット & X軸ラベル ───
 	for i in range(n):
 		var pt: Vector2 = _get_pt(i, "height", min_h, h_range, gw, gh)
-		draw_circle(pt, 3.5, player_col)
+		var dot_r: float = 3.5 * (_new_dot_scale if i == n - 1 else 1.0)
+		draw_circle(pt, dot_r, player_col)
 		if i == 0 or i == n - 1 or i % 3 == 0:
 			var a: int = int(data[i].get("age", 0))
 			draw_string(font, Vector2(pt.x - 12.0, MT + gh + 14.0),

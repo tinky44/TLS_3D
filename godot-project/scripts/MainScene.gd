@@ -22,6 +22,7 @@ var pause_save_label: Label
 # ステージ遷移用
 var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
+var _nearby_npc: Node = null  # Eキーで話しかけられる近くのNPC
 
 # 測定結果パネル
 var measurement_panel: Control
@@ -31,6 +32,74 @@ var history_header_label: Label
 var growth_graph: Control
 var bump_alert_label: Label
 var _bump_alert_time_left: float = 0.0
+
+# ─── ダイアログシステム ──────────────────────────────────────────
+var dialogue_panel: Control
+var dialogue_name_label: Label
+var dialogue_text_label: Label
+var _in_dialogue: bool = false
+var _dialogue_lines: Array = []
+var _dialogue_index: int = 0
+var _current_dialogue_npc: String = ""
+var _current_dialogue_key: String = ""
+
+const DIALOGUES: Dictionary = {
+	"haruka": {
+		"first_meet": [
+			{"speaker": "はるか", "text": "うわっ、背高っ！"},
+			{"speaker": "はるか", "text": "ねえ、何年生？ 私と同じ？"},
+			{"speaker": "はるか", "text": "……え、マジで同い年？ 全然わかんなかった"},
+			{"speaker": "はるか", "text": "私、桐島はるか。よろしくね。"},
+		],
+		"tall": [
+			{"speaker": "はるか", "text": "うーん……また伸びた？"},
+			{"speaker": "はるか", "text": "なんか昨日より高くない？"},
+		],
+		"huge": [
+			{"speaker": "はるか", "text": "（見上げながら）……首が痛い"},
+			{"speaker": "はるか", "text": "ちょっと、近づかないでよ〜 迫力ありすぎ"},
+		],
+		"measure_invite": [
+			{"speaker": "はるか", "text": "ねえ……また背、伸びてない？"},
+			{"speaker": "はるか", "text": "保健室、行こうよ。一緒に測ろう"},
+		],
+		"measure_after": [
+			{"speaker": "はるか", "text": "……やっぱり伸びてる"},
+			{"speaker": "はるか", "text": "次の学期も、また測ろうね"},
+		],
+	},
+	"teacher": {
+		"semester_start": [
+			{"speaker": "田中先生", "text": "起立、礼。着席。"},
+			{"speaker": "田中先生", "text": "新学期が始まりましたね。今学期もよろしく。"},
+			{"speaker": "田中先生", "text": "……あなた、また背が伸びたんですか。後ろの席に座ってください"},
+		],
+	},
+	"nurse": {
+		"default": [
+			{"speaker": "保健の先生", "text": "あら、今日も身長を測りに来たの？"},
+			{"speaker": "保健の先生", "text": "身長計の前に立って。はい、背筋をまっすぐ。"},
+		],
+	},
+	"player": {
+		"new_semester": [
+			{"speaker": "（主人公）", "text": "新学期か……。"},
+			{"speaker": "（主人公）", "text": "また少し背が伸びた気がする。今学期も色々あるんだろうな。"},
+		],
+		"entrance_elementary": [
+			{"speaker": "（主人公）", "text": "今日は小学校の入学式だ。"},
+			{"speaker": "（主人公）", "text": "ランドセルが重たい……でも、楽しみだな。"},
+		],
+		"entrance_middle": [
+			{"speaker": "（主人公）", "text": "今日は中学校の入学式だ。"},
+			{"speaker": "（主人公）", "text": "制服の袖が、もうギリギリだ。"},
+		],
+		"entrance_high": [
+			{"speaker": "（主人公）", "text": "今日は高校の入学式だ。"},
+			{"speaker": "（主人公）", "text": "式場に入ったら、また一番後ろに立たされた。"},
+		],
+	},
+}
 
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
@@ -49,6 +118,7 @@ func _ready() -> void:
 		
 	_setup_ui()
 	_setup_bubble() # bubble_panel を先に追加（下層に描画）
+	_setup_dialogue_panel() # ダイアログパネル（bubble_panelの上）
 	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_setup_measurement_panel()
 	_load_stage()
@@ -156,6 +226,141 @@ func _setup_bubble():
 	ui_layer.add_child(bubble_panel)
 	bubble_panel.hide()
 
+func _setup_dialogue_panel() -> void:
+	dialogue_panel = Control.new()
+	dialogue_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	dialogue_panel.custom_minimum_size = Vector2(0, 160)
+	dialogue_panel.offset_top = -160
+	dialogue_panel.offset_bottom = 0
+	dialogue_panel.hide()
+	dialogue_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var bg = StyleBoxFlat.new()
+	bg.bg_color = Color("#1a1a2e")
+	bg.border_color = Color("#e8c872")
+	bg.border_width_top = 2
+	bg.content_margin_left = 24
+	bg.content_margin_right = 24
+	bg.content_margin_top = 16
+	bg.content_margin_bottom = 16
+
+	var panel = PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_theme_stylebox_override("panel", bg)
+	dialogue_panel.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(vbox)
+
+	dialogue_name_label = Label.new()
+	dialogue_name_label.add_theme_font_size_override("font_size", 16)
+	dialogue_name_label.add_theme_color_override("font_color", Color("#e8c872"))
+	vbox.add_child(dialogue_name_label)
+
+	dialogue_text_label = Label.new()
+	dialogue_text_label.add_theme_font_size_override("font_size", 20)
+	dialogue_text_label.add_theme_color_override("font_color", Color.WHITE)
+	dialogue_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialogue_text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(dialogue_text_label)
+
+	var hint = Label.new()
+	hint.text = "Eキーで次へ"
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	vbox.add_child(hint)
+
+	ui_layer.add_child(dialogue_panel)
+
+func _start_dialogue(npc_id: String, key: String = "default") -> void:
+	if _in_dialogue or _measurement_showing: return
+	if not DIALOGUES.has(npc_id): return
+	var npc_data: Dictionary = DIALOGUES[npc_id]
+	if not npc_data.has(key): return
+
+	_current_dialogue_npc = npc_id
+	_current_dialogue_key = key
+	_dialogue_lines = npc_data[key]
+	_dialogue_index = 0
+	_in_dialogue = true
+	get_tree().paused = true
+	dialogue_panel.show()
+	_show_dialogue_line()
+
+func _show_dialogue_line() -> void:
+	if _dialogue_index >= _dialogue_lines.size():
+		_end_dialogue()
+		return
+	var line: Dictionary = _dialogue_lines[_dialogue_index]
+	dialogue_name_label.text = line.get("speaker", "")
+	dialogue_text_label.text = line.get("text", "")
+
+func _advance_dialogue() -> void:
+	_dialogue_index += 1
+	_show_dialogue_line()
+
+func _end_dialogue() -> void:
+	_in_dialogue = false
+	get_tree().paused = false
+	dialogue_panel.hide()
+	# measure_invite 終了 → はるかがプレイヤーに追随し始める
+	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
+		var global = get_node_or_null("/root/Global")
+		if global:
+			global.haruka_following = true
+		for child in get_children():
+			if child.has_meta("is_npc") and child.get("npc_id") == "haruka":
+				child.follow_target = player
+				break
+
+func _get_bubble_screen_pos() -> Vector2:
+	var cam = player.get_node_or_null("Camera2D")
+	var screen_pos: Vector2
+	if cam:
+		screen_pos = player.global_position - cam.get_screen_center_position() + get_viewport().get_visible_rect().size / 2.0
+	else:
+		screen_pos = player.global_position
+	var offset_y = player.visual_height_cm * p + 80
+	return screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
+
+func _get_nearby_named_npc(dist_px: float) -> Node:
+	if not player: return null
+	for child in get_children():
+		if child.has_meta("is_npc") and child.get("npc_id") != null and child.npc_id != "":
+			var d = abs(child.global_position.x - player.global_position.x)
+			if d <= dist_px:
+				return child
+	return null
+
+func _interact_with_npc(npc: Node) -> void:
+	if not npc or not player: return
+	# フレーム間でNPCが離れた場合の保護
+	if abs(npc.global_position.x - player.global_position.x) > 200.0: return
+	var npc_id: String = npc.get("npc_id") if npc.get("npc_id") != null else ""
+	if npc_id == "": return
+	# 身長差に応じてセリフキーを選択
+	var player_m = player.get("m")
+	var npc_m = npc.get("m")
+	var key = "default"
+	if player_m and npc_m:
+		var npc_data = DIALOGUES.get(npc_id, {})
+		var diff = float(player_m["height"]) - float(npc_m["height"])
+		var global = get_node_or_null("/root/Global")
+		if npc_data.has("first_meet") and not npc.get_meta("met_player", false):
+			key = "first_meet"
+			npc.set_meta("met_player", true)
+		elif npc_id == "haruka" and global and not global.haruka_invited_this_term:
+			key = "measure_invite"
+			global.haruka_invited_this_term = true
+		elif diff >= 35.0 and npc_data.has("huge"):
+			key = "huge"
+		elif diff >= 15.0 and npc_data.has("tall"):
+			key = "tall"
+	_start_dialogue(npc_id, key)
+
 func _setup_bump_alert() -> void:
 	bump_alert_label = Label.new()
 	bump_alert_label.hide()
@@ -222,15 +427,25 @@ func _update_minimap():
 	
 func _update_bubble():
 	if not player or not bubble_panel: return
-	
+
 	var m = player.get("m")
 	if not m: return
-	
+
 	var px = player.global_position.x / p
 	var hit_dist = 60.0 # 60cm以内に近づいたら表示
 	var closest_obs: Node2D = null
 	var min_dist = INF
-	
+
+	# NPC検知を先に行う（ステージオブジェクトより優先）
+	_nearby_npc = _get_nearby_named_npc(150.0)
+	if _nearby_npc:
+		_nearby_transition_door = ""
+		_nearby_height_scale = false
+		bubble_label.text = "[Eキー] 話しかける"
+		bubble_panel.show()
+		bubble_panel.position = _get_bubble_screen_pos()
+		return
+
 	for child in get_children():
 		if child.has_meta("is_stage_obj") and child.has_meta("obs_x"):
 			# AABBチェックのようなもの。
@@ -239,11 +454,11 @@ func _update_bubble():
 			var dist = 0.0
 			if px < ox1: dist = ox1 - px
 			elif px > ox2: dist = px - ox2
-			
+
 			if dist < hit_dist and dist < min_dist:
 				min_dist = dist
 				closest_obs = child
-				
+
 	if closest_obs:
 		var obs_id = closest_obs.get_meta("obs_id")
 		var oh = closest_obs.get_meta("obs_height_cm")
@@ -265,22 +480,11 @@ func _update_bubble():
 			_nearby_height_scale = false
 
 		bubble_panel.show()
-
-		# プレイヤーの2D座標をCanvasLayer上のスクリーン座標に変換して配置
-		var cam = player.get_node_or_null("Camera2D")
-		var screen_pos: Vector2
-		if cam:
-			screen_pos = player.global_position - cam.get_screen_center_position() + get_viewport().get_visible_rect().size / 2.0
-		else:
-			screen_pos = player.global_position
-		var offset_y = player.visual_height_cm * p + 80
-		bubble_panel.position = screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
+		bubble_panel.position = _get_bubble_screen_pos()
 	else:
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
 		bubble_panel.hide()
-
-	pass
 
 func _setup_ui():
 	ui_layer = CanvasLayer.new()
@@ -467,10 +671,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_G:
 			_toggle_history_panel()
 		elif event.keycode == KEY_E:
-			if _nearby_transition_door != "":
+			if _in_dialogue:
+				_advance_dialogue()
+			elif _measurement_showing:
+				_on_next_term_pressed()
+			elif _nearby_transition_door != "":
 				_enter_transition_door()
 			elif _nearby_height_scale:
 				_show_measurement_result()
+			elif _nearby_npc:
+				_interact_with_npc(_nearby_npc)
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -504,14 +714,18 @@ func _update_ui():
 	
 	var global = get_node_or_null("/root/Global")
 	var stage_id = global.current_stage_id if global else "room"
-	var stage_name = StageBuilder.STAGES[stage_id]["name"] if StageBuilder.STAGES.has(stage_id) else "Unknown"
+	var stage_name = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
 	var m = player.get("m")
 	if not m: return
 	
 	var params = global.current_params if global else m
 	
+	var age_val = global.age if global else 0
+	var term_val = global.term if global else 0
+	var school_type = StageBuilder.get_stage_name("school", age_val)
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
+	text += "%d歳 / %d学期 (%s)\n" % [age_val, term_val + 1, school_type]
 	text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
 	text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
 	
@@ -528,7 +742,7 @@ func _load_stage():
 	var stage_id = global.current_stage_id if global else "room"
 	
 	# 床や障害物を生成
-	StageBuilder.build_stage(stage_id, self , p)
+	StageBuilder.build_stage(stage_id, self, p, global.age if global else 0)
 	
 	_spawn_npcs(stage_id)
 
@@ -553,6 +767,27 @@ func _load_stage():
 		var bump_handler := Callable(self, "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)
+
+	# ペンディングイベントを処理（始業式は教室に入ったときのみ発火）
+	if global:
+		var ev = global.pop_next_event()
+		if ev == "semester_start":
+			if stage_id == "school":
+				await get_tree().create_timer(0.5).timeout
+				_start_dialogue("teacher", "semester_start")
+			else:
+				global.pending_events.push_front(ev)  # 教室に入るまで保留
+		elif ev == "entrance_ceremony":
+			if stage_id == "myroom":
+				await get_tree().create_timer(1.2).timeout
+				_start_dialogue("player", _get_entrance_dialogue_key(global.age))
+			else:
+				global.pending_events.push_front(ev)  # myroom に入るまで保留
+
+func _get_entrance_dialogue_key(age: int) -> String:
+	if age <= 6:  return "entrance_elementary"
+	if age <= 12: return "entrance_middle"
+	return "entrance_high"
 
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
@@ -623,9 +858,10 @@ func _spawn_npcs(stage_id: String) -> void:
 		add_child(npc_hall)
 
 	elif stage_id == "school":
-		# 背の低い先生/生徒用など
+		# コアNPC「桐島はるか」
 		var npc1 = npc_scene.instantiate()
 		npc1.set_meta("is_npc", true)
+		npc1.npc_id = "haruka"
 		npc1.custom_params = {
 			"height": 152.0,
 			"ratio": 6.8,
@@ -633,8 +869,8 @@ func _spawn_npcs(stage_id: String) -> void:
 			"sex": "female"
 		}
 		npc1.custom_appearance = {
-			"hair_style": "short",
-			"hair_color": "#222222",
+			"hair_style": "long",
+			"hair_color": "#885533",
 			"tops_type": "blouse",
 			"tops_color": "#ffffff",
 			"bottoms_type": "skirt_short",
@@ -687,8 +923,33 @@ func _spawn_npcs(stage_id: String) -> void:
 			"shoes_type": "sneakers",
 			"shoes_color": "#cccccc"
 		}
+		nurse.npc_id = "nurse"
 		nurse.position = Vector2(680 * p, 0) # 机のそば
 		add_child(nurse)
+		# はるかが追随中なら身長計の横にスポーン
+		var global_inf = get_node_or_null("/root/Global")
+		if global_inf and global_inf.haruka_following:
+			var haruka_inf = npc_scene.instantiate()
+			haruka_inf.set_meta("is_npc", true)
+			haruka_inf.npc_id = "haruka"
+			haruka_inf.custom_params = {
+				"height": 152.0,
+				"ratio": 6.8,
+				"legRatio": 44.0,
+				"sex": "female"
+			}
+			haruka_inf.custom_appearance = {
+				"hair_style": "long",
+				"hair_color": "#885533",
+				"tops_type": "sweater",
+				"tops_color": "#ffffff",
+				"bottoms_type": "skirt_long",
+				"bottoms_color": "#333333",
+				"shoes_type": "sneakers",
+				"shoes_color": "#aa3333"
+			}
+			haruka_inf.position = Vector2(350 * p, 0) # 身長計付近
+			add_child(haruka_inf)
 
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -715,7 +976,8 @@ func _enter_transition_door() -> void:
 	if player and from_stage_id != "" and StageBuilder.STAGES.has(new_stage_id):
 		var return_door_id = "door_to_" + from_stage_id
 		var stage_width = float(StageBuilder.STAGES[new_stage_id]["width"])
-		for obs in StageBuilder.STAGES[new_stage_id]["obstacles"]:
+		var cur_age = global.age if global else 0
+		for obs in StageBuilder.get_obstacles(new_stage_id, cur_age):
 			if obs["id"] == return_door_id:
 				var obs_x = float(obs["x"])
 				var obs_x2 = float(obs["x2"])
@@ -732,9 +994,18 @@ func _enter_transition_door() -> void:
 
 # ─── 成長システム ───────────────────────────────────────────────
 
+# 測定パネル内の動的ラベル（アニメ用）
+var _meas_height_label: Label = null
+var _meas_diff_label: Label = null
+var _meas_btn_row: HBoxContainer = null
+var _measurement_showing: bool = false
+var _mini_proxy: Node2D = null
+var _mini_drawer: Node2D = null
+var _meas_graph: Control = null
+
 func _setup_measurement_panel() -> void:
 	measurement_panel = ColorRect.new()
-	measurement_panel.color = Color(0, 0, 0, 0.75)
+	measurement_panel.color = Color(0, 0, 0, 0.0)
 	measurement_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	measurement_panel.hide()
 	measurement_panel.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -757,42 +1028,96 @@ func _setup_measurement_panel() -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	center.add_child(panel)
 
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 24)
+	panel.add_child(hbox)
+
+	# --- 左: ミニアバタービュー ---
+	var svc = SubViewportContainer.new()
+	svc.custom_minimum_size = Vector2(160, 0)
+	svc.stretch = true
+	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hbox.add_child(svc)
+
+	var sv = SubViewport.new()
+	sv.size = Vector2i(160, 380)
+	sv.transparent_bg = true
+	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	sv.process_mode = Node.PROCESS_MODE_ALWAYS
+	svc.add_child(sv)
+
+	_mini_proxy = Node2D.new()
+	_mini_proxy.set_script(load("res://scripts/MiniPlayerProxy.gd"))
+	_mini_proxy.position = Vector2(80, 365)
+	_mini_proxy.process_mode = Node.PROCESS_MODE_ALWAYS
+	sv.add_child(_mini_proxy)
+
+	_mini_drawer = Node2D.new()
+	_mini_drawer.set_script(load("res://scripts/CharacterDrawer.gd"))
+	_mini_drawer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_mini_proxy.add_child(_mini_drawer)
+
+	# --- 右: テキストUI ---
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 14)
-	panel.add_child(vbox)
+	hbox.add_child(vbox)
 
 	var title = Label.new()
 	title.text = "身体測定結果"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color.WHITE)
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	vbox.add_child(title)
 
 	vbox.add_child(HSeparator.new())
 
+	# 身長数値（カウントアップアニメ対象）
+	_meas_height_label = Label.new()
+	_meas_height_label.add_theme_font_size_override("font_size", 48)
+	_meas_height_label.add_theme_color_override("font_color", Color.WHITE)
+	_meas_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_meas_height_label.text = "--- cm"
+	vbox.add_child(_meas_height_label)
+
+	# 前回比（ポップアップアニメ対象）
+	_meas_diff_label = Label.new()
+	_meas_diff_label.add_theme_font_size_override("font_size", 28)
+	_meas_diff_label.add_theme_color_override("font_color", Color("#7fffb0"))
+	_meas_diff_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_meas_diff_label.modulate.a = 0.0
+	vbox.add_child(_meas_diff_label)
+
+	# 成長グラフ（測定パネル内インライン表示）
+	var GrowthGraphScript = load("res://scripts/GrowthGraph.gd")
+	_meas_graph = GrowthGraphScript.new()
+	_meas_graph.custom_minimum_size = Vector2(380, 110)
+	vbox.add_child(_meas_graph)
+
+	vbox.add_child(HSeparator.new())
+
+	# 詳細テキスト（平均比較・コメント）
 	measurement_content_label = Label.new()
-	measurement_content_label.add_theme_font_size_override("font_size", 18)
+	measurement_content_label.add_theme_font_size_override("font_size", 16)
 	measurement_content_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	measurement_content_label.custom_minimum_size = Vector2(380, 0)
+	measurement_content_label.modulate.a = 0.0
 	vbox.add_child(measurement_content_label)
 
 	vbox.add_child(HSeparator.new())
 
-	var btn_row = HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", 24)
-	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(btn_row)
+	_meas_btn_row = HBoxContainer.new()
+	_meas_btn_row.add_theme_constant_override("separation", 24)
+	_meas_btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_meas_btn_row.modulate.a = 0.0
+	vbox.add_child(_meas_btn_row)
 
 	var close_btn = Button.new()
 	close_btn.text = "閉じる"
 	close_btn.custom_minimum_size = Vector2(140, 48)
 	close_btn.add_theme_font_size_override("font_size", 16)
 	close_btn.focus_mode = Control.FOCUS_NONE
-	close_btn.pressed.connect(func():
-		measurement_panel.hide()
-		get_tree().paused = false
-	)
-	btn_row.add_child(close_btn)
+	close_btn.pressed.connect(_on_measurement_panel_closed)
+	_meas_btn_row.add_child(close_btn)
 
 	var next_btn = Button.new()
 	next_btn.text = "次の学期へ"
@@ -800,9 +1125,21 @@ func _setup_measurement_panel() -> void:
 	next_btn.add_theme_font_size_override("font_size", 16)
 	next_btn.focus_mode = Control.FOCUS_NONE
 	next_btn.pressed.connect(_on_next_term_pressed)
-	btn_row.add_child(next_btn)
+	_meas_btn_row.add_child(next_btn)
 
 	ui_layer.add_child(measurement_panel)
+
+func _update_mini_avatar(h_cm: float) -> void:
+	if not is_instance_valid(_mini_proxy) or not is_instance_valid(_mini_drawer):
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var temp_params = global.current_params.duplicate()
+	temp_params["height"] = h_cm
+	_mini_proxy.m = global.get_custom_body_measurements(temp_params)
+	_mini_proxy.visual_height_cm = h_cm
+	_mini_drawer.queue_redraw()
 
 func _show_measurement_result() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -813,35 +1150,133 @@ func _show_measurement_result() -> void:
 	var a: int = global.age
 	var avg_h: float = global.get_avg_height(a)
 	var diff_avg: float = h - avg_h
+	var diff_prev: float = h - prev_h if prev_h > 0.0 else 0.0
 
-	var text = "年齢：%d歳  第%d学期\n\n" % [a, global.term + 1]
-	text += "身長：  %.1f cm\n" % h
+	# 詳細テキスト（後でフェードイン）
+	var detail = "年齢：%d歳  第%d学期\n" % [a, global.term + 1]
+	detail += "同学年平均：%.1f cm  （差：%+.1f cm）\n\n" % [avg_h, diff_avg]
+	detail += global.get_measurement_comment(diff_avg)
+	measurement_content_label.text = detail
+
+	# 前回比ラベル
 	if prev_h > 0.0:
-		text += "前回比：%+.1f cm\n" % (h - prev_h)
+		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev
 	else:
-		text += "前回比：（初回測定）\n"
-	text += "同学年平均：%.1f cm\n" % avg_h
-	text += "差：    %+.1f cm\n\n" % diff_avg
-	text += global.get_measurement_comment(diff_avg)
+		_meas_diff_label.text = "はじめての測定"
 
-	measurement_content_label.text = text
+	# 初期状態リセット
+	_meas_height_label.text = "%.1f cm" % (prev_h if prev_h > 0.0 else h)
+	_meas_diff_label.modulate.a = 0.0
+	measurement_content_label.modulate.a = 0.0
+	_meas_btn_row.modulate.a = 0.0
+	_meas_diff_label.scale = Vector2(0.7, 0.7)
+	_update_mini_avatar(prev_h if prev_h > 0.0 else h)
+
+	# グラフに「現在測定中」のプレビューデータをセット（最新点を末尾に追加）
+	if _meas_graph:
+		var preview = global.growth_history.duplicate()
+		preview.append({
+			"height": h, "avg_height": avg_h,
+			"age": a, "term": global.term,
+			"diff_prev": diff_prev, "diff_avg": diff_avg,
+		})
+		_meas_graph.set_data(preview)
+		_meas_graph.animate_new_point(1.4)  # カウントアップ(1.4秒)と同期
+
+	_measurement_showing = true
 	measurement_panel.show()
 	get_tree().paused = true
 
+	# 背景フェードイン（MainScene は PROCESS_MODE_ALWAYS なので pause 中でも動作する）
+	var tween = create_tween()
+	tween.tween_property(measurement_panel, "color", Color(0, 0, 0, 0.75), 0.4)
+
+	# 身長カウントアップ（前回値 → 現在値）＋アバターがリアルタイムで成長
+	if prev_h > 0.0:
+		tween.tween_method(func(v: float):
+			_meas_height_label.text = "%.1f cm" % v
+			_update_mini_avatar(v)
+		, prev_h, h, 1.4)
+	else:
+		tween.tween_interval(0.5)
+
+	# 前回比ポップアップ
+	tween.tween_property(_meas_diff_label, "modulate:a", 1.0, 0.2)
+	tween.parallel().tween_property(_meas_diff_label, "scale", Vector2(1.2, 1.2), 0.15)
+	tween.tween_property(_meas_diff_label, "scale", Vector2(1.0, 1.0), 0.1)
+
+	# 詳細とボタンをフェードイン
+	tween.tween_interval(0.2)
+	tween.tween_property(measurement_content_label, "modulate:a", 1.0, 0.4)
+	tween.tween_property(_meas_btn_row, "modulate:a", 1.0, 0.3)
+
+func _on_measurement_panel_closed() -> void:
+	_measurement_showing = false
+	measurement_panel.hide()
+	get_tree().paused = false
+	# はるかが追随中なら測定後セリフを再生
+	var global = get_node_or_null("/root/Global")
+	if global and global.haruka_following:
+		global.haruka_following = false
+		_start_dialogue("haruka", "measure_after")
+
 func _on_next_term_pressed() -> void:
+	_measurement_showing = false
 	measurement_panel.hide()
 	get_tree().paused = false
 	_nearby_height_scale = false
 
-	var global = get_node_or_null("/root/Global")
-	if not global: return
+	# フェードオーバーレイを生成
+	var fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.z_index = 100
+	ui_layer.add_child(fade)
 
-	global.advance_term()
+	# フェードアウト（0.5秒）
+	var tw = create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 0.5)
+	await tw.finished
+
+	# 学期を進めて自室へ
+	var global = get_node_or_null("/root/Global")
+	if global:
+		global.advance_term()
+		global.current_stage_id = "myroom"
 
 	if player:
 		player.update_measurements()
 
 	_load_stage()
+
+	# 黒画面中に学期テキストを表示
+	if global:
+		var lbl = Label.new()
+		lbl.text = "第 %d 学期" % (global.term + 1)
+		lbl.add_theme_font_size_override("font_size", 36)
+		lbl.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+		lbl.modulate.a = 0.0
+		lbl.set_anchors_preset(Control.PRESET_CENTER)
+		lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		lbl.grow_vertical = Control.GROW_DIRECTION_BOTH
+		fade.add_child(lbl)
+		var tw_lbl = create_tween()
+		tw_lbl.tween_property(lbl, "modulate:a", 1.0, 0.3)
+		tw_lbl.tween_interval(0.5)
+		tw_lbl.tween_property(lbl, "modulate:a", 0.0, 0.3)
+
+	# フェードイン（0.8秒）
+	var tw2 = create_tween()
+	tw2.tween_property(fade, "color:a", 0.0, 0.8)
+	await tw2.finished
+	fade.queue_free()
+
+	# 少し歩き込んでから主人公モノローグ（入学年は入学式セリフ）
+	await get_tree().create_timer(1.8).timeout
+	var mono_key = "new_semester"
+	if global and global.age in [12, 15]:
+		mono_key = _get_entrance_dialogue_key(global.age)
+	_start_dialogue("player", mono_key)
 
 func _setup_history_panel() -> void:
 	if history_panel:

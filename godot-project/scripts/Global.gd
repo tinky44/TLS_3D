@@ -37,6 +37,9 @@ var growth_type: String = "normal"  # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
 var growth_history: Array = []
 
+var haruka_following: bool = false
+var haruka_invited_this_term: bool = false
+
 const AVG_HEIGHT_FEMALE: Dictionary = {
 	3: 95.0, 4: 101.0, 5: 107.0,
 	6: 113.0, 7: 119.0, 8: 124.0, 9: 130.0,
@@ -92,12 +95,28 @@ func record_growth_history(source: String = "measurement") -> void:
 		"source": source
 	})
 
+# ─── イベントキュー ────────────────────────────────────────────
+var pending_events: Array = []
+
+func queue_event(event_id: String) -> void:
+	pending_events.append(event_id)
+
+func pop_next_event() -> String:
+	if pending_events.is_empty(): return ""
+	return pending_events.pop_front()
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
+	# 身長に合わせて頭身を自動更新（最大9頭身）
+	var h: float = current_params["height"]
+	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
 	record_growth_history("growth")
+	queue_event("semester_start")  # 学期開始イベントを予約
+	haruka_invited_this_term = false
+	haruka_following = false
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)

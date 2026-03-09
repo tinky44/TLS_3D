@@ -7,7 +7,6 @@ var CM_TO_PX: float = 2.0
 var h_lbl: Label
 var r_lbl: Label
 var l_lbl: Label
-var age_lbl: Label
 var growth_type_btns: Array = []  # [{btn, type, factor}]
 
 func _ready() -> void:
@@ -183,19 +182,34 @@ func _build_sliders(parent_vbox: VBoxContainer):
 
     parent_vbox.add_child(HSeparator.new())
 
-    # ─── 開始年齢 ───
-    age_lbl = Label.new()
-    age_lbl.text = "開始年齢: %d歳" % global.age
-    age_lbl.add_theme_color_override("font_color", Color("#495057"))
-    parent_vbox.add_child(age_lbl)
-    var age_slider = HSlider.new()
-    age_slider.min_value = 3
-    age_slider.max_value = 15
-    age_slider.step = 1
-    age_slider.value = global.age
-    age_slider.focus_mode = Control.FOCUS_NONE
-    age_slider.value_changed.connect(_on_age_changed)
-    parent_vbox.add_child(age_slider)
+    # ─── 開始学年 ───
+    var age_title = Label.new()
+    age_title.text = "開始学年:"
+    age_title.add_theme_color_override("font_color", Color("#495057"))
+    parent_vbox.add_child(age_title)
+
+    var age_box = HBoxContainer.new()
+    age_box.add_theme_constant_override("separation", 6)
+    parent_vbox.add_child(age_box)
+
+    var age_group = ButtonGroup.new()
+    var age_defs = [
+        ["小学校入学\n(6歳)",  6],
+        ["中学校入学\n(12歳)", 12],
+        ["高校入学\n(15歳)",   15],
+    ]
+    for ad in age_defs:
+        var btn = Button.new()
+        btn.text = ad[0]
+        btn.toggle_mode = true
+        btn.button_group = age_group
+        btn.button_pressed = (global.age == ad[1])
+        btn.focus_mode = Control.FOCUS_NONE
+        btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        btn.custom_minimum_size = Vector2(0, 60)
+        var age_val: int = ad[1]
+        btn.pressed.connect(func(): _on_start_age_pressed(age_val))
+        age_box.add_child(btn)
 
     # ─── 成長タイプ ───
     var gt_title = Label.new()
@@ -253,13 +267,11 @@ func _on_leg_ratio_changed(val: float):
         if player and player.has_method("update_measurements"):
             player.update_measurements()
 
-func _on_age_changed(val: float) -> void:
-    var a := int(val)
-    if age_lbl: age_lbl.text = "開始年齢: %d歳" % a
+func _on_start_age_pressed(age_val: int) -> void:
     var global = get_node_or_null("/root/Global")
     if not global: return
-    global.age = a
-    global.term = preload("res://scripts/Global.gd").age_to_term(a)
+    global.age = age_val
+    global.term = preload("res://scripts/Global.gd").age_to_term(age_val)
     global.save_settings()
 
 func _on_growth_type_pressed(btn: BaseButton) -> void:
@@ -281,6 +293,7 @@ func _on_next_pressed() -> void:
         global.record_growth_history("start")
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"
+        global.queue_event("entrance_ceremony")  # 最初の入学式モノローグ
     get_tree().change_scene_to_file("res://scenes/SaveSlotSelectScene.tscn")
 
 func _on_back_pressed() -> void:

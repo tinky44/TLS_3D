@@ -21,6 +21,8 @@ var visual_height_cm: float = 158.0
 var m: Dictionary
 var appearance: Dictionary
 
+var npc_id: String = ""  # コアNPCの識別子。空文字は匿名NPC
+var follow_target: Node2D = null  # セットされると追随モードになる
 var look_pitch: float = 0.0
 var look_head_angle: float = 0.0
 var _reaction_label: Label = null
@@ -85,7 +87,6 @@ func _process(delta: float) -> void:
 	var self_eye_y: float = global_position.y - float(m["landmarks"]["eye"]) * CM_TO_PX
 	var player_eye_y: float = p_node.global_position.y - float(player_m["landmarks"]["eye"]) * CM_TO_PX
 	var diff_y_px: float = player_eye_y - self_eye_y
-	var diff_y_cm: float = -diff_y_px / CM_TO_PX
 
 	var angle: float = clamp(atan2(diff_y_px, max(abs_dist, 1.0)), -PI / 3.0, PI / 3.0)
 	look_head_angle = angle
@@ -98,7 +99,17 @@ func _process(delta: float) -> void:
 		dir = -1
 	facing = "side"
 
-	var reaction_key: String = _get_reaction_key(diff_y_cm)
+	# プレイヤーがNPCより小さければ反応しない。大きい場合のみ年齢平均からの逸脱度で判定。
+	var actual_height_diff: float = float(player_m["height"]) - float(m["height"])
+	var reaction_key: String
+	if actual_height_diff <= 0.0:
+		reaction_key = "same"
+	else:
+		var global_node = get_node_or_null("/root/Global")
+		var avg_height: float = 158.5
+		if global_node:
+			avg_height = global_node.get_avg_height(global_node.age)
+		reaction_key = _get_reaction_key(float(player_m["height"]) - avg_height)
 	if reaction_key != _current_reaction_key:
 		_current_reaction_key = reaction_key
 		_reaction_label.text = _get_reaction_text(reaction_key)
@@ -118,7 +129,16 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 
-	velocity.x = _avoid_dir * SPEED * CM_TO_PX
+	if follow_target:
+		var dx = follow_target.global_position.x - global_position.x
+		if abs(dx) > 100.0 * CM_TO_PX:
+			velocity.x = sign(dx) * SPEED * CM_TO_PX
+			dir = int(sign(dx))
+			facing = "side"
+		else:
+			velocity.x = lerp(velocity.x, 0.0, 10.0 * delta)
+	else:
+		velocity.x = _avoid_dir * SPEED * CM_TO_PX
 	is_walking = abs(velocity.x) > 1.0
 	if is_walking:
 		walk_phase += walk_speed * delta
