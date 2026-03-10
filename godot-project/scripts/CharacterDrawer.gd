@@ -614,11 +614,11 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	var p_hip_r = Vector2(d["cx"] + hp_off, d["cy"])
 
 	# === 正面用の微調整（ここを書き換えて動作確認します） ===
-	var front_offset_x = 0.0 # プラスにすると腕が外側に広がる、マイナスで内側
+	var front_offset_x = -10.0 # プラスにすると腕が外側に広がる、マイナスで内側
 	var front_offset_y = 10.0 # プラスにすると腕が下に下がる、マイナスで上に上がる
 	# Note: 腕の太さ分だけ下に下げたかった
 
-	var p_sh_l = Vector2(d["front_sx"] - sh_off + front_offset_x, d["front_sy"] + front_offset_y)
+	var p_sh_l = Vector2(d["front_sx"] - sh_off - front_offset_x, d["front_sy"] + front_offset_y)
 	var p_sh_r = Vector2(d["front_sx"] + sh_off + front_offset_x, d["front_sy"] + front_offset_y)
 
 	var f_leg_l_ang = (d["leg_l_angle"] * 0.2) * PI / 180 + PI / 2
