@@ -105,9 +105,16 @@ func _physics_process(delta: float) -> void:
 
 	_handle_input()
 
+	# 脚の痛みフラグによる速度補正
+	var _leg_pain_factor = 1.0
+	if has_node("/root/Global"):
+		var _g = get_node("/root/Global")
+		if _g.get("is_leg_pain"):
+			_leg_pain_factor = 0.5
+
 	var direction := Input.get_axis("ui_left", "ui_right")
 	if direction:
-		velocity.x = direction * SPEED
+		velocity.x = direction * SPEED * _leg_pain_factor
 		dir = int(sign(direction))
 		if not (Input.is_action_pressed("ui_up") or Input.is_action_pressed("ui_down")):
 			facing = "side"
@@ -116,7 +123,7 @@ func _physics_process(delta: float) -> void:
 
 	is_walking = (velocity.x != 0)
 	if is_walking:
-		walk_phase += walk_speed * delta
+		walk_phase += walk_speed * _leg_pain_factor * delta
 	else:
 		walk_phase = lerp_angle(walk_phase, 0.0, 10.0 * delta)
 

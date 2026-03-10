@@ -9,6 +9,12 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var walk_phase = player.walk_phase
     var visual_height_cm = player.visual_height_cm
 
+    # 脚の痛みフラグを Global から取得
+    var is_leg_pain = false
+    var _g = player.get_node_or_null("/root/Global")
+    if _g and _g.get("is_leg_pain"):
+        is_leg_pain = _g.is_leg_pain
+
     var leg_l_angle = 0.0
     var leg_r_angle = 0.0
     var arm_l_angle = 0.0
@@ -19,7 +25,8 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
 
     var walk_amp = 12.0 if is_walking else 0.0
     leg_l_angle = walk_amp * sin(walk_phase)
-    leg_r_angle = walk_amp * sin(walk_phase + PI)
+    # is_leg_pain 時は右脚の振幅を 0.3 倍（ひきずり歩き）
+    leg_r_angle = (walk_amp * 0.3 if is_leg_pain else walk_amp) * sin(walk_phase + PI)
     arm_l_angle = - walk_amp * 0.6 * sin(walk_phase)
     arm_r_angle = - walk_amp * 0.6 * sin(walk_phase + PI)
 

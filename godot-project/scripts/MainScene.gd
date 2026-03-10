@@ -24,6 +24,10 @@ var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
 
+# アクションヒントパネル（Q キーで切り替え）
+var action_hint_panel: PanelContainer
+var action_hint_label: Label
+
 # 測定結果パネル
 var measurement_panel: Control
 var measurement_content_label: Label
@@ -94,16 +98,99 @@ const DIALOGUES: Dictionary = {
 			{"speaker": "ほのか", "text": "……やっぱり伸びてる。"},
 			{"speaker": "ほのか", "text": "次の学期も、また測ろうね。抜け駆け禁止だよ！"},
 		],
+		# ─── バレー部ストーリー ─────────────────────────────────
+		"vball_join_cheer": [
+			{"speaker": "ほのか", "text": "バレー部！？ えっ、すごい決断だね。"},
+			{"speaker": "ほのか", "text": "絶対似合うって。思いっきり活躍してよ！"},
+		],
+		"vball_pain_consult": [
+			{"speaker": "（主人公）", "text": "……ほのか、ちょっと聞いてもいい？ 最近、脚が痛くて。"},
+			{"speaker": "ほのか", "text": "え、大丈夫？ それって練習のしすぎじゃないかな。"},
+			{
+				"speaker": "ほのか",
+				"text": "先輩に話した方がいいよ。ね、どうする？",
+				"choices": [
+					{"label": "先輩に伝えてもらう", "next": "pain_tell_senior", "action": "vball_pain_report"},
+					{"label": "しばらく自分で頑張る", "next": "pain_endure"},
+				]
+			},
+		],
+		"pain_tell_senior": [
+			{"speaker": "ほのか", "text": "わかった、私から先輩に話しておくね。"},
+			{"speaker": "ほのか", "text": "無理しないで。体が一番大事だよ。"},
+		],
+		"pain_endure": [
+			{"speaker": "ほのか", "text": "……わかった。でも限界が来たら必ず言ってね。"},
+		],
+		"haruka_after_summer": [
+			{"speaker": "ほのか", "text": "うわあ、また大きくなってる！ 夏休みどうだったの？"},
+			{"speaker": "ほのか", "text": "バレー部、また続けるの？ 応援してるよ。"},
+		],
 	},
 	"senior": {
 		"first_meet": [
 			{"speaker": "バレー部先輩", "text": "君、ちょっといいかな？"},
 			{"speaker": "バレー部先輩", "text": "……すごいな、ネットより頭一つ高いじゃないか"},
 			{"speaker": "バレー部先輩", "text": "バレー部、興味ない？ 君なら無敵のアタッカーになれるよ。"},
+			{"speaker": "バレー部先輩", "text": "もし気が向いたら、体育館に顔を出してみてくれ。"},
 		],
 		"huge": [
 			{"speaker": "バレー部先輩", "text": "（驚きながら）……また大きくなったか？"},
 			{"speaker": "バレー部先輩", "text": "体育館の入り口、頭ぶつけないように気をつけろよ。"},
+		],
+		# ─── バレー部ストーリー ─────────────────────────────────
+		"join_invite": [
+			{"speaker": "バレー部先輩", "text": "体育館に来てくれたか。改めて、入部どうだ？"},
+			{
+				"speaker": "バレー部先輩",
+				"text": "身長も才能のうちだ。一緒にやってみないか？",
+				"choices": [
+					{"label": "入部する！", "next": "join_accepted", "action": "vball_join"},
+					{"label": "もう少し考えたい……", "next": "join_think"},
+					{"label": "やっぱりやめておく", "next": "join_decline"},
+				]
+			},
+		],
+		"join_accepted": [
+			{"speaker": "バレー部先輩", "text": "よし！ ようこそバレー部へ。"},
+			{"speaker": "バレー部先輩", "text": "まず基本から教えるよ。一緒に頑張ろう。"},
+		],
+		"join_think": [
+			{"speaker": "バレー部先輩", "text": "そうか。また来たときに声をかけてくれ。"},
+		],
+		"join_decline": [
+			{"speaker": "バレー部先輩", "text": "残念だけど、気が変わったらいつでも来い。"},
+		],
+		"practice_first": [
+			{"speaker": "バレー部先輩", "text": "最近の練習、だいぶ慣れてきたな。"},
+			{"speaker": "バレー部先輩", "text": "……でも、右脚、大丈夫か？ 少しかばってるように見えるけど。"},
+		],
+		"pain_concern": [
+			{"speaker": "バレー部先輩", "text": "ほのかから聞いたよ。脚が痛いんだって？"},
+			{"speaker": "バレー部先輩", "text": "今は無理するな。しばらく休部して、ちゃんと診てもらえ。"},
+			{"speaker": "バレー部先輩", "text": "治ったらいつでも戻ってこい。待ってるから。"},
+		],
+		"senior_after_summer": [
+			{"speaker": "バレー部先輩", "text": "おい……夏休みの間にまた大きくなったか！"},
+			{"speaker": "バレー部先輩", "text": "脚の具合はどうだ？ 続けられそうか？"},
+			{
+				"speaker": "バレー部先輩",
+				"text": "正直に教えてくれ。",
+				"choices": [
+					{"label": "また頑張りたい！", "next": "vball_return", "action": "vball_rejoin"},
+					{"label": "マネージャーとして関わりたい", "next": "vball_manager", "action": "vball_manager_role"},
+					{"label": "今は勉強に集中したい……", "next": "vball_retire"},
+				]
+			},
+		],
+		"vball_return": [
+			{"speaker": "バレー部先輩", "text": "よし！ 待ってたぞ。今学期も一緒に頑張ろう。"},
+		],
+		"vball_manager": [
+			{"speaker": "バレー部先輩", "text": "マネージャーか。それも大切な役割だよ。よろしく。"},
+		],
+		"vball_retire": [
+			{"speaker": "バレー部先輩", "text": "そうか……ゆっくり考えてくれ。応援してるよ。"},
 		],
 	},
 	"mother": {
@@ -164,6 +251,14 @@ const DIALOGUES: Dictionary = {
 		"entrance_high": [
 			{"speaker": "（主人公）", "text": "今日は高校の入学式だ。"},
 			{"speaker": "（主人公）", "text": "式場に入ったら、また一番後ろに立たされた。"},
+		],
+		# ─── バレー部ストーリー ─────────────────────────────────
+		"summer_growth_vball": [
+			{"speaker": "（主人公）", "text": "……制服のボタン、全然止まらない。"},
+			{"speaker": "（主人公）", "text": "夏休みの間に、こんなに伸びてたの？"},
+			{"speaker": "お母さん", "text": "ちょっと待って……夏休みだけで10センチ？"},
+			{"speaker": "お母さん", "text": "制服も買い直しだし、バレー部のユニフォームも作り直しね。"},
+			{"speaker": "（主人公）", "text": "……来学期、部活に戻れるかな。脚の具合も気になるし。"},
 		],
 	},
 }
@@ -427,6 +522,10 @@ func _on_choice_selected(choice: Dictionary) -> void:
 			global.self_confidence += 1
 		elif emotion == "complex":
 			global.self_complex += 1
+	# アクション処理（バレー部ストーリーなど）
+	var action: String = choice.get("action", "")
+	if global and action != "":
+		_process_choice_action(action, global)
 	# 分岐先へ
 	var next_key: String = choice.get("next", "")
 	if next_key != "":
@@ -437,6 +536,23 @@ func _on_choice_selected(choice: Dictionary) -> void:
 			_show_dialogue_line()
 			return
 	_advance_dialogue()
+
+func _process_choice_action(action: String, global: Node) -> void:
+	match action:
+		"vball_join":
+			global.vball_joined = true
+			global.vball_story_phase = 2
+		"vball_pain_report":
+			global.vball_story_phase = 4
+			global.queue_event("vball_tell_senior")
+		"vball_rejoin":
+			global.vball_joined = true
+			global.is_leg_pain = false
+			global.vball_story_phase = 7
+		"vball_manager_role":
+			global.vball_joined = false
+			global.is_leg_pain = false
+			global.vball_story_phase = 7
 
 func _advance_dialogue() -> void:
 	if _choice_pending: return
@@ -459,6 +575,26 @@ func _end_dialogue() -> void:
 			if child.has_meta("is_npc") and child.get("npc_id") == "haruka":
 				child.follow_target = player
 				break
+	# ─── バレー部ストーリー後処理 ────────────────────────────────
+	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "first_meet":
+		var global = get_node_or_null("/root/Global")
+		if global and global.vball_story_phase == 0:
+			global.vball_story_phase = 1
+	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "practice_first":
+		var global = get_node_or_null("/root/Global")
+		if global and global.vball_joined:
+			global.is_leg_pain = true
+			global.vball_story_phase = 3
+	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "pain_concern":
+		var global = get_node_or_null("/root/Global")
+		if global:
+			global.is_leg_pain = false
+			global.vball_joined = false
+			global.vball_story_phase = 5
+	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "vball_join_cheer":
+		pass # 特に後処理なし
+	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "haruka_after_summer":
+		pass # 特に後処理なし
 
 func _get_bubble_screen_pos() -> Vector2:
 	var cam = player.get_node_or_null("Camera2D")
@@ -493,10 +629,33 @@ func _interact_with_npc(npc: Node) -> void:
 		var npc_data = DIALOGUES.get(npc_id, {})
 		var diff = float(player_m["height"]) - float(npc_m["height"])
 		var global = get_node_or_null("/root/Global")
+		var vball_phase = global.vball_story_phase if global else 0
 		if npc_data.has("first_meet") and not npc.get_meta("met_player", false):
 			key = "first_meet"
 			npc.set_meta("met_player", true)
-		elif (npc_id == "haruka" or npc_id == "honoka") and global and not global.haruka_invited_this_term:
+		elif npc_id == "senior":
+			# バレー部ストーリーフェーズによる分岐
+			if vball_phase == 1:
+				key = "join_invite"
+			elif vball_phase == 2 and global and global.vball_joined:
+				key = "practice_first"
+			elif vball_phase == 3 and global and global.is_leg_pain:
+				key = "pain_concern"
+			elif vball_phase == 6:
+				key = "senior_after_summer"
+			elif diff >= 35.0 and npc_data.has("huge"):
+				key = "huge"
+		elif npc_id == "honoka":
+			if global and global.is_leg_pain and vball_phase == 3:
+				key = "vball_pain_consult"
+			elif global and not global.haruka_invited_this_term:
+				key = "measure_invite"
+				global.haruka_invited_this_term = true
+			elif diff >= 35.0 and npc_data.has("huge"):
+				key = "huge"
+			elif diff >= 15.0 and npc_data.has("tall"):
+				key = "tall"
+		elif (npc_id == "haruka") and global and not global.haruka_invited_this_term:
 			key = "measure_invite"
 			global.haruka_invited_this_term = true
 		elif diff >= 35.0 and npc_data.has("huge"):
@@ -553,6 +712,8 @@ func _process(delta: float) -> void:
 	_update_bubble()
 	_update_minimap()
 	_update_bump_alert(delta)
+	if action_hint_label and action_hint_panel and action_hint_panel.visible:
+		action_hint_label.text = _get_action_hint_text()
 
 func _update_minimap():
 	if not player or not minimap_bg or not minimap_player: return
@@ -697,6 +858,34 @@ func _setup_ui():
 	sidebar.hide() # 初期状態は非表示。Qキーでトグル
 	ui_layer.add_child(sidebar)
 
+	# ─── アクションヒントパネル（画面右下・常時表示）─────────────
+	action_hint_panel = PanelContainer.new()
+	var ah_style = StyleBoxFlat.new()
+	ah_style.bg_color = Color(0, 0, 0, 0.55)
+	ah_style.corner_radius_top_left = 8
+	ah_style.corner_radius_top_right = 8
+	ah_style.corner_radius_bottom_right = 8
+	ah_style.corner_radius_bottom_left = 8
+	ah_style.content_margin_left = 14
+	ah_style.content_margin_right = 14
+	ah_style.content_margin_top = 8
+	ah_style.content_margin_bottom = 8
+	action_hint_panel.add_theme_stylebox_override("panel", ah_style)
+	action_hint_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	action_hint_panel.offset_left = -360
+	action_hint_panel.offset_top = -64
+	action_hint_panel.offset_right = -16
+	action_hint_panel.offset_bottom = -16
+	action_hint_label = Label.new()
+	action_hint_label.add_theme_font_size_override("font_size", 14)
+	action_hint_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	action_hint_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	action_hint_label.add_theme_constant_override("outline_size", 3)
+	action_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	action_hint_label.custom_minimum_size = Vector2(300, 0)
+	action_hint_panel.add_child(action_hint_label)
+	ui_layer.add_child(action_hint_panel)
+
 	# 常時表示する「Q: ステータス設定」ヒントラベル
 	var hint = Label.new()
 	hint.text = "Q: ステータス設定"
@@ -812,6 +1001,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Q:
 			if sidebar: sidebar.visible = not sidebar.visible
+			_toggle_action_hint()
 		elif event.keycode == KEY_G:
 			_toggle_history_panel()
 		elif event.keycode == KEY_E:
@@ -843,6 +1033,37 @@ func _apply_tops_type(tops_type: String) -> void:
 	var drawer = player.get_node_or_null("CharacterDrawer") if player else null
 	if drawer: drawer.queue_redraw()
 
+
+func _toggle_action_hint() -> void:
+	if action_hint_panel:
+		action_hint_panel.visible = not action_hint_panel.visible
+
+func _get_action_hint_text() -> String:
+	if _in_dialogue:
+		return "[E] 次へ"
+	if _measurement_showing:
+		return "[E] 次の学期へ進む"
+	if _nearby_transition_door != "":
+		var dest = _nearby_transition_door.substr("door_to_".length())
+		var dest_name = StageBuilder.get_stage_name(dest, Global.age) if StageBuilder.STAGES.has(dest) else dest
+		return "[E] %s へ移動" % dest_name
+	if _nearby_height_scale:
+		return "[E] 身長を測る"
+	if _nearby_npc:
+		var npc_id: String = _nearby_npc.get("npc_id") if _nearby_npc.get("npc_id") != null else ""
+		if npc_id != "":
+			return "[E] 話しかける"
+	# バレー部ストーリーヒント
+	var vball_phase = Global.vball_story_phase
+	if vball_phase == 0 and Global.senior_gym_invited:
+		return "廊下の先輩に話しかけてみよう"
+	if vball_phase == 1:
+		return "体育館に行って先輩に話しかけよう"
+	if vball_phase == 2:
+		return "先輩と練習してみよう"
+	if vball_phase == 3 and Global.is_leg_pain:
+		return "ほのかに脚のことを相談してみよう"
+	return "[Q] 設定  [G] 成長記録  [E] インタラクト"
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -952,9 +1173,22 @@ func _load_stage():
 		elif ev == "summer_growth":
 			if stage_id == "room":
 				await get_tree().create_timer(0.8).timeout
-				_start_dialogue("player", "summer_growth")
+				# バレー部加入済みの場合は専用ダイアログを使う（未加入ルートも保護）
+				var summer_key = "summer_growth"
+				if global.vball_joined and global.vball_story_phase >= 2:
+					summer_key = "summer_growth_vball"
+				_start_dialogue("player", summer_key)
+				# バレー部ストーリーが進行中なら夏後フェーズへ
+				if global.vball_story_phase >= 2 and global.vball_story_phase < 6:
+					global.vball_story_phase = 6
 			else:
 				global.pending_events.push_front(ev) # room に入るまで保留
+		elif ev == "vball_tell_senior":
+			if stage_id == "gymnasium":
+				await get_tree().create_timer(0.8).timeout
+				_start_dialogue("senior", "pain_concern")
+			else:
+				global.pending_events.push_front(ev) # 体育館に入るまで保留
 		elif ev == "entrance_ceremony":
 			if stage_id == "myroom":
 				await get_tree().create_timer(1.2).timeout

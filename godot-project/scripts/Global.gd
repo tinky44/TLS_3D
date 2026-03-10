@@ -43,6 +43,11 @@ var haruka_invited_this_term: bool = false # ほのかが今学期測定に誘�
 var haruka_following: bool = false # ほのかが追随中か
 var senior_gym_invited: bool = false # 先輩から体育館に誘われたか（1回のみ）
 
+# ─── バレー部ストーリーフラグ ──────────────────────────────────────
+var vball_story_phase: int = 0   # 0=未出会い 1=廊下で出会った 2=入部 3=脚痛 4=相談済 5=休部 6=夏後 7=継続決定
+var is_leg_pain: bool = false    # 脚の痛みフラグ（歩行変化に影響）
+var vball_joined: bool = false   # バレー部入部フラグ
+
 # ─── 感情パラメータ ────────────────────────────────────────────
 var self_confidence: int = 0  # 自信：高身長を肯定的に受け入れた選択の累積
 var self_complex: int = 0     # コンプレックス：高身長を否定的に感じた選択の累積
