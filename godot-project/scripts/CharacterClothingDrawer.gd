@@ -318,6 +318,7 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 
 # ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（側面）
+# TODO 関数名変更 draw_blazer_side
 #
 # 描画パーツ:
 #   1. (is_dark のみ) ジャケット胴体の塗りつぶし
@@ -335,29 +336,29 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	var p_sh = Vector2(sx, sy)
 	var p_sh_front = p_sh + fwd * half_t
 	var p_sh_back = p_sh - fwd * half_t
-	var p_nk = p_sh + up_v * 10.0
-	var p_nk_front = p_nk + fwd * half_t * 0.7
 
 	# 暗色仕様: 胴体前面を上書き
 	if is_dark:
+		var white_fw = half_t * 0.66 # 胴体の厚みに対しておよそ1/3（前面側）
+		
+		# 後ろ側2/3をジャンパースカート（暗色）として描画
 		var jacket_cover = PackedVector2Array([
 			p_sh_back,
-			p_sh_front,
-			p_sh_front + Vector2(0, (navel_y - sy) + 10.0),
+			p_sh_front - fwd * white_fw,
+			p_sh_front - fwd * white_fw + Vector2(0, (navel_y - sy) + 10.0),
 			p_sh_back + Vector2(0, (navel_y - sy) + 10.0),
 		])
 		ctx.canvas.draw_polygon(jacket_cover, PackedColorArray([jacket_color]))
 
-	# 白シャツ（前面の細い帯としてスクエアネックの深さまで表現）
-	var shirt_inner = Color(0.96, 0.96, 0.96)
-	var chest_depth = p_sh_front + Vector2(0, (navel_y - sy) * 0.35)
-	var shirt_pts = PackedVector2Array([
-		p_nk_front,
-		p_nk_front + fwd * 4.0,
-		chest_depth + fwd * 4.0,
-		chest_depth,
-	])
-	ctx.canvas.draw_polygon(shirt_pts, PackedColorArray([shirt_inner]))
+		# 前面側1/3を白シャツとして描画
+		var shirt_inner = Color(0.96, 0.96, 0.96)
+		var shirt_cover = PackedVector2Array([
+			p_sh_front - fwd * white_fw,
+			p_sh_front,
+			p_sh_front + Vector2(0, (navel_y - sy) + 10.0),
+			p_sh_front - fwd * white_fw + Vector2(0, (navel_y - sy) + 10.0),
+		])
+		ctx.canvas.draw_polygon(shirt_cover, PackedColorArray([shirt_inner]))
 
 	# リボン
 	# 【調整用】赤リボン
