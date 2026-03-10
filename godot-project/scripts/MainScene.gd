@@ -320,14 +320,13 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	var tops_opt = OptionButton.new()
 	tops_opt.focus_mode = Control.FOCUS_NONE
 	tops_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var tops_values = ["sailor", "blazer", "blazer_dark", "blouse_bow", "jumper_skirt", "sweater", "t_shirt"]
+	var tops_values = ["sailor", "blazer", "blouse_bow", "jumper_skirt", "sweater", "t_shirt"]
 	tops_opt.add_item("セーラー服", 0)
 	tops_opt.add_item("ブレザー", 1)
-	tops_opt.add_item("ダークブレザー", 2)
-	tops_opt.add_item("リボンブラウス", 3)
-	tops_opt.add_item("ジャンパースカート", 4)
-	tops_opt.add_item("スウェッター", 5)
-	tops_opt.add_item("Tシャツ", 6)
+	tops_opt.add_item("リボンブラウス", 2)
+	tops_opt.add_item("サスペンダースカート", 3)
+	tops_opt.add_item("スウェッター", 4)
+	tops_opt.add_item("Tシャツ", 5)
 	var cur_tops = tops_values.find(Global.current_appearance.get("tops_type", "t_shirt"))
 	tops_opt.selected = max(0, cur_tops)
 	tops_opt.item_selected.connect(func(idx: int) -> void:
@@ -1066,8 +1065,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _apply_tops_type(tops_type: String) -> void:
 	const COLOR_MAP = {
 		"sailor": "#1a2a5e",
-		"blazer": "#6a7da8",
-		"blazer_dark": "#212840",
+		"blazer": "#212840",
 		"blouse_bow": "#f0e8e0",
 		"jumper_skirt": "#212840",
 		"sweater": "#7a9a7a",

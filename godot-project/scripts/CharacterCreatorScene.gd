@@ -259,8 +259,7 @@ func _build_sliders(parent_vbox: VBoxContainer):
     var tops_group = ButtonGroup.new()
     var tops_defs = [
         ["セーラー服", "sailor", "#1a2a5e"],
-        ["ブレザー", "blazer", "#6a7da8"],
-        ["ダークブレザー", "blazer_dark", "#212840"],
+        ["ブレザー", "blazer", "#212840"],
         ["リボンブラウス", "blouse_bow", "#f0e8e0"],
         ["スウェッター", "sweater", "#7a9a7a"],
         ["Tシャツ", "t_shirt", "#ab82a8"],

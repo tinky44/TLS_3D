@@ -20,7 +20,7 @@ class_name CharacterBodyDrawer
 #   is_side          : true=側面描画（袖の形を上すぼみに補正）
 #
 # tops_type ごとの動作:
-#   sweater / blouse / sailor / blazer / blazer_dark / blouse_bow / jumper_skirt
+#   sweater / blouse / sailor / blazer / blouse_bow / jumper_skirt
 #     → 長袖: 肩→肘 台形 + 肘→手首 台形（末広がり）
 #   t_shirt
 #     → 半袖: 肩→肘の60%まで台形袖、残りは肌色
@@ -49,7 +49,7 @@ static func draw_sleeve_arm(ctx: DrawContext, p_shoulder: Vector2, p_elbow: Vect
 	var outline_color = Color(0.8, 0.8, 0.8, 0.5) # 薄いグレー(半透明)
 	if tops_type == "sweater" or tops_type == "blouse" \
 			or tops_type == "sailor" or tops_type == "blazer" \
-			or tops_type == "blazer_dark" or tops_type == "blouse_bow" \
+			or tops_type == "blouse_bow" \
 			or tops_type == "jumper_skirt":
 		# 長袖（セーラー/ブレザー/リボン含む）: 肩→肘 台形、肘→手首 台形
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)

@@ -23,8 +23,6 @@ static func draw_tops_detail_front(ctx: DrawContext, tops_type: String, tops_col
 		"sailor":
 			draw_sailor_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
 		"blazer":
-			draw_blazer_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, false)
-		"blazer_dark":
 			draw_blazer_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
 			draw_bow_front(ctx, sx, sy, neck_y, half_body, tops_color)
@@ -58,8 +56,6 @@ static func draw_tops_detail_side(ctx: DrawContext, tops_type: String, tops_colo
 		"sailor":
 			draw_sailor_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, skin_color)
 		"blazer":
-			draw_blazer_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, false)
-		"blazer_dark":
 			draw_blazer_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, true)
 		"blouse_bow":
 			draw_bow_side(ctx, nx, ny, hx, hy, half_t, fwd, up_v, waist_angle, tops_color)
@@ -166,8 +162,7 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 #   8. リボン/ネクタイ（draw_bow_front を呼び出し）
 #
 # 引数:
-#   is_dark : true = blazer_dark（暗色ブレザー、赤リボン）
-#             false = blazer（明色ブレザー、青リボン）
+#   is_dark : 常にtrue (暗色ブレザーに統一)
 #
 # 【調整用】
 #   lapel_inner_y : ラペル内側下端（sy〜navel_y の lerp）
@@ -229,7 +224,7 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 		ctx.canvas.draw_circle(Vector2(sx, lapel_inner_y + 6.0 + btn_spacing * float(i + 1) * 0.7), 2.5, edge_col)
 
 	# リボン/ネクタイ（ラペル底に小さなリボン）
-	# 【調整用】blazer_dark=赤リボン、blazer=青リボン
+	# 【調整用】赤リボン
 	var bow_col = Color(0.75, 0.18, 0.25) if is_dark else Color(0.25, 0.35, 0.75)
 	draw_bow_front(ctx, sx, sy, neck_y, half_body * 0.55, bow_col)
 
@@ -367,7 +362,7 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 #   5. リボン（draw_bow_side を呼び出し）
 #
 # 引数:
-#   is_dark : true = blazer_dark（暗色ブレザー、赤リボン）
+#   is_dark : 常にtrue (暗色ブレザーに統一)
 # ---------------------------------------------------------------
 static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, navel_x: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
@@ -411,7 +406,7 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	ctx.canvas.draw_line(p_nk_front + up_v * 4.0, lapel_tip, jacket_color.darkened(0.3), 1.6)
 
 	# リボン
-	# 【調整用】blazer_dark=赤リボン、blazer=青リボン
+	# 【調整用】赤リボン
 	var bow_col = Color(0.75, 0.18, 0.25) if is_dark else Color(0.25, 0.35, 0.75)
 	draw_bow_side(ctx, p_nk.x, p_nk.y, p_sh.x, p_sh.y, half_t, fwd, up_v, waist_angle, bow_col)
 
@@ -452,11 +447,11 @@ static func draw_bow_side(ctx: DrawContext, nx: float, ny: float, sx: float, sy:
 	ctx.canvas.draw_line(center, tail_end, bow_color, 3.0)
 
 # ============================================================
-# ジャンパースカート（小学校制服）描画関数
+# サスペンダースカート（小学校制服）描画関数
 # ============================================================
 
 # ---------------------------------------------------------------
-# ジャンパースカート 正面オーバーレイ
+# サスペンダースカート 正面オーバーレイ
 #
 # 白いブラウス（base_shirt_color=白で胴体描画済み）の上から
 # 濃色のサロペットストラップを描画する。
@@ -529,7 +524,7 @@ static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 	ctx.canvas.draw_line(Vector2(sx + half_body * 0.22, neck_y + 2.0), Vector2(sx, sy + 4.0), collar_shadow, 1.2)
 
 # ---------------------------------------------------------------
-# ジャンパースカート 側面オーバーレイ
+# サスペンダースカート 側面オーバーレイ
 #
 # 胴体の前面・背面にサロペットストラップ帯を描画する。
 # 側面から見ると前後2本の縦帯として見える。

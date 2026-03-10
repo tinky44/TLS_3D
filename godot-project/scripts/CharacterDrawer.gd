@@ -52,7 +52,7 @@ func _draw() -> void:
 	ctx.skin_color = Color("#ffe4c4")
 	ctx.base_shirt_color = Color(appearance.get("tops_color", "#ab82a8"))
 	ctx.pants_color = Color(appearance.get("bottoms_color", "#e5d6ba"))
-	# ジャンパースカートは下に白いブラウスを着るのでベースシャツ色を白に上書き
+	# サスペンダースカートは下に白いブラウスを着るのでベースシャツ色を白に上書き
 	if appearance.get("tops_type", "t_shirt") == "jumper_skirt":
 		ctx.base_shirt_color = Color(0.97, 0.97, 0.97)
 	ctx.skin_dark = ctx.skin_color.darkened(0.15)
