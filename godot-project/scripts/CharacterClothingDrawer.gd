@@ -184,7 +184,8 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: f
 		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
 
 		if ctx.is_skirt:
-			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(sx, belt_y), half_body * 1.8, ctx.facing)
+			# ベルトの横幅(half_body * 2.0)に合わせてスカートの上端幅を設定
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(sx, belt_y), half_body * 2.0, ctx.facing)
 
 	# 内側の白シャツ（四角く開いたスクエアネック）
 	var shirt_inner = Color(0.97, 0.97, 0.97)

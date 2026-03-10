@@ -142,9 +142,10 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	var d = ctx.d
 
 	# ジャンパースカート（現状tops_type="blazer"）の場合は、スカート開始位置をベルトの高さ（ひじ付近）に引き上げる
-	if ctx.tops_type == "blazer":
+	var is_jumper = (ctx.tops_type == "blazer")
+	if is_jumper:
 		var b_sy = d["front_sy"] if facing in ["front", "back"] else d["sy"]
-		var u_arm = ctx.m["armLength"] * ctx.p * 0.5
+		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		waist_pos.y = b_sy + u_arm
 
 	var waist_to_crotch = d["cy"] - waist_pos.y
@@ -154,13 +155,16 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	if bottoms_type == "skirt_long":
 		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.3
 		hem_w = base_width * 1.3
-	elif bottoms_type == "skirt_sailor":
+	elif bottoms_type == "skirt_sailor" or is_jumper:
 		# 膝（thigh_l）より少し下（shin_lの10%）まで
 		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.1
-		hem_w = base_width * 1.4
+		# ジャンパースカートはセーラーより少し広めに
+		hem_w = base_width * (1.6 if is_jumper else 1.4)
 	else: # "skirt" or "skirt_short"
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
 		hem_w = base_width * 1.5
+
+	var is_pleated = (bottoms_type == "skirt_sailor" or is_jumper)
 
 	# 側面では脚の動きに合わせて前後に傾け、裾を広げる
 	if facing == "side":
@@ -184,16 +188,22 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 			var ankle_r_x = knee_r_x + d["shin_l"] * cos(ang_r + d["knee_r"])
 			min_x = min(min_x, min(ankle_l_x, ankle_r_x))
 			max_x = max(max_x, max(ankle_l_x, ankle_r_x))
+		elif is_pleated:
+			# セーラースカートやジャンパースカートも、歩いた際にすねの動きに合わせてすそが大きく広がるようにする
+			var hem_l_x = knee_l_x + d["shin_l"] * 0.4 * cos(ang_l + d["knee_l"])
+			var hem_r_x = knee_r_x + d["shin_l"] * 0.4 * cos(ang_r + d["knee_r"])
+			min_x = min(min_x, min(hem_l_x, hem_r_x))
+			max_x = max(max_x, max(hem_l_x, hem_r_x))
 
 		var spread_x = abs(max_x - min_x)
 		# 【調整用】裾の広がりマージン。大きいほど裾が脚より広がる
-		var spread_margin = 1.4 if bottoms_type == "skirt_long" else 1.2
+		var spread_margin = 1.5 if bottoms_type == "skirt_long" else (1.6 if is_pleated else 1.2)
 		var actual_hem_w = max(hem_w, spread_x * spread_margin)
 
 		CharacterDrawUtils.draw_trapezoid(ctx.canvas, waist_pos, p_bottom, base_width, actual_hem_w, bottoms_color)
 
-		# プリーツ（セーラー服スカート用）
-		if bottoms_type == "skirt_sailor":
+		# プリーツ（セーラー服・ジャンパースカート用）
+		if is_pleated:
 			var pleat_col = bottoms_color.darkened(0.2)
 			var d_vec = p_bottom - waist_pos
 			if d_vec.length() > 0.01:
@@ -239,8 +249,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	])
 	ctx.canvas.draw_polygon(pts, PackedColorArray([bottoms_color]))
 
-	# プリーツ（セーラー服スカート用）
-	if bottoms_type == "skirt_sailor":
+	# プリーツ（セーラー服・ジャンパースカート用）
+	if is_pleated:
 		var pleat_col = bottoms_color.darkened(0.2)
 		for i in range(1, 7): # 6本の線を入れる
 			var t = float(i) / 7.0
