@@ -4,11 +4,13 @@
 
 ## 📍 ファイル構成クイックリファレンス
 AIの皆様、迷った際はこちらを参照してくださいませ。
-- **身体描画・髪型**: [CharacterDrawer.gd](file:///C:/Users/nnshi/develop/tall_life_simulator/godot-project/scripts/CharacterDrawer.gd), [hair_drawing_system.md](specs/hair_drawing_system.md)
-- **プレイヤー操作・屈み**: [SkeletalPlayer.gd](file:///C:/Users/nnshi/develop/tall_life_simulator/godot-project/scripts/SkeletalPlayer.gd), [CharacterPoseCalculator.gd](file:///C:/Users/nnshi/develop/tall_life_simulator/godot-project/scripts/CharacterPoseCalculator.gd)
-- **NPC反応**: [SkeletalNPC.gd](file:///C:/Users/nnshi/develop/tall_life_simulator/godot-project/scripts/SkeletalNPC.gd)
-- **ステージ構築**: [StageBuilder.gd](file:///C:/Users/nnshi/develop/tall_life_simulator/godot-project/scripts/StageBuilder.gd), [stage_design.md](specs/stage_design.md)
-- **データ管理**: [Global.gd](file:///C:/Users/nnshi/develop/tall_life_simulator/godot-project/scripts/Global.gd)
+- **身体描画（オーケストラ）**: [CharacterDrawer.gd](../godot-project/scripts/CharacterDrawer.gd), [DrawContext.gd](../godot-project/scripts/DrawContext.gd)
+- **身体描画（正面・側面）**: [CharacterDrawFront.gd](../godot-project/scripts/CharacterDrawFront.gd), [CharacterDrawSide.gd](../godot-project/scripts/CharacterDrawSide.gd)
+- **身体描画（パーツ別）**: [CharacterHairDrawer.gd](../godot-project/scripts/CharacterHairDrawer.gd), [CharacterBodyDrawer.gd](../godot-project/scripts/CharacterBodyDrawer.gd), [CharacterClothingDrawer.gd](../godot-project/scripts/CharacterClothingDrawer.gd), [hair_drawing_system.md](hair_drawing_system.md)
+- **プレイヤー操作・屈み**: [SkeletalPlayer.gd](../godot-project/scripts/SkeletalPlayer.gd), [CharacterPoseCalculator.gd](../godot-project/scripts/CharacterPoseCalculator.gd)
+- **NPC反応**: [SkeletalNPC.gd](../godot-project/scripts/SkeletalNPC.gd)
+- **ステージ構築**: [StageBuilder.gd](../godot-project/scripts/StageBuilder.gd), [stage_design.md](stage_design.md)
+- **データ管理**: [Global.gd](../godot-project/scripts/Global.gd)
 
 ---
 
@@ -18,11 +20,21 @@ AIの皆様、迷った際はこちらを参照してくださいませ。
 ## 2. コアシステム仕様
 
 ### 2.1. 身体描画・ポーズシステム
-- **主要ファイル**: `CharacterDrawer.gd`, `CharacterDrawUtils.gd`
+- **主要ファイル**: `CharacterDrawer.gd`（オーケストラ）, `CharacterDrawUtils.gd`（描画ユーティリティ）
 - **詳細仕様**: [character_drawing_system.md](specs/character_drawing_system.md), [hair_drawing_system.md](specs/hair_drawing_system.md)
 - **概要**: `Global.gd` の身体パラメータ（身長、頭身、股下比率）に基づき、各パーツの座標をリアルタイム計算。
 - **多角的描画**: 正面・背面・側面の3視点をサポート。
   - 服装、髪型のレイヤー管理。詳細は [clothing_and_hair_logic.md](specs/clothing_and_hair_logic.md) を参照。
+- **描画サブシステム構成**（2026-03-10 リファクタリング済み）:
+
+  | ファイル | 役割 |
+  |---|---|
+  | `DrawContext.gd` | 描画に必要な全状態を保持する共有コンテキスト（`RefCounted`）。引数チェーンを排除 |
+  | `CharacterDrawFront.gd` | 正面・背面ビューの描画ロジック（`static func draw(ctx)`） |
+  | `CharacterDrawSide.gd` | 側面ビューの描画ロジック（`static func draw(ctx)`） |
+  | `CharacterHairDrawer.gd` | 髪型描画（前髪・後ろ髪・サイドヘア、正面・側面・背面対応） |
+  | `CharacterBodyDrawer.gd` | 腕（袖付き）・脚（パンツ付き）・スカート描画 |
+  | `CharacterClothingDrawer.gd` | 服装オーバーレイ（セーラー・ブレザー・リボン・ジャンパースカート） |
 
 ### 2.2. 物理干渉・屈みシステム
 - **主要ファイル**: `SkeletalPlayer.gd`, `CharacterPoseCalculator.gd`
