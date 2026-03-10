@@ -132,10 +132,13 @@ func _process(delta: float) -> void:
 	_reaction_label.position.y = - (visual_height_cm * CM_TO_PX) - 40.0
 	_reaction_label.visible = _reaction_time_left > 0.0 and _reaction_label.text != ""
 
-	if reaction_key == "very_huge":
-		_avoid_dir = sign(dist_x)
-	elif reaction_key == "huge":
-		_avoid_dir = sign(dist_x) * 0.45
+	if npc_id == "": # 名無しNPCのみ後ずさりする
+		if reaction_key == "very_huge":
+			_avoid_dir = sign(dist_x)
+		elif reaction_key == "huge":
+			_avoid_dir = sign(dist_x) * 0.45
+		else:
+			_avoid_dir = 0.0
 	else:
 		_avoid_dir = 0.0
 
