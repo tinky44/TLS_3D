@@ -7,7 +7,7 @@ var CM_TO_PX: float = 2.0
 var h_lbl: Label
 var r_lbl: Label
 var l_lbl: Label
-var growth_type_btns: Array = []  # [{btn, type, factor}]
+var growth_type_btns: Array = [] # [{btn, type, factor}]
 
 func _ready() -> void:
     var global = get_node_or_null("/root/Global")
@@ -19,6 +19,7 @@ func _ready() -> void:
     # プレビューが見えやすいように初期ポーズを調整
     if player and player.has_method("update_measurements"):
         player.pose = "stand"
+        player.facing = "front" # 初期状態を正面向きにする
         player.update_measurements()
     _update_camera()
 
@@ -194,9 +195,9 @@ func _build_sliders(parent_vbox: VBoxContainer):
 
     var age_group = ButtonGroup.new()
     var age_defs = [
-        ["小学校入学\n(6歳)",  6],
+        ["小学校入学\n(6歳)", 6],
         ["中学校入学\n(12歳)", 12],
-        ["高校入学\n(15歳)",   15],
+        ["高校入学\n(15歳)", 15],
     ]
     for ad in age_defs:
         var btn = Button.new()
@@ -223,10 +224,10 @@ func _build_sliders(parent_vbox: VBoxContainer):
 
     var btn_group = ButtonGroup.new()
     var gt_defs = [
-        ["ゆっくり", "slow",      0.5],
-        ["普通",     "normal",    1.0],
-        ["速い",     "fast",      1.5],
-        ["急成長",   "explosive", 2.5],
+        ["ゆっくり", "slow", 0.5],
+        ["普通", "normal", 1.0],
+        ["速い", "fast", 1.5],
+        ["急成長", "explosive", 2.5],
     ]
     for gt in gt_defs:
         var btn = Button.new()
@@ -257,12 +258,12 @@ func _build_sliders(parent_vbox: VBoxContainer):
 
     var tops_group = ButtonGroup.new()
     var tops_defs = [
-        ["セーラー服",   "sailor",     "#1a2a5e"],
-        ["ブレザー",     "blazer",     "#6a7da8"],
+        ["セーラー服", "sailor", "#1a2a5e"],
+        ["ブレザー", "blazer", "#6a7da8"],
         ["ダークブレザー", "blazer_dark", "#212840"],
         ["リボンブラウス", "blouse_bow", "#f0e8e0"],
-        ["スウェッター", "sweater",    "#7a9a7a"],
-        ["Tシャツ",     "t_shirt",    "#ab82a8"],
+        ["スウェッター", "sweater", "#7a9a7a"],
+        ["Tシャツ", "t_shirt", "#ab82a8"],
     ]
     for i in range(tops_defs.size()):
         var td = tops_defs[i]
@@ -292,9 +293,10 @@ func _build_sliders(parent_vbox: VBoxContainer):
 
     var btm_group = ButtonGroup.new()
     var btm_defs = [
-        ["スカート",       "skirt",      "#3a5f8a"],
+        ["スカート", "skirt", "#3a5f8a"],
         ["ロングスカート", "skirt_long", "#3a5f8a"],
-        ["パンツ",         "pants",      "#3a5f8a"],
+        ["セーラースカート", "skirt_sailor", "#1a2a5e"],
+        ["パンツ", "pants", "#3a5f8a"],
     ]
     for bd in btm_defs:
         var bb = Button.new()
@@ -342,6 +344,18 @@ func _on_start_age_pressed(age_val: int) -> void:
     if not global: return
     global.age = age_val
     global.term = preload("res://scripts/Global.gd").age_to_term(age_val)
+    
+    # 中学入学を選んだ場合、制服をセーラー服に自動設定する
+    if age_val == 12:
+        global.current_appearance["tops_type"] = "sailor"
+        global.current_appearance["tops_color"] = "#1a2a5e"
+        global.current_appearance["bottoms_type"] = "skirt_sailor"
+        global.current_appearance["bottoms_color"] = "#1a2a5e"
+        
+        # 画面のボタン表示も更新するため、シーン全体を再度リロードする
+        get_tree().reload_current_scene()
+        return
+        
     global.save_settings()
 
 func _on_growth_type_pressed(btn: BaseButton) -> void:
@@ -382,7 +396,7 @@ func _on_next_pressed() -> void:
         global.record_growth_history("start")
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"
-        global.queue_event("entrance_ceremony")  # 最初の入学式モノローグ
+        global.queue_event("entrance_ceremony") # 最初の入学式モノローグ
     get_tree().change_scene_to_file("res://scenes/SaveSlotSelectScene.tscn")
 
 func _on_back_pressed() -> void:
