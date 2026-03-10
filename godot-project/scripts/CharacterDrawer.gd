@@ -143,24 +143,24 @@ func _draw() -> void:
 #   その他（ノースリーブ等）
 #     → 袖なし: 肌色の腕のみ
 # ---------------------------------------------------------------
-func _draw_sleeve_arm(p_torso_shoulder: Vector2, p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
+func _draw_sleeve_arm(p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
 		arm_w: float, hand_hw: float, hand_hh: float, hand_angle: float,
 		tops_type: String, skin: Color, shirt: Color, is_side: bool = false) -> void:
 	# 【調整用】袖の太さ。肩側(top)と袖口側(bot)を別々に調整できる
 	var sleeve_top_w = arm_w * 1.5 # 袖の肩側の太さ（肩をカバー）
 	var sleeve_bot_w = arm_w * 1.8 # 袖口の太さ（末広がり）
 
-	var p_top_center = p_torso_shoulder
+	var p_top_center = p_shoulder
 	if is_side:
 		# 横向きの場合、背中側の位置を固定にして、前側を絞る（上すぼみ）
 		var original_top_w = sleeve_top_w
 		sleeve_top_w = arm_w * 1.15
 		var shaved = original_top_w - sleeve_top_w
-		var d = p_elbow - p_torso_shoulder
+		var d = p_elbow - p_shoulder
 		if d.length() > 0.01:
 			var n = Vector2(-d.y, d.x).normalized()
 			# nは向かって左(背中側)を向くので、中心を+n方向に半分(すぼめた分)だけ移動させる
-			p_top_center = p_torso_shoulder + n * (shaved / 2.0)
+			p_top_center = p_shoulder + n * (shaved / 2.0)
 
 	var outline_color = Color(0.8, 0.8, 0.8, 0.5) # 薄いグレー(半透明)
 	if tops_type == "sweater" or tops_type == "blouse" \
@@ -614,7 +614,7 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	var p_hip_r = Vector2(d["cx"] + hp_off, d["cy"])
 
 	# === 正面用の微調整（ここを書き換えて動作確認します） ===
-	var front_offset_x = -10.0 # プラスにすると腕が外側に広がる、マイナスで内側
+	var front_offset_x = -5.0 # プラスにすると腕が外側に広がる、マイナスで内側
 	var front_offset_y = 10.0 # プラスにすると腕が下に下がる、マイナスで上に上がる
 	# Note: 腕の太さ分だけ下に下げたかった
 
@@ -686,9 +686,6 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	var arm_skin = skin_color if facing == "front" else skin_dark
 	var arm_shirt = base_shirt_color if facing == "front" else shirt_dark
 
-	var p_torso_sh_l = Vector2(d["front_sx"] - sh_off, d["front_sy"])
-	var p_torso_sh_r = Vector2(d["front_sx"] + sh_off, d["front_sy"])
-
 	var f_arm_l_ang = 0.12 + (d["arm_l_angle"] * 0.3) * PI / 180 + PI / 2
 	var p_elb_l = CharacterPoseCalculator.rotated_point(p_sh_l.x, p_sh_l.y, u_arm, f_arm_l_ang)
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, f_arm_l_ang)
@@ -697,8 +694,8 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	var p_elb_r = CharacterPoseCalculator.rotated_point(p_sh_r.x, p_sh_r.y, u_arm, f_arm_r_ang)
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, f_arm_r_ang)
 
-	_draw_sleeve_arm(p_torso_sh_l, p_sh_l, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, f_arm_l_ang - PI / 2, tops_type, arm_skin, arm_shirt)
-	_draw_sleeve_arm(p_torso_sh_r, p_sh_r, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, f_arm_r_ang - PI / 2, tops_type, arm_skin, arm_shirt)
+	_draw_sleeve_arm(p_sh_l, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, f_arm_l_ang - PI / 2, tops_type, arm_skin, arm_shirt)
+	_draw_sleeve_arm(p_sh_r, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, f_arm_r_ang - PI / 2, tops_type, arm_skin, arm_shirt)
 
 	# 6. 顔とディテール
 	if facing == "front":
@@ -764,7 +761,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
 	var s_arm_l_ang = d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
-	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark, true)
+	_draw_sleeve_arm(p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark, true)
 
 	# 2. 奥の足
 	var pants_thigh_w = thigh_w * 1.3
@@ -824,7 +821,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
 	var s_arm_r_ang = d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
-	_draw_sleeve_arm(p_shoulder, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true)
+	_draw_sleeve_arm(p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true)
 
 # ============================================================
 # === 服装オーバーレイ（カラー・ラペル・リボン）描画関数群 ===
