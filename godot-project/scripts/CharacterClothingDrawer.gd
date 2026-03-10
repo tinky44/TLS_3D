@@ -170,8 +170,6 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # ---------------------------------------------------------------
 static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float,
 		half_sh: float, half_body: float, jacket_color: Color, is_dark: bool) -> void:
-	var lapel_inner_y = lerp(sy, navel_y, 0.28) # ラペルの内側下端Y
-
 	# 暗色仕様の場合: 胴体部分を塗りつぶし
 	if is_dark:
 		var jacket_body_pts = PackedVector2Array([
@@ -182,28 +180,19 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 		])
 		ctx.canvas.draw_polygon(jacket_body_pts, PackedColorArray([jacket_color]))
 
-	# 内側の白シャツ（逆V字に見える部分）
+	# 内側の白シャツ（四角く開いたスクエアネック）
 	var shirt_inner = Color(0.97, 0.97, 0.97)
+	var chest_w = half_body * 0.45 # 開きの幅
+	var chest_depth_y = lerp(sy, navel_y, 0.35) # 開きの深さ
 	var inner_pts = PackedVector2Array([
-		Vector2(sx - half_body * 0.22, sy),
-		Vector2(sx + half_body * 0.22, sy),
-		Vector2(sx + half_body * 0.07, lapel_inner_y),
-		Vector2(sx, lapel_inner_y + 6.0),
-		Vector2(sx - half_body * 0.07, lapel_inner_y),
+		Vector2(sx - chest_w, sy),
+		Vector2(sx + chest_w, sy),
+		Vector2(sx + chest_w, chest_depth_y),
+		Vector2(sx - chest_w, chest_depth_y),
 	])
 	ctx.canvas.draw_polygon(inner_pts, PackedColorArray([shirt_inner]))
 
-	# var edge_col = jacket_color.darkened(0.28)
-
-	# # ボタンライン（中央縦線）
-	# ctx.canvas.draw_line(Vector2(sx, lapel_inner_y + 6.0), Vector2(sx, navel_y + 8.0), edge_col, 1.8)
-
-	# # ボタン
-	# var btn_spacing = (navel_y - lapel_inner_y) / 3.0
-	# for i in range(3):
-	# 	ctx.canvas.draw_circle(Vector2(sx, lapel_inner_y + 6.0 + btn_spacing * float(i + 1) * 0.7), 2.5, edge_col)
-
-	# リボン/ネクタイ（ラペル底に小さなリボン）
+	# リボン/ネクタイ（スクエアネックの内側下部に小さなリボン）
 	# 【調整用】赤リボン
 	var bow_col = Color(0.75, 0.18, 0.25) if is_dark else Color(0.25, 0.35, 0.75)
 	draw_bow_front(ctx, sx, sy, neck_y, half_body * 0.55, bow_col)
@@ -352,7 +341,6 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	var p_sh_back = p_sh - fwd * half_t
 	var p_nk = p_sh + up_v * 10.0
 	var p_nk_front = p_nk + fwd * half_t * 0.7
-	var lapel_tip = p_sh_front + Vector2(0, (navel_y - sy) * 0.25)
 
 	# 暗色仕様: 胴体前面を上書き
 	if is_dark:
@@ -364,26 +352,16 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 		])
 		ctx.canvas.draw_polygon(jacket_cover, PackedColorArray([jacket_color]))
 
-	# 白シャツ（前面の細い帯）
+	# 白シャツ（前面の細い帯としてスクエアネックの深さまで表現）
 	var shirt_inner = Color(0.96, 0.96, 0.96)
+	var chest_depth = p_sh_front + Vector2(0, (navel_y - sy) * 0.35)
 	var shirt_pts = PackedVector2Array([
 		p_nk_front,
-		p_nk_front + fwd * 2.0,
-		lapel_tip + fwd * 2.0,
-		lapel_tip,
+		p_nk_front + fwd * 4.0,
+		chest_depth + fwd * 4.0,
+		chest_depth,
 	])
 	ctx.canvas.draw_polygon(shirt_pts, PackedColorArray([shirt_inner]))
-
-	# 前面のラペル（折り返し）
-	var lapel_pts = PackedVector2Array([
-		p_nk_front,
-		p_nk_front + up_v * 4.0,
-		lapel_tip,
-	])
-	ctx.canvas.draw_polygon(lapel_pts, PackedColorArray([jacket_color]))
-
-	# ラペルのエッジライン
-	ctx.canvas.draw_line(p_nk_front + up_v * 4.0, lapel_tip, jacket_color.darkened(0.3), 1.6)
 
 	# リボン
 	# 【調整用】赤リボン
