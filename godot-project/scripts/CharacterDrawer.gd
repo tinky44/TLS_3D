@@ -908,8 +908,8 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 		Vector2(sx - chest_w, chest_y),
 		Vector2(sx, v_y),
 		Vector2(sx + chest_w, chest_y)
-	]), inner_line_col, 1.8)
-	draw_line(Vector2(sx - chest_w, chest_y), Vector2(sx + chest_w, chest_y), inner_line_col, 0.2)
+	]), inner_line_col, 0.6) # <--- さらに細く
+	draw_line(Vector2(sx - chest_w, chest_y), Vector2(sx + chest_w, chest_y), inner_line_col, 0.6) # <--- こちらも
 
 	# セーラーカラーの白いライン（縁取り）※胴体の側面で止める
 	var line_col = Color(1, 1, 1, 0.75)
