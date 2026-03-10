@@ -149,11 +149,11 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 	ctx.canvas.draw_polygon(knot_pts, PackedColorArray([sc.lightened(0.12)]))
 
 # ---------------------------------------------------------------
-# ブレザーオーバーレイ（正面）
+# ジャンパースカートオーバーレイ（正面）
 # TODO 本当はジャンパースカート
 #
 # 描画パーツ:
-#   1. (is_dark のみ) ジャケット胴体の塗りつぶし（暗色ブレザー用）
+#   1. (is_dark のみ) ジャケット胴体の塗りつぶし（暗色用途）
 #   2. 内側の白シャツ（逆V字形）
 #   3. 左ラペル（折り返し襟）
 #   4. 右ラペル
@@ -163,7 +163,7 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 #   8. リボン/ネクタイ（draw_bow_front を呼び出し）
 #
 # 引数:
-#   is_dark : 常にtrue (暗色ブレザーに統一)
+#   is_dark : 常にtrue (暗色仕様に統一)
 #
 # 【調整用】
 #   lapel_inner_y : ラペル内側下端（sy〜navel_y の lerp）
@@ -172,7 +172,7 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 		half_sh: float, half_body: float, jacket_color: Color, is_dark: bool) -> void:
 	var lapel_inner_y = lerp(sy, navel_y, 0.28) # ラペルの内側下端Y
 
-	# ダークブレザーの場合: ジャケット胴体部分を塗りつぶし
+	# 暗色仕様の場合: 胴体部分を塗りつぶし
 	if is_dark:
 		var jacket_body_pts = PackedVector2Array([
 			Vector2(sx - half_body, sy),
@@ -332,7 +332,7 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	ctx.canvas.draw_polygon(scarf_pts, PackedColorArray([sc]))
 
 # ---------------------------------------------------------------
-# ブレザーオーバーレイ（側面）
+# ジャンパースカートオーバーレイ（側面）
 #
 # 描画パーツ:
 #   1. (is_dark のみ) ジャケット胴体の塗りつぶし
@@ -342,7 +342,7 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 #   5. リボン（draw_bow_side を呼び出し）
 #
 # 引数:
-#   is_dark : 常にtrue (暗色ブレザーに統一)
+#   is_dark : 常にtrue (暗色仕様に統一)
 # ---------------------------------------------------------------
 static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, navel_x: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
@@ -354,7 +354,7 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	var p_nk_front = p_nk + fwd * half_t * 0.7
 	var lapel_tip = p_sh_front + Vector2(0, (navel_y - sy) * 0.25)
 
-	# ダークブレザー: 胴体前面を上書き
+	# 暗色仕様: 胴体前面を上書き
 	if is_dark:
 		var jacket_cover = PackedVector2Array([
 			p_sh_back,

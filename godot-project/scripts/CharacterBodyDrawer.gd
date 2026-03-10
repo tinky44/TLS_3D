@@ -51,7 +51,7 @@ static func draw_sleeve_arm(ctx: DrawContext, p_shoulder: Vector2, p_elbow: Vect
 			or tops_type == "sailor" or tops_type == "blazer" \
 			or tops_type == "blouse_bow" \
 			or tops_type == "jumper_skirt":
-		# 長袖（セーラー/ブレザー/リボン含む）: 肩→肘 台形、肘→手首 台形
+		# 長袖（セーラー/ジャンパースカート/リボン含む）: 肩→肘 台形、肘→手首 台形
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
 		CharacterDrawUtils.draw_trapezoid(ctx.canvas, p_top_center, p_elbow, sleeve_top_w, sleeve_bot_w, shirt, outline_color)

@@ -322,7 +322,7 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	tops_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var tops_values = ["sailor", "blazer", "blouse_bow", "jumper_skirt", "sweater", "t_shirt"]
 	tops_opt.add_item("セーラー服", 0)
-	tops_opt.add_item("ブレザー", 1)
+	tops_opt.add_item("ジャンパースカート", 1)
 	tops_opt.add_item("リボンブラウス", 2)
 	tops_opt.add_item("サスペンダースカート", 3)
 	tops_opt.add_item("スウェッター", 4)
