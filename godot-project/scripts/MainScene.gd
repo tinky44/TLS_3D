@@ -1135,7 +1135,10 @@ func _on_title_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/TitleScene.tscn")
 
 func _on_quit_pressed() -> void:
-	get_tree().quit()
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.location.href = 'index.html';")
+	else:
+		get_tree().quit()
 
 
 func _update_ui():

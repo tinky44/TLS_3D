@@ -58,4 +58,7 @@ func _on_continue_pressed() -> void:
     get_tree().change_scene_to_file("res://scenes/SaveSlotSelectScene.tscn")
 
 func _on_exit_pressed() -> void:
-    get_tree().quit()
+    if OS.has_feature("web"):
+        JavaScriptBridge.eval("window.location.href = 'index.html';")
+    else:
+        get_tree().quit()

@@ -63,6 +63,23 @@
           transform: translateY(0);
         }
       }
+      .btn-play {
+        display: inline-block;
+        margin-top: 1rem;
+        padding: 1rem 3rem;
+        background: linear-gradient(to right, #6366f1, #c084fc);
+        color: white;
+        text-decoration: none;
+        font-size: 1.25rem;
+        font-weight: bold;
+        border-radius: 9999px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        animation: fadeIn 4s ease-out;
+      }
+      .btn-play:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.4);
+      }
       /* Gradient background animation */
       .bg-gradient {
         position: absolute;
@@ -85,6 +102,7 @@
       <div class="status">Development Phase</div>
       <h1>Tall Life Simulator</h1>
       <p>新しい「背の高い人生」がここから始まります。</p>
+      <a href="game.html" class="btn-play">ゲームをプレイする</a>
     </div>
   </body>
 </html>
