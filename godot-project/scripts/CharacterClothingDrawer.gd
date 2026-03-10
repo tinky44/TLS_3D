@@ -150,12 +150,7 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 #
 # 描画パーツ:
 #   1. (is_dark のみ) ジャケット胴体の塗りつぶし（暗色用途）
-#   2. 内側の白シャツ（逆V字形）
-#   3. 左ラペル（折り返し襟）
-#   4. 右ラペル
-#   5. ラペルの縁取りライン
-#   6. ボタンライン（中央縦線）
-#   7. ボタン（3個）
+#   2. 内側の白シャツ（コの字形）
 #   8. リボン/ネクタイ（draw_bow_front を呼び出し）
 #
 # 引数:
@@ -166,15 +161,27 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # ---------------------------------------------------------------
 static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float,
 		half_sh: float, half_body: float, jacket_color: Color, is_dark: bool) -> void:
-	# 暗色仕様の場合: 胴体部分を塗りつぶし
+	# 暗色仕様の場合: 胴体部分をひじの高さまで塗りつぶし
 	if is_dark:
+		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # offset分下げている
+		var belt_y = sy + u_arm
+
 		var jacket_body_pts = PackedVector2Array([
 			Vector2(sx - half_body, sy),
 			Vector2(sx + half_body, sy),
-			Vector2(sx + half_body, navel_y + 10.0),
-			Vector2(sx - half_body, navel_y + 10.0),
+			Vector2(sx + half_body, belt_y),
+			Vector2(sx - half_body, belt_y),
 		])
 		ctx.canvas.draw_polygon(jacket_body_pts, PackedColorArray([jacket_color]))
+
+		# ベルト（帯）の描画
+		var belt_pts = PackedVector2Array([
+			Vector2(sx - half_body * 1.0, belt_y - 4.5),
+			Vector2(sx + half_body * 1.0, belt_y - 4.5),
+			Vector2(sx + half_body * 1.0, belt_y),
+			Vector2(sx - half_body * 1.0, belt_y),
+		])
+		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
 
 	# 内側の白シャツ（四角く開いたスクエアネック）
 	var shirt_inner = Color(0.97, 0.97, 0.97)
@@ -339,14 +346,27 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 
 	# 暗色仕様: 胴体全体を上書きしてから、前面のみ白シャツを描画
 	if is_dark:
-		# まず胴体全体を暗色のジャンパースカートで塗る
+		# ひじの高さをベルト位置（胴体の下端）とする
+		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # offset分下げている
+		var belt_y_offset = u_arm
+		
+		# まず胴体のベルト位置までを暗色のジャンパースカートで塗る
 		var jacket_cover = PackedVector2Array([
 			p_sh_back,
 			p_sh_front,
-			p_sh_front + Vector2(0, (navel_y - sy) + 10.0),
-			p_sh_back + Vector2(0, (navel_y - sy) + 10.0),
+			p_sh_front + Vector2(0, belt_y_offset),
+			p_sh_back + Vector2(0, belt_y_offset),
 		])
 		ctx.canvas.draw_polygon(jacket_cover, PackedColorArray([jacket_color]))
+
+		# ベルトを描画
+		var belt_pts = PackedVector2Array([
+			p_sh_back + fwd * half_t * 0.05 + Vector2(0, belt_y_offset - 4.5),
+			p_sh_front + fwd * half_t * 0.05 + Vector2(0, belt_y_offset - 4.5),
+			p_sh_front + fwd * half_t * 0.05 + Vector2(0, belt_y_offset),
+			p_sh_back + fwd * half_t * 0.05 + Vector2(0, belt_y_offset),
+		])
+		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
 
 		# 前面側1/3の上部（正面の35%の深さまで）を白シャツとして上書き描画
 		var white_fw = half_t * 0.35 # 胴体の厚みに対しておよそ1/3（前面側）

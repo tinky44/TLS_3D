@@ -140,6 +140,13 @@ static func draw_pants_leg(ctx: DrawContext, p_hip: Vector2, p_knee: Vector2, p_
 # ---------------------------------------------------------------
 static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float, facing: String = "front") -> void:
 	var d = ctx.d
+
+	# ジャンパースカート（現状tops_type="blazer"）の場合は、スカート開始位置をベルトの高さ（ひじ付近）に引き上げる
+	if ctx.tops_type == "blazer":
+		var b_sy = d["front_sy"] if facing in ["front", "back"] else d["sy"]
+		var u_arm = ctx.m["armLength"] * ctx.p * 0.5
+		waist_pos.y = b_sy + u_arm
+
 	var waist_to_crotch = d["cy"] - waist_pos.y
 	var skirt_length: float
 	var hem_w: float
