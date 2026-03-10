@@ -175,10 +175,10 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 	# ダークブレザーの場合: ジャケット胴体部分を塗りつぶし
 	if is_dark:
 		var jacket_body_pts = PackedVector2Array([
-			Vector2(sx - half_sh * 1.0, sy),
-			Vector2(sx + half_sh * 1.0, sy),
-			Vector2(sx + half_sh * 0.85, navel_y + 10.0),
-			Vector2(sx - half_sh * 0.85, navel_y + 10.0),
+			Vector2(sx - half_body, sy),
+			Vector2(sx + half_body, sy),
+			Vector2(sx + half_body, navel_y + 10.0),
+			Vector2(sx - half_body, navel_y + 10.0),
 		])
 		ctx.canvas.draw_polygon(jacket_body_pts, PackedColorArray([jacket_color]))
 
@@ -348,8 +348,8 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 		half_t: float, fwd: Vector2, up_v: Vector2,
 		waist_angle: float, jacket_color: Color, is_dark: bool) -> void:
 	var p_sh = Vector2(sx, sy)
-	var p_sh_front = p_sh + fwd * half_t * 0.9
-	var p_sh_back = p_sh - fwd * half_t * 0.9
+	var p_sh_front = p_sh + fwd * half_t
+	var p_sh_back = p_sh - fwd * half_t
 	var p_nk = p_sh + up_v * 10.0
 	var p_nk_front = p_nk + fwd * half_t * 0.7
 	var lapel_tip = p_sh_front + Vector2(0, (navel_y - sy) * 0.25)
@@ -359,8 +359,8 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 		var jacket_cover = PackedVector2Array([
 			p_sh_back,
 			p_sh_front,
-			lapel_tip + fwd * 2.0 + Vector2(0, (navel_y - sy) * 0.65),
-			p_sh_back + Vector2(0, (navel_y - sy) * 0.85),
+			p_sh_front + Vector2(0, (navel_y - sy) + 10.0),
+			p_sh_back + Vector2(0, (navel_y - sy) + 10.0),
 		])
 		ctx.canvas.draw_polygon(jacket_cover, PackedColorArray([jacket_color]))
 
