@@ -172,6 +172,26 @@ func _draw_sleeve_arm(p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
 		CharacterDrawUtils.draw_limb_part(self , part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
 		CharacterDrawUtils.draw_trapezoid(self , p_top_center, p_elbow, sleeve_top_w, sleeve_bot_w, shirt, outline_color)
 		CharacterDrawUtils.draw_trapezoid(self , p_elbow, p_hand, sleeve_bot_w, arm_w * 1.3, shirt, outline_color)
+
+		# セーラー服の袖（手首付近）に白い2本線を追加
+		if tops_type == "sailor":
+			var d_arm = p_hand - p_elbow
+			if d_arm.length() > 0.01:
+				var dir = d_arm.normalized()
+				var norm = Vector2(-dir.y, dir.x)
+				var line_col = Color(0.97, 0.97, 0.97)
+				
+				# 1本目 (手首より少し上)
+				var t1 = 0.83
+				var p1_center = p_elbow.lerp(p_hand, t1)
+				var w1 = lerp(sleeve_bot_w, float(arm_w * 1.3), t1)
+				draw_line(p1_center - norm * w1 / 2.0, p1_center + norm * w1 / 2.0, line_col, 1.5)
+				
+				# 2本目 (手首付近)
+				var t2 = 0.92
+				var p2_center = p_elbow.lerp(p_hand, t2)
+				var w2 = lerp(sleeve_bot_w, float(arm_w * 1.3), t2)
+				draw_line(p2_center - norm * w2 / 2.0, p2_center + norm * w2 / 2.0, line_col, 1.5)
 	elif tops_type == "t_shirt":
 		# 半袖: 肩→上腕60%地点まで台形袖（末広がり）、残りは肌色limb
 		var sleeve_end = p_top_center.lerp(p_elbow, 0.6)
