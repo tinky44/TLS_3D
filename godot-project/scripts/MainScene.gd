@@ -261,6 +261,24 @@ const DIALOGUES: Dictionary = {
 			{"speaker": "（主人公）", "text": "……来学期、部活に戻れるかな。脚の具合も気になるし。"},
 		],
 	},
+	"generic": {
+		"first_meet": [
+			{"speaker": "人", "text": "えっ……！？"},
+			{"speaker": "人", "text": "（信じられないものを見るように見上げている）"},
+		],
+		"huge": [
+			{"speaker": "人", "text": "うわっ、でかっ……！"},
+			{"speaker": "人", "text": "（あまりの大きさに言葉を失っているようだ）"},
+		],
+		"tall": [
+			{"speaker": "人", "text": "おお、背高いな……。"},
+			{"speaker": "人", "text": "（首を痛めそうな角度で見上げられている）"},
+		],
+		"default": [
+			{"speaker": "人", "text": "あ、こんにちは。"},
+			{"speaker": "人", "text": "（見上げながら挨拶を返してくれた）"},
+		]
+	},
 }
 
 func _ready() -> void:
@@ -609,7 +627,7 @@ func _get_bubble_screen_pos() -> Vector2:
 func _get_nearby_named_npc(dist_px: float) -> Node:
 	if not player: return null
 	for child in get_children():
-		if child.has_meta("is_npc") and child.get("npc_id") != null and child.npc_id != "":
+		if child.has_meta("is_npc"):
 			var d = abs(child.global_position.x - player.global_position.x)
 			if d <= dist_px:
 				return child
@@ -619,20 +637,46 @@ func _interact_with_npc(npc: Node) -> void:
 	if not npc or not player: return
 	# フレーム間でNPCが離れた場合の保護
 	if abs(npc.global_position.x - player.global_position.x) > 200.0: return
+	
 	var npc_id: String = npc.get("npc_id") if npc.get("npc_id") != null else ""
-	if npc_id == "": return
+	var is_generic = false
+	if npc_id == "":
+		npc_id = "generic"
+		is_generic = true
+
 	# 身長差に応じてセリフキーを選択
 	var player_m = player.get("m")
 	var npc_m = npc.get("m")
 	var key = "default"
 	if player_m and npc_m:
-		var npc_data = DIALOGUES.get(npc_id, {})
+		var npc_data = DIALOGUES.get(npc_id, DIALOGUES.get("generic", {}))
 		var diff = float(player_m["height"]) - float(npc_m["height"])
 		var global = get_node_or_null("/root/Global")
 		var vball_phase = global.vball_story_phase if global else 0
-		if npc_data.has("first_meet") and not npc.get_meta("met_player", false):
+		
+		# 初対面判定 (Globalのメタデータを使って記憶を維持)
+		var unique_npc_key = npc_id
+		var has_met = false
+		if is_generic:
+			has_met = false # 名無しNPCは常に初対面扱い
+		elif global:
+			has_met = global.met_npcs.has(unique_npc_key)
+		else:
+			has_met = npc.get_meta("met_player", false)
+
+		if is_generic:
+			if diff >= 35.0:
+				key = "huge"
+			elif diff >= 15.0:
+				key = "tall"
+			else:
+				key = "default"
+		elif npc_data.has("first_meet") and not has_met:
 			key = "first_meet"
-			npc.set_meta("met_player", true)
+			if global:
+				global.met_npcs.append(unique_npc_key)
+			else:
+				npc.set_meta("met_player", true)
 		elif npc_id == "senior":
 			# バレー部ストーリーフェーズによる分岐
 			if vball_phase == 1:
@@ -662,6 +706,8 @@ func _interact_with_npc(npc: Node) -> void:
 			key = "huge"
 		elif diff >= 15.0 and npc_data.has("tall"):
 			key = "tall"
+		elif (npc_id == "mother" or npc_id == "father") and npc_data.has("check"):
+			key = "check"
 	_start_dialogue(npc_id, key)
 
 func _setup_bump_alert() -> void:
