@@ -892,16 +892,24 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 	])
 	draw_polygon(collar_pts, PackedColorArray([sailor_color]))
 
-	# 内側の白い三角形（衿の内側の胸当て）
-	var inner_white = Color(0.97, 0.97, 0.97)
-	var chest_y = lerp(sy, v_y, 0.4)
+	# 内側の胸当て（セーラーカラーと同じ紺色にし、縁を白くする）
+	var chest_y = lerp(sy, v_y, 0.3)
 	var chest_w = half_body * 0.12
 	var inner_pts = PackedVector2Array([
 		Vector2(sx - chest_w, chest_y),
 		Vector2(sx + chest_w, chest_y),
-		Vector2(sx, v_y - 2.0),
+		Vector2(sx, v_y - 3.0),
 	])
-	draw_polygon(inner_pts, PackedColorArray([inner_white]))
+	draw_polygon(inner_pts, PackedColorArray([sailor_color]))
+	
+	# 胸当ての上の縁（V字の横線のようになっている箇所の白輪郭）
+	var inner_line_col = Color(0.97, 0.97, 0.97)
+	draw_polyline(PackedVector2Array([
+		Vector2(sx - chest_w, chest_y),
+		Vector2(sx, v_y),
+		Vector2(sx + chest_w, chest_y)
+	]), inner_line_col, 1.8)
+	draw_line(Vector2(sx - chest_w, chest_y), Vector2(sx + chest_w, chest_y), inner_line_col, 0.2)
 
 	# セーラーカラーの白いライン（縁取り）※胴体の側面で止める
 	var line_col = Color(1, 1, 1, 0.75)
