@@ -183,6 +183,9 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: f
 		])
 		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
 
+		if ctx.is_skirt:
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(sx, belt_y), half_body * 1.8, ctx.facing)
+
 	# 内側の白シャツ（四角く開いたスクエアネック）
 	var shirt_inner = Color(0.97, 0.97, 0.97)
 	var chest_w = half_body * 0.45 # 開きの幅
@@ -367,6 +370,10 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 			p_sh_back + fwd * half_t * 0.05 + Vector2(0, belt_y_offset),
 		])
 		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
+
+		if ctx.is_skirt:
+			var center_x = lerp(p_sh_back.x, p_sh_front.x, 0.5)
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(center_x, sy + belt_y_offset), half_t * 2.0, ctx.facing)
 
 		# 前面側1/3の上部（正面の35%の深さまで）を白シャツとして上書き描画
 		var white_fw = half_t * 0.35 # 胴体の厚みに対しておよそ1/3（前面側）

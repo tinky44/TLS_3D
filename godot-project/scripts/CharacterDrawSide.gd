@@ -76,7 +76,8 @@ static func draw(ctx: DrawContext) -> void:
 	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_r, foot_w, foot_h, shoe_color)
 
 	# 5. ボトムス（骨盤部分またはスカート — 足の上に重ねる）
-	if is_skirt:
+	# ジャンパースカート(blazer)のスカート部分は服の上に描画するためここでは描かない
+	if is_skirt and tops_type != "blazer":
 		var skirt_c = base_shirt_color if bottoms_type == "skirt_sailor" else pants_color
 		CharacterBodyDrawer.draw_skirt(ctx, bottoms_type, skirt_c, Vector2(d["hip_x"], d["hip_y"]), torso_thickness, "side")
 	elif bottoms_type == "pants":

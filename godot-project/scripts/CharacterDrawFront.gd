@@ -74,7 +74,8 @@ static func draw(ctx: DrawContext) -> void:
 	CharacterDrawUtils.draw_torso_part(ctx.canvas, ctx.part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_navel_x"], d["front_navel_y"]), body_w, body_w, base_shirt_color)
 
 	# 3. ボトムス（骨盤部分またはスカート）
-	if is_skirt:
+	# ジャンパースカート(blazer)のスカート部分は服の上に描画するためここでは描かない
+	if is_skirt and tops_type != "blazer":
 		var skirt_c = base_shirt_color if bottoms_type == "skirt_sailor" else pants_color
 		CharacterBodyDrawer.draw_skirt(ctx, bottoms_type, skirt_c, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, facing)
 	elif bottoms_type == "pants":
