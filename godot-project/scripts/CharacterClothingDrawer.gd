@@ -150,6 +150,7 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 
 # ---------------------------------------------------------------
 # ブレザーオーバーレイ（正面）
+# TODO 本当はジャンパースカート
 #
 # 描画パーツ:
 #   1. (is_dark のみ) ジャケット胴体の塗りつぶし（暗色ブレザー用）
@@ -192,36 +193,15 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 	])
 	ctx.canvas.draw_polygon(inner_pts, PackedColorArray([shirt_inner]))
 
-	# 左ラペル（折り返し襟）
-	var left_lapel_pts = PackedVector2Array([
-		Vector2(sx - half_sh * 0.75, neck_y + 6.0), # 首付近の端
-		Vector2(sx - half_body * 0.22, sy), # 内側上端
-		Vector2(sx - half_body * 0.07, lapel_inner_y), # 内側下端
-		Vector2(sx - half_sh * 0.58, sy + 22.0), # 外側下端
-	])
-	ctx.canvas.draw_polygon(left_lapel_pts, PackedColorArray([jacket_color]))
+	# var edge_col = jacket_color.darkened(0.28)
 
-	# 右ラペル
-	var right_lapel_pts = PackedVector2Array([
-		Vector2(sx + half_body * 0.22, sy),
-		Vector2(sx + half_sh * 0.75, neck_y + 6.0),
-		Vector2(sx + half_sh * 0.58, sy + 22.0),
-		Vector2(sx + half_body * 0.07, lapel_inner_y),
-	])
-	ctx.canvas.draw_polygon(right_lapel_pts, PackedColorArray([jacket_color]))
+	# # ボタンライン（中央縦線）
+	# ctx.canvas.draw_line(Vector2(sx, lapel_inner_y + 6.0), Vector2(sx, navel_y + 8.0), edge_col, 1.8)
 
-	# ラペルの縁取りライン（エッジ）
-	var edge_col = jacket_color.darkened(0.28)
-	ctx.canvas.draw_line(Vector2(sx - half_sh * 0.75, neck_y + 6.0), Vector2(sx, lapel_inner_y + 6.0), edge_col, 1.5)
-	ctx.canvas.draw_line(Vector2(sx + half_sh * 0.75, neck_y + 6.0), Vector2(sx, lapel_inner_y + 6.0), edge_col, 1.5)
-
-	# ボタンライン（中央縦線）
-	ctx.canvas.draw_line(Vector2(sx, lapel_inner_y + 6.0), Vector2(sx, navel_y + 8.0), edge_col, 1.8)
-
-	# ボタン
-	var btn_spacing = (navel_y - lapel_inner_y) / 3.0
-	for i in range(3):
-		ctx.canvas.draw_circle(Vector2(sx, lapel_inner_y + 6.0 + btn_spacing * float(i + 1) * 0.7), 2.5, edge_col)
+	# # ボタン
+	# var btn_spacing = (navel_y - lapel_inner_y) / 3.0
+	# for i in range(3):
+	# 	ctx.canvas.draw_circle(Vector2(sx, lapel_inner_y + 6.0 + btn_spacing * float(i + 1) * 0.7), 2.5, edge_col)
 
 	# リボン/ネクタイ（ラペル底に小さなリボン）
 	# 【調整用】赤リボン
