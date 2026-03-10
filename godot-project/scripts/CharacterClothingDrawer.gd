@@ -25,7 +25,7 @@ static func draw_tops_detail_front(ctx: DrawContext, tops_type: String, tops_col
 		"blazer":
 			draw_blazer_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
-			draw_bow_front(ctx, sx, sy, neck_y, half_body, tops_color)
+			draw_bow_front(ctx, sx, sy, navel_y, half_body, tops_color)
 		"jumper_skirt":
 			draw_jumper_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
 
@@ -41,10 +41,6 @@ static func draw_tops_detail_side(ctx: DrawContext, tops_type: String, tops_colo
 	var sy = d["sy"]
 	var navel_y = d["navel_y"]
 	var navel_x = d["navel_x"]
-	var nx = d["nx"]
-	var ny = d["ny"]
-	var hx = d["hx"]
-	var hy = d["hy"]
 	var waist_angle = d["waist_angle"]
 
 	# 体の前方方向ベクトル（胴体の前面）
@@ -58,7 +54,7 @@ static func draw_tops_detail_side(ctx: DrawContext, tops_type: String, tops_colo
 		"blazer":
 			draw_blazer_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, true)
 		"blouse_bow":
-			draw_bow_side(ctx, nx, ny, hx, hy, half_t, fwd, up_v, waist_angle, tops_color)
+			draw_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
 		"jumper_skirt":
 			draw_jumper_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
 
@@ -168,7 +164,7 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # 【調整用】
 #   lapel_inner_y : ラペル内側下端（sy〜navel_y の lerp）
 # ---------------------------------------------------------------
-static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float,
+static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float,
 		half_sh: float, half_body: float, jacket_color: Color, is_dark: bool) -> void:
 	# 暗色仕様の場合: 胴体部分を塗りつぶし
 	if is_dark:
@@ -195,7 +191,7 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 	# リボン/ネクタイ（スクエアネックの内側下部に小さなリボン）
 	# 【調整用】赤リボン
 	var bow_col = Color(0.75, 0.18, 0.25) if is_dark else Color(0.25, 0.35, 0.75)
-	draw_bow_front(ctx, sx, sy, neck_y, half_body * 0.55, bow_col)
+	draw_bow_front(ctx, sx, sy, navel_y, half_body * 0.55, bow_col)
 
 # ---------------------------------------------------------------
 # リボン（蝶結び）オーバーレイ（正面）
@@ -209,18 +205,18 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # 引数:
 #   sx        : 胴体中心X
 #   sy        : 肩Y
-#   neck_y    : 首Y
+#   navel_y   : おへそY
 #   half_body : 胴体半幅（リボンのスケール基準）
 #   bow_color : リボンの色
 #
 # 【調整用】
-#   bow_y   : リボンの中心Y（neck_y〜sy の lerp 0.65）
+#   bow_y   : リボンの中心Y（sy〜navel_y の lerp 0.22）
 #   bow_w   : リボンの横幅（half_body * 0.55）
 #   bow_h   : リボンの縦幅（half_body * 0.28）
 #   tail_len: 垂れの長さ（bow_h * 2.8）
 # ---------------------------------------------------------------
-static func draw_bow_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, half_body: float, bow_color: Color) -> void:
-	var bow_y = lerp(neck_y, sy, 0.65) # 首元〜肩の65%の高さにリボン
+static func draw_bow_front(ctx: DrawContext, sx: float, sy: float, navel_y: float, half_body: float, bow_color: Color) -> void:
+	var bow_y = lerp(sy, navel_y, 0.22) # 肩と乳首の間くらいの高さにリボン
 	var bow_w = half_body * 0.55 # リボンの横方向の広がり
 	var bow_h = half_body * 0.28 # リボンの縦の高さ
 
@@ -366,7 +362,7 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	# リボン
 	# 【調整用】赤リボン
 	var bow_col = Color(0.75, 0.18, 0.25) if is_dark else Color(0.25, 0.35, 0.75)
-	draw_bow_side(ctx, p_nk.x, p_nk.y, p_sh.x, p_sh.y, half_t, fwd, up_v, waist_angle, bow_col)
+	draw_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, bow_col)
 
 # ---------------------------------------------------------------
 # リボン（蝶結び）オーバーレイ（側面）
@@ -379,15 +375,17 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 #   2. リボンの垂れ（下方向の線）
 #
 # 【調整用】
-#   center  : リボンの中心（胴体前面 + 上方向オフセット）
+#   center  : リボンの中心（胴体前面）
 #   bow_w   : ウィングの前方への突き出し量（half_t * 0.6）
 #   bow_h   : ウィングの縦幅（half_t * 0.35）
 # ---------------------------------------------------------------
-static func draw_bow_side(ctx: DrawContext, nx: float, ny: float, sx: float, sy: float,
+static func draw_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
 		waist_angle: float, bow_color: Color) -> void:
-	# 側面では蝶ネクタイが胴体の前面に小さく見える
-	var center = Vector2(sx, sy) + fwd * half_t * 0.85 + up_v * 8.0
+	# 側面では蝶ネクタイが胴体の前面に小さく見える。肩と乳首の間にハイライト
+	var p_sh = Vector2(sx, sy)
+	var chest_y_offset = (navel_y - sy) * 0.22
+	var center = p_sh + Vector2(0, chest_y_offset) + fwd * half_t * 0.88
 	var bow_w = half_t * 0.6
 	var bow_h = half_t * 0.35
 
