@@ -55,8 +55,8 @@ jobs:
           mkdir -p build/web
           cd godot-project
           godot --headless --export-release "Web" ../build/web/game.html --verbose
-          # エクスポート後にベースとなる index.html をコピーする
-          cp ../docs/index.html ../build/web/index.html
+          # エクスポート後にベースとなる .html をすべてコピーする
+          cp ../docs/*.html ../build/web/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
