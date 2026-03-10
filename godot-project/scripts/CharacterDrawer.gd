@@ -872,15 +872,13 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 		half_sh: float, half_body: float, sailor_color: Color, skin_color: Color) -> void:
 	var v_y = lerp(sy, navel_y, 0.45) # Vの底点Y
 
-	# V字の開口部を肌色で塗りつぶして青線を隠す
-	# var skin_open_pts = PackedVector2Array([
-	# 	Vector2(sx - half_body * 0.5, neck_y),
-	# 	Vector2(sx + half_body * 0.5, neck_y),
-	# 	Vector2(sx + half_body * 0.18, sy + 6.0),
-	# 	Vector2(sx, v_y),
-	# 	Vector2(sx - half_body * 0.18, sy + 6.0),
-	# ])
-	# draw_polygon(skin_open_pts, PackedColorArray([skin_color]))
+	# V字の開口部を肌色で塗りつぶして青線を隠す（肩の高さ sy で止まる単純な三角形）
+	var skin_open_pts = PackedVector2Array([
+		Vector2(sx - half_body * 0.28, sy), # 左上
+		Vector2(sx + half_body * 0.28, sy), # 右上
+		Vector2(sx, v_y), # V字の底（下）
+	])
+	draw_polygon(skin_open_pts, PackedColorArray([skin_color]))
 
 	# セーラーカラー本体（両肩から首に広がり、胸でVに収束する台形ポリゴン）
 	var collar_pts = PackedVector2Array([
@@ -896,7 +894,7 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 
 	# 内側の白い三角形（衿の内側の胸当て）
 	var inner_white = Color(0.97, 0.97, 0.97)
-	var chest_y = lerp(sy, v_y, 0.5)
+	var chest_y = lerp(sy, v_y, 0.4)
 	var chest_w = half_body * 0.12
 	var inner_pts = PackedVector2Array([
 		Vector2(sx - chest_w, chest_y),
