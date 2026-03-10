@@ -51,5 +51,301 @@
     - `Global.pending_events` を活用し、特定の学期や特定の身長達成時にイベントを差し込む。
 
 ---
+
+## ✅ 実装済みストーリー全景（2026-03-09 時点）
+
+### 実装済みのイベント・ダイアログ
+
+| 学期 | イベント | トリガー | 実装場所 |
+|---|---|---|---|
+| 開始時 | 入学式モノローグ（小/中/高 3種） | `entrance_ceremony` キュー | MainScene |
+| 1学期 | 先生の学期開始あいさつ | `semester_start` → school ステージ | MainScene |
+| 1学期 | **ほのかとの出会い** `first_meet` | school でインタラクト（初回） | MainScene |
+| 1学期 | **先輩の体育館招待** `first_meet` | `gym_senior_invite` → gymnasium | MainScene |
+| 毎学期 | ほのかの **身長測定の誘い** `measure_invite` | school でインタラクト（2回目以降） | MainScene |
+| 毎学期 | **保健室での身長測定** | infirmary の身長計 | MainScene |
+| 2学期 | **夏休み急成長 +10cm** + 母親との相談 | `summer_growth` → room ステージ | Global.gd / MainScene |
+| 随時 | 両親（母・父）の挨拶・成長驚嘆 | room でインタラクト | MainScene |
+| 随時 | NPC の見上げ反応（4段階） | 接近距離・身長差 | SkeletalNPC |
+| 随時 | **主人公の NPC 見下ろし表現** | 近くの NPC を自動検出 | SkeletalPlayer |
+
+### 実装済みのステージ・NPC
+
+| ステージ | 配置 NPC | 主なオブジェクト |
+|---|---|---|
+| `room` | 母(158cm)・父(170cm) | ドア・冷蔵庫・洗面台・バスルーム |
+| `school` | ほのか(年齢平均)・はるか(152cm)・先生(175cm) | 黒板・机・椅子 |
+| `school_hallway` | 先輩(168cm)・生徒(140cm) | 下駄箱・掲示板・体育館ドア |
+| `gymnasium` | 先輩(168cm) | バレーネット(243cm)・ベンチ |
+| `infirmary` | 養護教員(155cm)・はるか(条件付き) | 身長計・体重計 |
+| `outdoor` | 女性(158cm)・子供(110cm) | 信号・自販機 |
+| `station` / `train` | なし | つり革(163cm)・改札 |
+| `myroom` / `schoolyard` | なし | ベッド・鉄棒・ゴール |
+
+### 実装済みのポーズ
+
+| キー | ポーズ | 用途 |
+|---|---|---|
+| 1 | `normal` | 通常立ち・歩行 |
+| 2 | `taiiku_suwari` | 体育座り |
+| 3 | `chair_sit` | 椅子に座る |
+| 4 | `sleep` | 寝る（簡易版） |
+| 自動 | `crouching` | 障害物回避（自動） |
+
+---
+
+## 🔜 未実装・仕様書記載の主要機能
+
+仕様書 `game_story_spec.md` との差分ですわ。
+
+| 項目 | 優先度 | 概要 |
+|---|---|---|
+| **睡眠による成長進行**（ベッドで寝る→日付更新） | ⭐⭐⭐ | コアループの核心。myroom のベッドインタラクト未実装 |
+| **朝の衝撃**（起床時にドアに頭ぶつかる演出） | ⭐⭐⭐ | 成長の「体験」として不可欠 |
+| **服・靴の限界破綻**（成長閾値イベント） | ⭐⭐ | 身長閾値でダイアログ・ビジュアル変化 |
+| **強制保健室呼び出し**（先生から呼ばれる） | ⭐⭐ | `pending_events` で実装可能 |
+| **身長測定記録ログのUI表示** | ⭐⭐ | growth_history を画面に出す |
+| **ステージ年齢別解放**（小学・中学・高校で開放） | ⭐ | stage_id × age の条件管理 |
+| **集合写真イベント** | ⭐ | フレームアウト演出 |
+| **卒業エンディング**（18歳3月） | ⭐ | リザルト画面 |
+
+---
+
+## 📊 実装工数比較（2026-03-09 見積もり・完了分除く）
+
+> 工数定義：**S**=1〜2h / **M**=半日〜1日 / **L**=1〜2日以上
+
+| 項目 | 工数 | 理由・注意点 |
+|---|---|---|
+| 睡眠→成長進行（ベッドインタラクト） | **M** | bed の `overhead` 判定 + 日付更新 + 朝のダイアログ |
+| 朝の衝撃演出 | **S** | 成長後初回のドア接触時に専用メッセージ |
+| 服の限界破綻イベント | **M** | 成長閾値監視 + ダイアログ + 外見の見た目変更 |
+| 強制保健室呼び出し | **S** | `pending_events` で `force_infirmary` をキュー |
+| 成長ログUI | **M** | growth_history の折れ線グラフかリスト表示 |
+| 寝る（横向き描画） | **L** | 描画エンジンの横向きモード追加が必要 |
+| 卒業エンディング | **L** | リザルト画面 + フェードアウト実装 |
+
+### 🎯 次の推奨着手順
+
+```
+1. 睡眠→成長進行 (M)     ← コアループ完成。ゲームの「サイクル」が動き出す
+2. 朝の衝撃演出 (S)      ← 成長体験の核心フック、すぐ実装できる
+3. 服の限界破綻 (M)      ← 「身体の裏切り」体験の実装
+4. 成長ログUI (M)        ← 数値の執着（コアバリュー①）を強化
+5. 強制保健室呼び出し (S) ← pending_events の流用で簡単
+6. 卒業エンディング (L)  ← ゲームとしての完結
+```
+
+---
+
+## 🏐 MVP ストーリー：中学生のバレー部物語
+
+### ストーリーフロー
+
+```
+先輩と出会う
+  └─→ バレー部に入る？（vball_joined 分岐）
+        ├─ YES → 放課後に練習する
+        │          └─→ 足が痛くなる（is_leg_pain = true）
+        │                └─→ はるかに相談する
+        │                      └─→ 先輩に事情を話し、休む
+        │                            └─→ 夏休みに急成長 (+10cm 以上)
+        │                                  └─→ はるか・先輩にびっくりされる
+        │                                        └─→ バレーを続ける？（再分岐）
+        └─ NO → 通常学校生活へ
+```
+
+---
+
+### 実装計画（レビュー済み）
+
+#### 1. データ管理：ストーリーフラグ (Global.gd)
+
+```gdscript
+var vball_story_phase: int = 0
+# 0: 未会合  1: 出会い済  2: 入部済  3: 練習中
+# 4: 足痛発症  5: 相談済  6: 休部中  7: 夏休み後
+
+var is_leg_pain: bool = false   # true 中は move_speed * 0.5、歩行振幅変化
+var vball_joined: bool = false  # 入部分岐フラグ
+```
+
+> **実装メモ：** `vball_story_phase` の進行は既存の `pending_events` キューと連携すること。
+> `advance_term()` 呼び出し時に `phase >= 3` かつ `is_leg_pain == false` なら夏休みイベントを自動キューに積む。
+
+---
+
+#### 2. ステージとオブジェクト
+
+> ⚠️ **注意：** `gymnasium` ステージ（バレーネット 243cm・先輩 168cm 配置）が**既に実装済み**ですわ。
+> 新ステージ `gym` の追加は不要。既存 `gymnasium` を活用する方針で工数を削減できますわ。
+
+追加オブジェクト（`gymnasium` に加える）：
+
+| オブジェクト | 説明 |
+|---|---|
+| `volleyball_ball` | 床に転がっているボール。インタラクトで練習カウント進行 |
+
+---
+
+#### 3. アニメーションとポーズ
+
+> ⚠️ **方針変更：** `pain` は完全新規ポーズより、**既存歩行アニメの速度・振幅変更**で対応すると工数が大幅に削減されますわ。
+
+| 演出 | 実装方針 |
+|---|---|
+| 引きずり歩き (`is_leg_pain = true`) | `walk_phase` 更新速度を 0.5 倍に。片脚の step 振幅を非対称に。 |
+| レシーブ姿勢 (`vball_ready`) | 膝を軽く曲げ、両手を前に構えるポーズ。`chair_sit` ポーズを参考に実装。 |
+
+---
+
+#### 4. 対話と分岐システム (MainScene.gd)
+
+**先輩 (senior) のダイアログ追加：**
+
+| キー | タイミング | 内容 |
+|---|---|---|
+| `senior_first_meet` | school_hallway で初接触 | 体育館への誘い（gymnasium 解放） |
+| `senior_join_choice` | gymnasium で話しかける | 入部の選択肢 → `vball_joined` セット |
+| `senior_after_rest` | `vball_story_phase == 6` 時に接触 | 休部中への気遣い |
+| `senior_after_summer` | 夏休み後・gymnasium 再訪 | 急成長への驚き |
+
+**はるか (haruka) のダイアログ追加：**
+
+| キー | タイミング | 内容 |
+|---|---|---|
+| `haruka_consult_pain` | `is_leg_pain == true` 時に接触 | 足の痛みの相談 → `vball_story_phase = 5` |
+| `haruka_after_summer` | 夏休み後・school で接触 | 急成長への驚愕リアクション |
+
+---
+
+#### 5. MVP 実装フロー（推奨着手順）
+
+```
+Step 1: Global.gd にフラグ追加 (S: 30分)
+  └─ vball_story_phase, is_leg_pain, vball_joined
+
+Step 2: school_hallway に先輩を配置し first_meet ダイアログ追加 (S: 1h)
+  └─ gymnasium ステージの解放トリガー
+
+Step 3: gymnasium で入部選択肢の実装 (S: 1h)
+  └─ vball_joined 分岐で phase 進行
+
+Step 4: is_leg_pain による歩行変化の実装 (M: 半日)
+  └─ walk_phase 速度・振幅の非対称化
+
+Step 5: はるかへの相談 → 先輩へ伝達 → 休部フロー (S: 1h)
+
+Step 6: advance_term() との連携で夏休み急成長イベント発火 (M: 半日)
+  └─ 既存 summer_growth イベントに vball_story_phase 条件を追加
+
+Step 7: 夏休み後の再会ダイアログ (S: 1h)
+  └─ senior_after_summer / haruka_after_summer
+
+Step 8: 継続分岐（バレーを続けるか）の選択肢追加 (S: 30分)
+```
+
+**合計工数目安：** M〜L（1〜2日）
+
+---
+
+### 留意点・リスク
+
+- `gymnasium` 既存ステージに `volleyball_ball` を追加する際、既存の先輩 NPC の配置との干渉に注意
+- `is_leg_pain` が `true` の間は移動速度が低下するため、他ステージのゲーム性（ドア・障害物回避）にも影響することを考慮すること
+- 夏休み急成長は既存の `summer_growth` イベントと共存させること（バレー未加入ルートでも動作するよう条件分岐で守ること）
+
+---
+
+## 🔑 Q キー「次のアクション」ヒントシステム
+
+### 概要
+
+Q キーを押すと、現在のストーリー進行状況に応じた「次にすべきこと」をスクリーン上に表示する。
+
+### 既存の Q キーとの関係
+
+> ⚠️ **注意：** Q キーは現在 `MainScene.gd` の `_unhandled_input()` でサイドバー切り替え（`sidebar.visible`）に使われている。
+> ヒント表示と**同時に動作**させる方針（サイドバーは廃止しない）。
+
+```gdscript
+# _unhandled_input() 既存処理に1行追記するだけ
+elif event.keycode == KEY_Q:
+    if sidebar: sidebar.visible = not sidebar.visible  # 既存（残す）
+    _toggle_action_hint()                              # 追加
+```
+
+---
+
+### 実装詳細
+
+#### 1. UI ノード追加（`_setup_ui()` 内）
+
+```gdscript
+var action_hint_panel: PanelContainer
+var action_hint_label: Label
+
+action_hint_panel = PanelContainer.new()
+action_hint_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+action_hint_panel.position = Vector2(20, 20)
+action_hint_panel.custom_minimum_size = Vector2(260, 0)
+ui_layer.add_child(action_hint_panel)
+
+action_hint_label = Label.new()
+action_hint_label.add_theme_font_size_override("font_size", 14)
+action_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+action_hint_panel.add_child(action_hint_label)
+action_hint_panel.hide()
+```
+
+#### 2. ヒント取得関数
+
+ストーリーフラグと現在のステージに応じて文字列を返す。
+
+```gdscript
+func _get_action_hint_text() -> String:
+    var phase = Global.vball_story_phase
+    var hints: Array[String] = []
+
+    match phase:
+        0: hints.append("school_hallway に行って先輩に話しかけましょう")
+        1: hints.append("gymnasium に行って先輩と話しましょう（入部の選択）")
+        2: hints.append("gymnasium でボールにインタラクト（Eキー）して練習")
+        3: hints.append("足が痛そう…　school で はるか に相談しましょう")
+        4: hints.append("gymnasium で先輩に事情を話しましょう")
+        5: hints.append("myroom のベッドで休みましょう（夏休みへ）")
+        6: hints.append("school ではるかに、gymnasium で先輩に再会しましょう")
+        7: hints.append("gymnasium で先輩に話しかけましょう（継続 or 引退）")
+
+    if Global.is_leg_pain:
+        hints.append("⚠ 足が痛い状態です（移動速度低下中）")
+
+    if hints.is_empty():
+        return "【次のアクション】\nヒントはありません"
+    return "【次のアクション】\n" + "\n".join(hints)
+```
+
+#### 3. トグル関数
+
+```gdscript
+func _toggle_action_hint() -> void:
+    if action_hint_panel.visible:
+        action_hint_panel.hide()
+    else:
+        action_hint_label.text = _get_action_hint_text()
+        action_hint_panel.show()
+```
+
+---
+
+### 工数・変更ファイル
+
+| ファイル | 変更内容 | 工数 |
+|---|---|---|
+| `MainScene.gd` | `_setup_ui()` にパネル追加、関数2つ追加、`_unhandled_input()` に1行追記 | **S（1〜2時間）** |
+
+> `vball_story_phase` の実装と並行して `_get_action_hint_text()` のヒント文言を埋めていくこと。
+
+---
 *Co-Authored-By: Claude Sonnet 3.7 <noreply@anthropic.com>*
 *Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>*

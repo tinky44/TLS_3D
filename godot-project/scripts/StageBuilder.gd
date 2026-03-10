@@ -69,7 +69,7 @@ const STAGES = {
     },
     "school_hallway": {
         "name": "学校の廊下",
-        "width": 2500,
+        "width": 3000,
         "ceiling_height": 280,
         "obstacles": [
             {"id": "door_to_outdoor", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
@@ -78,7 +78,8 @@ const STAGES = {
             {"id": "door_to_school", "x": 1300, "x2": 1440, "height": 200, "type": "overhead"},
             {"id": "fire_hydrant", "x": 1800, "x2": 1860, "height": 120, "type": "background"},
             {"id": "door_to_schoolyard", "x": 1950, "x2": 2090, "height": 200, "type": "overhead"},
-            {"id": "door_to_infirmary", "x": 2200, "x2": 2340, "height": 200, "type": "overhead"}
+            {"id": "door_to_infirmary", "x": 2200, "x2": 2340, "height": 200, "type": "overhead"},
+            {"id": "door_to_gymnasium", "x": 2600, "x2": 2740, "height": 200, "type": "overhead"}
         ]
     },
     "infirmary": {
@@ -135,6 +136,20 @@ const STAGES = {
             {"id": "jungle_gym", "x": 900, "x2": 1100, "height": 200, "type": "background"},
             {"id": "basketball_hoop", "x": 1350, "x2": 1415, "height": 260, "type": "background"},
             {"id": "soccer_goal_post", "x": 2000, "x2": 2200, "height": 244, "type": "background"}
+        ]
+    },
+    "gymnasium": {
+        "name": "体育館",
+        "width": 3200,
+        "ceiling_height": 800,
+        "obstacles": [
+            {"id": "door_to_school_hallway", "x": 80, "x2": 220, "height": 200, "type": "overhead"},
+            {"id": "gym_storage", "x": 280, "x2": 450, "height": 200, "type": "background"},
+            {"id": "volleyball_net", "x": 1550, "x2": 1650, "height": 243, "type": "overhead"},
+            {"id": "gym_bench", "x": 2200, "x2": 2500, "height": 42, "type": "ground"},
+            {"id": "gym_window_1", "x": 600, "x2": 780, "height": 500, "type": "background"},
+            {"id": "gym_window_2", "x": 900, "x2": 1080, "height": 500, "type": "background"},
+            {"id": "basketball_board", "x": 3050, "x2": 3150, "height": 350, "type": "background"}
         ]
     },
     "station": {
