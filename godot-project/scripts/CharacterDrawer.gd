@@ -555,6 +555,10 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 	if bottoms_type == "skirt_long":
 		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.3
 		hem_w = base_width * 1.3
+	elif bottoms_type == "skirt_sailor":
+		# 膝（thigh_l）より少し下（shin_lの10%）まで
+		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.1
+		hem_w = base_width * 1.4
 	else: # "skirt" or "skirt_short"
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
 		hem_w = base_width * 1.5
@@ -588,6 +592,20 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 		var actual_hem_w = max(hem_w, spread_x * spread_margin)
 
 		CharacterDrawUtils.draw_trapezoid(self , waist_pos, p_bottom, base_width, actual_hem_w, bottoms_color)
+		
+		# プリーツ（セーラー服スカート用）
+		if bottoms_type == "skirt_sailor":
+			var pleat_col = bottoms_color.darkened(0.2)
+			var d_vec = p_bottom - waist_pos
+			if d_vec.length() > 0.01:
+				var n = Vector2(-d_vec.y, d_vec.x).normalized()
+				var h_top = base_width / 2.0
+				var h_hem = actual_hem_w / 2.0
+				for i in range(1, 7): # 6本の線を入れる
+					var t = float(i) / 7.0
+					var top_p = waist_pos + n * lerp(-h_top, h_top, t)
+					var bot_p = p_bottom + n * lerp(-h_hem, h_hem, t)
+					draw_line(top_p, bot_p, pleat_col, 1.5)
 		return
 
 	# 正面・背面の場合、足の広がりに合わせて裾を広げ、下端に緩やかなカーブを付ける
@@ -621,6 +639,18 @@ func _draw_skirt(d: Dictionary, bottoms_type: String, bottoms_color: Color, wais
 		Vector2(waist_pos.x - half_hem, p_bottom_y)
 	])
 	draw_polygon(pts, PackedColorArray([bottoms_color]))
+
+	# プリーツ（セーラー服スカート用）
+	if bottoms_type == "skirt_sailor":
+		var pleat_col = bottoms_color.darkened(0.2)
+		for i in range(1, 7): # 6本の線を入れる
+			var t = float(i) / 7.0
+			var top_p = Vector2(lerp(waist_pos.x - half_top, waist_pos.x + half_top, t), waist_pos.y)
+			var bx = lerp(waist_pos.x - half_hem, waist_pos.x + half_hem, t)
+			# カーブに合わせて下端を計算
+			var drop = curve_drop * (1.0 - pow((t - 0.5) * 2.0, 2.0))
+			var bot_p = Vector2(bx, p_bottom_y + drop)
+			draw_line(top_p, bot_p, pleat_col, 1.5)
 
 # --- 正面・背面 描画 ---
 func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_color, skin_dark, shirt_dark, _pants_dark, shoulder_w, thigh_w, shin_w, arm_w, _neck_w):
@@ -684,7 +714,8 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 
 	# 3. ボトムス（骨盤部分またはスカート）
 	if is_skirt:
-		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, facing)
+		var skirt_c = base_shirt_color if bottoms_type == "skirt_sailor" else pants_color
+		_draw_skirt(d, bottoms_type, skirt_c, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, facing)
 	elif bottoms_type == "pants":
 		var p_pelvis_top = Vector2(d["front_hip_x"], d["front_hip_y"])
 		var p_crotch = Vector2(d["cx"], d["cy"])
@@ -805,7 +836,8 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 
 	# 5. ボトムス（骨盤部分またはスカート — 足の上に重ねる）
 	if is_skirt:
-		_draw_skirt(d, bottoms_type, pants_color, Vector2(d["hip_x"], d["hip_y"]), torso_thickness, "side")
+		var skirt_c = base_shirt_color if bottoms_type == "skirt_sailor" else pants_color
+		_draw_skirt(d, bottoms_type, skirt_c, Vector2(d["hip_x"], d["hip_y"]), torso_thickness, "side")
 	elif bottoms_type == "pants":
 		var p_pelvis_top = Vector2(d["hip_x"], d["hip_y"])
 		var p_crotch_center = Vector2(d["cx"], d["cy"])

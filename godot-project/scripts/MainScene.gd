@@ -232,10 +232,11 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	var bottoms_opt = OptionButton.new()
 	bottoms_opt.focus_mode = Control.FOCUS_NONE
 	bottoms_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var bottoms_values = ["skirt", "skirt_long", "pants"]
+	var bottoms_values = ["skirt", "skirt_long", "skirt_sailor", "pants"]
 	bottoms_opt.add_item("スカート", 0)
 	bottoms_opt.add_item("ロングスカート", 1)
-	bottoms_opt.add_item("パンツ", 2)
+	bottoms_opt.add_item("セーラースカート", 2)
+	bottoms_opt.add_item("パンツ", 3)
 	var cur_btm = bottoms_values.find(Global.current_appearance.get("bottoms_type", "pants"))
 	bottoms_opt.selected = max(0, cur_btm)
 	bottoms_opt.item_selected.connect(func(idx: int) -> void:
@@ -941,19 +942,19 @@ func _load_stage():
 					global.senior_gym_invited = true
 					global.queue_event("gym_senior_invite")
 			else:
-				global.pending_events.push_front(ev)  # 教室に入るまで保留
+				global.pending_events.push_front(ev) # 教室に入るまで保留
 		elif ev == "gym_senior_invite":
 			if stage_id == "gymnasium":
 				await get_tree().create_timer(0.8).timeout
 				_start_dialogue("senior", "first_meet")
 			else:
-				global.pending_events.push_front(ev)  # 体育館に入るまで保留
+				global.pending_events.push_front(ev) # 体育館に入るまで保留
 		elif ev == "summer_growth":
 			if stage_id == "room":
 				await get_tree().create_timer(0.8).timeout
 				_start_dialogue("player", "summer_growth")
 			else:
-				global.pending_events.push_front(ev)  # room に入るまで保留
+				global.pending_events.push_front(ev) # room に入るまで保留
 		elif ev == "entrance_ceremony":
 			if stage_id == "myroom":
 				await get_tree().create_timer(1.2).timeout
