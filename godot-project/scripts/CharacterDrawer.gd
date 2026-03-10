@@ -967,8 +967,8 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 	var line_col = Color(1, 1, 1, 0.75)
 	var lw = 2.2
 	var line_y = lerp(sy, v_y, 0.2)
-	draw_line(Vector2(sx - half_body * 0.8, line_y), Vector2(sx, v_y), line_col, lw)
-	draw_line(Vector2(sx + half_body * 0.8, line_y), Vector2(sx, v_y), line_col, lw)
+	draw_line(Vector2(sx - half_body * 1.0, line_y), Vector2(sx, v_y), line_col, lw)
+	draw_line(Vector2(sx + half_body * 1.0, line_y), Vector2(sx, v_y), line_col, lw)
 
 	# スカーフ（Vの底から垂れ下がる五角形 → 先細り）※赤色に変更
 	var scarf_tip_y = lerp(v_y, navel_y, 0.72)
