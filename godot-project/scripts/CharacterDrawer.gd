@@ -676,7 +676,7 @@ func _draw_front_back(m, p, d, appearance, skin_color, base_shirt_color, pants_c
 	_draw_hair(Vector2(d["front_hx"], d["front_hy"]), head_r, head_w, hair_style, hair_color, skin_color, facing)
 
 	# 4.5 服装オーバーレイ（カラー・ラペル・リボンなど）
-	_draw_tops_detail_front(d, p, m, tops_type, base_shirt_color, body_w, shoulder_w)
+	_draw_tops_detail_front(d, p, m, tops_type, base_shirt_color, body_w, shoulder_w, skin_color)
 
 	# 5. 両腕（台形袖の描画）
 	var arm_len = m["armLength"] * p
@@ -805,7 +805,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	_draw_hair(Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
 	# 6.5 服装オーバーレイ（側面：カラー・ラペル・リボンなど）
-	_draw_tops_detail_side(d, p, m, tops_type, base_shirt_color, torso_thickness, head_angle)
+	_draw_tops_detail_side(d, p, m, tops_type, base_shirt_color, torso_thickness, head_angle, skin_color)
 
 	var eye_offset = Vector2(head_r * 0.7, 0.0) # 高さオフセットなし（回転に任せる）
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
@@ -834,7 +834,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 # t_shirt / sweater / blouse はオーバーレイなし（袖で表現済み）。
 # ---------------------------------------------------------------
 func _draw_tops_detail_front(d: Dictionary, p: float, m: Dictionary,
-		tops_type: String, tops_color: Color, body_w: float, shoulder_w: float) -> void:
+		tops_type: String, tops_color: Color, body_w: float, shoulder_w: float, skin_color: Color = Color.WHITE) -> void:
 	var sx = d["front_sx"]
 	var sy = d["front_sy"]
 	var navel_y = d["front_navel_y"]
@@ -844,7 +844,7 @@ func _draw_tops_detail_front(d: Dictionary, p: float, m: Dictionary,
 
 	match tops_type:
 		"sailor":
-			_draw_sailor_front(sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
+			_draw_sailor_front(sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
 		"blazer":
 			_draw_blazer_front(sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, false)
 		"blazer_dark":
@@ -869,8 +869,18 @@ func _draw_tops_detail_front(d: Dictionary, p: float, m: Dictionary,
 #   scarf_tip_y  : スカーフの先端Y（v_y〜navel_y の lerp 値で決まる）
 # ---------------------------------------------------------------
 func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
-		half_sh: float, half_body: float, sailor_color: Color) -> void:
+		half_sh: float, half_body: float, sailor_color: Color, skin_color: Color) -> void:
 	var v_y = lerp(sy, navel_y, 0.45) # Vの底点Y
+
+	# V字の開口部を肌色で塗りつぶして青線を隠す
+	# var skin_open_pts = PackedVector2Array([
+	# 	Vector2(sx - half_body * 0.5, neck_y),
+	# 	Vector2(sx + half_body * 0.5, neck_y),
+	# 	Vector2(sx + half_body * 0.18, sy + 6.0),
+	# 	Vector2(sx, v_y),
+	# 	Vector2(sx - half_body * 0.18, sy + 6.0),
+	# ])
+	# draw_polygon(skin_open_pts, PackedColorArray([skin_color]))
 
 	# セーラーカラー本体（両肩から首に広がり、胸でVに収束する台形ポリゴン）
 	var collar_pts = PackedVector2Array([
@@ -884,24 +894,27 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 	])
 	draw_polygon(collar_pts, PackedColorArray([sailor_color]))
 
-	# 内側の白い三角形（衿の内側）
+	# 内側の白い三角形（衿の内側の胸当て）
 	var inner_white = Color(0.97, 0.97, 0.97)
+	var chest_y = lerp(sy, v_y, 0.5)
+	var chest_w = half_body * 0.12
 	var inner_pts = PackedVector2Array([
-		Vector2(sx - half_body * 0.14, sy + 5.0),
-		Vector2(sx + half_body * 0.14, sy + 5.0),
-		Vector2(sx, v_y - 3.0),
+		Vector2(sx - chest_w, chest_y),
+		Vector2(sx + chest_w, chest_y),
+		Vector2(sx, v_y - 2.0),
 	])
 	draw_polygon(inner_pts, PackedColorArray([inner_white]))
 
-	# セーラーカラーの白いライン（縁取り）
+	# セーラーカラーの白いライン（縁取り）※胴体の側面で止める
 	var line_col = Color(1, 1, 1, 0.75)
 	var lw = 2.2
-	draw_line(Vector2(sx - half_sh * 1.05, sy), Vector2(sx, v_y), line_col, lw)
-	draw_line(Vector2(sx + half_sh * 1.05, sy), Vector2(sx, v_y), line_col, lw)
+	var line_y = lerp(sy, v_y, 0.2)
+	draw_line(Vector2(sx - half_body * 0.8, line_y), Vector2(sx, v_y), line_col, lw)
+	draw_line(Vector2(sx + half_body * 0.8, line_y), Vector2(sx, v_y), line_col, lw)
 
-	# スカーフ（Vの底から垂れ下がる五角形 → 先細り）
+	# スカーフ（Vの底から垂れ下がる五角形 → 先細り）※赤色に変更
 	var scarf_tip_y = lerp(v_y, navel_y, 0.72)
-	var sc = sailor_color.darkened(0.15)
+	var sc = Color(0.8, 0.15, 0.15)
 	var scarf_pts = PackedVector2Array([
 		Vector2(sx - half_body * 0.09, v_y),
 		Vector2(sx + half_body * 0.09, v_y),
@@ -919,7 +932,7 @@ func _draw_sailor_front(sx: float, sy: float, neck_y: float, navel_y: float,
 		Vector2(sx + half_body * 0.06, knot_y + 9.0),
 		Vector2(sx - half_body * 0.06, knot_y + 9.0),
 	])
-	draw_polygon(knot_pts, PackedColorArray([sailor_color.lightened(0.12)]))
+	draw_polygon(knot_pts, PackedColorArray([sc.lightened(0.12)]))
 
 # ---------------------------------------------------------------
 # ブレザーオーバーレイ（正面）
@@ -1077,7 +1090,7 @@ func _draw_bow_front(sx: float, sy: float, neck_y: float, half_body: float, bow_
 # waist_angle を考慮して体の向きに合わせたベクトルを渡す。
 # ---------------------------------------------------------------
 func _draw_tops_detail_side(d: Dictionary, p: float, m: Dictionary,
-		tops_type: String, tops_color: Color, torso_thickness: float, head_angle: float) -> void:
+		tops_type: String, tops_color: Color, torso_thickness: float, head_angle: float, skin_color: Color = Color.WHITE) -> void:
 	var sx = d["sx"]
 	var sy = d["sy"]
 	var navel_y = d["navel_y"]
@@ -1095,7 +1108,7 @@ func _draw_tops_detail_side(d: Dictionary, p: float, m: Dictionary,
 
 	match tops_type:
 		"sailor":
-			_draw_sailor_side(sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color)
+			_draw_sailor_side(sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, skin_color)
 		"blazer":
 			_draw_blazer_side(sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, false)
 		"blazer_dark":
@@ -1118,15 +1131,24 @@ func _draw_tops_detail_side(d: Dictionary, p: float, m: Dictionary,
 # ---------------------------------------------------------------
 func _draw_sailor_side(sx: float, sy: float, navel_y: float, navel_x: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
-		waist_angle: float, sailor_color: Color) -> void:
+		waist_angle: float, sailor_color: Color, skin_color: Color) -> void:
 	# 胴体上部の前方点（首元〜肩のライン）
 	var p_sh_front = Vector2(sx, sy) + fwd * half_t * 0.95
 	var p_nk = Vector2(sx, sy) + up_v * 12.0 # 首付近
 	var p_nk_front = p_nk + fwd * half_t * 0.8
 
+	# 胸元のV字の開きを肌色で塗って青線を隠す
+	var v_bottom = p_sh_front + Vector2(0, (navel_y - sy) * 0.42)
+	var skin_pts = PackedVector2Array([
+		p_nk_front + up_v * 5.0,
+		p_nk_front,
+		v_bottom,
+		v_bottom - fwd * 4.0,
+	])
+	draw_polygon(skin_pts, PackedColorArray([skin_color]))
+
 	# セーラーカラーの大きな三角形フラップ（背中から肩に）
 	var p_sh_back = Vector2(sx, sy) - fwd * half_t * 0.95
-	var v_bottom = p_sh_front + Vector2(0, (navel_y - sy) * 0.42)
 
 	var collar_pts = PackedVector2Array([
 		p_sh_back,
@@ -1136,13 +1158,14 @@ func _draw_sailor_side(sx: float, sy: float, navel_y: float, navel_x: float,
 	])
 	draw_polygon(collar_pts, PackedColorArray([sailor_color]))
 
-	# 白い内側ライン
+	# 白い内側ライン ※背中まで伸びないよう短くする
 	var line_col = Color(1, 1, 1, 0.72)
-	draw_line(p_sh_back, v_bottom, line_col, 2.0)
+	var line_start = p_nk_front - fwd * half_t * 0.8
+	draw_line(line_start, v_bottom, line_col, 2.0)
 
-	# スカーフ（Vの底から垂れ下がる）
+	# スカーフ（Vの底から垂れ下がる）※赤色に変更
 	var scarf_end = v_bottom + Vector2(0, (navel_y - sy) * 0.40)
-	var sc = sailor_color.darkened(0.15)
+	var sc = Color(0.8, 0.15, 0.15)
 	var scarf_pts = PackedVector2Array([
 		v_bottom + fwd * 3.0,
 		v_bottom - fwd * 3.0,
