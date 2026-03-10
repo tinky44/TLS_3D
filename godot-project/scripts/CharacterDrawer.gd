@@ -814,7 +814,7 @@ func _draw_side(m, p, d, appearance, skin_color, base_shirt_color, pants_color, 
 	var mouth_offset = Vector2(head_r * 0.5, head_r * 0.5)
 	var rot_mouth = Vector2(mouth_offset.x * cos(head_angle) - mouth_offset.y * sin(head_angle), mouth_offset.x * sin(head_angle) + mouth_offset.y * cos(head_angle))
 	var mouth_center = Vector2(hx, hy) + rot_mouth
-	draw_line(mouth_center - Vector2(3, 0), mouth_center + Vector2(3, 0), Color("#c07070"), 2.0)
+	draw_line(mouth_center - Vector2(2, 0), mouth_center + Vector2(5, 2), Color("#c07070"), 2.0)
 
 	# 7. 手前の腕（台形袖の描画）
 	var p_elb_r = CharacterPoseCalculator.rotated_point(p_arm_shoulder.x, p_arm_shoulder.y, u_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
