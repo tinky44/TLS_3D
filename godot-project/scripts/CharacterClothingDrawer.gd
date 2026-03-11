@@ -575,7 +575,82 @@ static func draw_jumper_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	# var collar_pts = PackedVector2Array([
 	# 	p_nk_f,
 	# 	p_nk_f + fwd * 5.0,
-	# 	p_nk_f + fwd * 4.0 + Vector2(0, 11.0),
 	# 	p_nk_f + Vector2(0, 9.0),
 	# ])
 	# ctx.canvas.draw_polygon(collar_pts, PackedColorArray([collar_white]))
+
+# ============================================================
+# 帽子描画関数
+# ============================================================
+
+static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float, head_w: float, hat_type: String, hat_color: Color) -> void:
+	if hat_type == "none" or hat_type == "":
+		return
+	
+	match hat_type:
+		"school_hat":
+			# 通学帽 (正面)
+			# クラウン (頭の上の丸い部分)
+			var crown_r = head_w * 0.55
+			var crown_y = hy - head_r * 0.1
+			var crown_pts = PackedVector2Array()
+			var segments = 16
+			for i in range(segments + 1):
+				var angle = PI + PI * (float(i) / segments)
+				crown_pts.append(Vector2(hx + cos(angle) * crown_r, crown_y + sin(angle) * (crown_r * 0.9)))
+			ctx.canvas.draw_polygon(crown_pts, PackedColorArray([hat_color]))
+			
+			# つば (顔の前に少し張り出すだ円っぽく)
+			var brim_w = head_w * 0.8
+			var brim_h = head_r * 0.2
+			var brim_y = hy - head_r * 0.3
+			var brim_pts = PackedVector2Array()
+			for i in range(segments + 1):
+				var angle = 0.0 + PI * (float(i) / segments) # 下半分の半円
+				brim_pts.append(Vector2(hx + cos(angle) * brim_w, brim_y + sin(angle) * brim_h))
+			for i in range(segments + 1):
+				var angle = PI + PI * (float(i) / segments) # 上半分の半円
+				brim_pts.append(Vector2(hx - cos(angle) * brim_w, brim_y - sin(angle) * brim_h * 0.5))
+			ctx.canvas.draw_polygon(brim_pts, PackedColorArray([hat_color.darkened(0.15)]))
+
+static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float, head_w: float, head_angle: float, hat_type: String, hat_color: Color) -> void:
+	if hat_type == "none" or hat_type == "":
+		return
+	
+	match hat_type:
+		"school_hat":
+			# 通学帽 (側面)
+			var dir_fwd = Vector2(cos(head_angle), sin(head_angle))
+			var dir_up = Vector2(-sin(head_angle), cos(head_angle))
+			
+			# クラウン位置（頭の上の方）
+			var crown_pos = Vector2(hx, hy) + dir_up * head_r * 0.3 - dir_fwd * head_w * 0.05
+			var crown_r_x = head_w * 0.55
+			var crown_r_y = head_r * 0.6
+			var crown_pts = PackedVector2Array()
+			var segments = 16
+			for i in range(segments + 1):
+				# 後ろから前へ半円を描く
+				var angle = PI * 0.8 + PI * 1.4 * (float(i) / segments)
+				var local_x = cos(angle) * crown_r_x
+				var local_y = sin(angle) * crown_r_y
+				# 回転を適用
+				var rot_x = local_x * cos(head_angle) - local_y * sin(head_angle)
+				var rot_y = local_x * sin(head_angle) + local_y * cos(head_angle)
+				crown_pts.append(crown_pos + Vector2(rot_x, rot_y))
+			ctx.canvas.draw_polygon(crown_pts, PackedColorArray([hat_color]))
+			
+			# つば（前方に突き出す）
+			var brim_start = Vector2(hx, hy) + dir_fwd * head_w * 0.4 + dir_up * head_r * 0.1
+			var brim_len = head_w * 0.6
+			var brim_angle = head_angle + 0.15 # 少し下向き
+			var brim_dir = Vector2(cos(brim_angle), sin(brim_angle))
+			var brim_end = brim_start + brim_dir * brim_len
+			
+			var brim_pts = PackedVector2Array([
+				brim_start - dir_up * 3.0,
+				brim_start + dir_up * 3.0,
+				brim_end + dir_up * 1.0,
+				brim_end - dir_up * 1.0
+			])
+			ctx.canvas.draw_polygon(brim_pts, PackedColorArray([hat_color.darkened(0.15)]))

@@ -75,6 +75,11 @@ func _draw() -> void:
 	ctx.hair_style = appearance.get("hair_style", "short")
 	ctx.hair_color = Color(appearance.get("hair_color", "#4a3c31"))
 	ctx.shoe_color = Color(appearance.get("shoes_color", "#f0f0f0"))
+	ctx.hat_type = appearance.get("hat_type", "none")
+	
+	var default_hat_color = "#ffd700" if ctx.hat_type == "school_hat" else "#ffffff"
+	ctx.hat_color = Color(appearance.get("hat_color", default_hat_color))
+	
 	ctx.head_r = d["head_h"] / 2.0
 
 	# プレイヤー依存の値をキャッシュ（サブクラスが player を参照しないで済むように）

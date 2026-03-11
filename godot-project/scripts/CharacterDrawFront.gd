@@ -117,6 +117,9 @@ static func draw(ctx: DrawContext) -> void:
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
 	CharacterHairDrawer.draw_hair(ctx, Vector2(d["front_hx"], d["front_hy"]), head_r, head_w, hair_style, hair_color, skin_color, facing)
 
+	# 4.2 帽子
+	CharacterClothingDrawer.draw_hat_front(ctx, d["front_hx"], d["front_hy"], head_r, head_w, ctx.hat_type, ctx.hat_color)
+
 	# 4.5 服装オーバーレイ（カラー・ラペル・リボンなど）
 	CharacterClothingDrawer.draw_tops_detail_front(ctx, tops_type, base_shirt_color, body_w, shoulder_w, skin_color)
 

@@ -109,6 +109,9 @@ static func draw(ctx: DrawContext) -> void:
 	var hair_color = ctx.hair_color
 	CharacterHairDrawer.draw_hair(ctx, Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
+	# 6.2 帽子
+	CharacterClothingDrawer.draw_hat_side(ctx, hx, hy, head_r, head_w, head_angle, ctx.hat_type, ctx.hat_color)
+
 	# 6.5 服装オーバーレイ（側面：カラー・ラペル・リボンなど）
 	CharacterClothingDrawer.draw_tops_detail_side(ctx, tops_type, base_shirt_color, torso_thickness, head_angle, skin_color)
 

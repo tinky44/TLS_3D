@@ -18,7 +18,9 @@ var current_appearance: Dictionary = {
 	"bottoms_type": "pants",
 	"bottoms_color": "#3a5f8a",
 	"shoes_type": "sneakers",
-	"shoes_color": "#f0f0f0"
+	"shoes_color": "#f0f0f0",
+	"hat_type": "school_hat",
+	"hat_color": "#ffd700"
 }
 
 var system_settings: Dictionary = {

@@ -344,18 +344,27 @@ func _on_start_age_pressed(age_val: int) -> void:
     global.age = age_val
     global.term = preload("res://scripts/Global.gd").age_to_term(age_val)
     
+    # 中学入学以上の場合、通学帽を外す
+    if age_val >= 12:
+        global.current_appearance["hat_type"] = "none"
+    else:
+        global.current_appearance["hat_type"] = "school_hat"
+        
     # 中学入学を選んだ場合、制服をセーラー服に自動設定する
+    var trigger_reload = false
     if age_val == 12:
         global.current_appearance["tops_type"] = "sailor"
         global.current_appearance["tops_color"] = "#1a2a5e"
         global.current_appearance["bottoms_type"] = "skirt_sailor"
         global.current_appearance["bottoms_color"] = "#1a2a5e"
-        
-        # 画面のボタン表示も更新するため、シーン全体を再度リロードする
-        get_tree().reload_current_scene()
-        return
+        trigger_reload = true
         
     global.save_settings()
+    
+    if trigger_reload or age_val >= 12 or age_val == 6:
+        # 画面のボタン表示やキャラクターの見た目を更新するため、シーン全体を再度リロードする
+        get_tree().reload_current_scene()
+        return
 
 func _on_growth_type_pressed(btn: BaseButton) -> void:
     var global = get_node_or_null("/root/Global")
