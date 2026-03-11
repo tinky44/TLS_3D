@@ -35,7 +35,6 @@ static func draw(ctx: DrawContext) -> void:
 	var f_leg_l_ang = (d["leg_l_angle"] * 0.2) * PI / 180 + PI / 2
 	var f_leg_r_ang = (d["leg_r_angle"] * 0.2) * PI / 180 + PI / 2
 
-	var foot_w = m["height"] * p * 0.15
 	var foot_h = m["height"] * p / 20.0
 	# 正面の手: 縦=頭の縦×0.83、横=肩幅/5（側面の1/4相当）
 	var shoulder_full = (m["shoulder"] if m.has("shoulder") else 35.0) * p
@@ -65,12 +64,12 @@ static func draw(ctx: DrawContext) -> void:
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_hip_l.x, p_hip_l.y, d["thigh_l"], f_leg_l_ang)
 	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, shin_draw, f_leg_l_ang + d["knee_l"] * 0.2)
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_hip_l, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_color, pants_color, bottoms_type, leg_pants_top_w)
-	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_l, foot_w, foot_h, shoe_color)
+	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_l, shin_w, foot_h, shoe_color)
 
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_hip_r.x, p_hip_r.y, d["thigh_l"], f_leg_r_ang)
 	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, shin_draw, f_leg_r_ang + d["knee_r"] * 0.2)
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_hip_r, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type, leg_pants_top_w)
-	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_r, foot_w, foot_h, shoe_color)
+	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_r, shin_w, foot_h, shoe_color)
 
 	# 1.5 両腕（台形袖の描画）
 	var arm_len = m["armLength"] * p

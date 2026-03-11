@@ -90,13 +90,14 @@ static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, co
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
-    # 正面: 台形（足首側が狭く、底が広い）
-    var top_w = foot_w * 0.5
+    # 正面: 台形（上端=脚の太さ、底辺が少し広い）
+    var top_w = foot_w
+    var bot_w = foot_w * 1.15
     var pts = PackedVector2Array([
         ankle + Vector2(-top_w * 0.5, 0.0),
         ankle + Vector2(top_w * 0.5, 0.0),
-        ankle + Vector2(foot_w * 0.5, foot_h),
-        ankle + Vector2(-foot_w * 0.5, foot_h),
+        ankle + Vector2(bot_w * 0.5, foot_h),
+        ankle + Vector2(-bot_w * 0.5, foot_h),
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
