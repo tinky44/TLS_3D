@@ -80,8 +80,8 @@ static func draw(ctx: DrawContext) -> void:
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
 	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, shin_draw, d["leg_r_angle"] * PI / 180 + PI / 2 + d["knee_r"])
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_crotch, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type, pelvis_bottom_w)
-	var shin_up_r = (p_thigh_r - p_shin_r).normalized() # 足首→膝方向（上向き）
-	CharacterDrawUtils.draw_rect(ctx.canvas, p_shin_r, p_shin_r + shin_up_r * sock_h, shin_w, sock_color)
+	var shin_dir_r = (p_shin_r - p_thigh_r).normalized()
+	CharacterDrawUtils.draw_rect(ctx.canvas, p_shin_r, p_shin_r + shin_dir_r * sock_h, shin_w, sock_color)
 	# 踵を脚の後ろ端（shin_w/2 分後ろ）に合わせる
 	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_r - Vector2(shin_w * 0.5, 0), foot_w, foot_h, shoe_color)
 
