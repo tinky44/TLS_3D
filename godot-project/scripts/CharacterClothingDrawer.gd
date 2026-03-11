@@ -313,13 +313,16 @@ static func draw_blouse_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y
 static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, navel_x: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
 		waist_angle: float, sailor_color: Color, skin_color: Color) -> void:
+	# 胴体に沿った下方ベクトル（肩→へそ方向、腰曲げを考慮）
+	var torso_down_s = Vector2(navel_x - sx, navel_y - sy)
+
 	# 胴体上部の前方点（首元〜肩のライン）
 	var p_sh_front = Vector2(sx, sy) + fwd * half_t * 0.95
 	var p_nk = Vector2(sx, sy) + up_v * 12.0 # 首付近
 	var p_nk_front = p_nk + fwd * half_t * 0.8
 
 	# 胸元のV字の開きを肌色で塗って青線を隠す
-	var v_bottom = p_sh_front + Vector2(0, (navel_y - sy) * 0.42)
+	var v_bottom = p_sh_front + torso_down_s * 0.42
 	var skin_pts = PackedVector2Array([
 		p_nk_front + up_v * 5.0,
 		p_nk_front,
@@ -345,7 +348,7 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	ctx.canvas.draw_line(line_start, v_bottom, line_col, 2.0)
 
 	# スカーフ（Vの底から垂れ下がる）※赤色に変更
-	var scarf_end = v_bottom + Vector2(0, (navel_y - sy) * 0.40)
+	var scarf_end = v_bottom + torso_down_s * 0.40
 	var sc = Color(0.8, 0.15, 0.15)
 	var scarf_pts = PackedVector2Array([
 		v_bottom + fwd * 3.0,
@@ -375,43 +378,46 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	var p_sh_front = p_sh + fwd * half_t
 	var p_sh_back = p_sh - fwd * half_t
 
+	# 胴体に沿った下方ベクトル（肩→へそ方向、腰曲げを考慮）
+	var torso_down_b = Vector2(navel_x - sx, navel_y - sy)
+	var torso_dir_b = torso_down_b.normalized() if torso_down_b.length() > 0.01 else up_v
+
 	# 暗色仕様: 胴体全体を上書きしてから、前面のみ白シャツを描画
 	if is_dark:
 		# ひじの高さをベルト位置（胴体の下端）とする
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # offset分下げている
-		var belt_y_offset = u_arm
-		
+		var belt_vec = torso_dir_b * u_arm # 胴体方向にu_armだけ下げたベクトル
+
 		# まず胴体のベルト位置までを暗色のジャンパースカートで塗る
 		var jacket_cover = PackedVector2Array([
 			p_sh_back,
 			p_sh_front,
-			p_sh_front + Vector2(0, belt_y_offset),
-			p_sh_back + Vector2(0, belt_y_offset),
+			p_sh_front + belt_vec,
+			p_sh_back + belt_vec,
 		])
 		ctx.canvas.draw_polygon(jacket_cover, PackedColorArray([jacket_color]))
 
 		# ベルトを描画
 		var belt_pts = PackedVector2Array([
-			p_sh_back + fwd * half_t * 0.05 + Vector2(0, belt_y_offset - 4.5),
-			p_sh_front + fwd * half_t * 0.05 + Vector2(0, belt_y_offset - 4.5),
-			p_sh_front + fwd * half_t * 0.05 + Vector2(0, belt_y_offset),
-			p_sh_back + fwd * half_t * 0.05 + Vector2(0, belt_y_offset),
+			p_sh_back + fwd * half_t * 0.05 + belt_vec - torso_dir_b * 4.5,
+			p_sh_front + fwd * half_t * 0.05 + belt_vec - torso_dir_b * 4.5,
+			p_sh_front + fwd * half_t * 0.05 + belt_vec,
+			p_sh_back + fwd * half_t * 0.05 + belt_vec,
 		])
 		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
 
 		if ctx.is_skirt:
 			var center_x = lerp(p_sh_back.x, p_sh_front.x, 0.5)
-			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(center_x, sy + belt_y_offset), half_t * 2.0, ctx.facing)
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(center_x, sy + u_arm), half_t * 2.0, ctx.facing)
 
 		# 前面側1/3の上部（正面の35%の深さまで）を白シャツとして上書き描画
 		var white_fw = half_t * 0.35 # 胴体の厚みに対しておよそ1/3（前面側）
-		var chest_depth_offset = (navel_y - sy) * 0.35
 		var shirt_inner = Color(0.96, 0.96, 0.96)
 		var shirt_cover = PackedVector2Array([
 			p_sh_front - fwd * white_fw,
 			p_sh_front,
-			p_sh_front + Vector2(0, chest_depth_offset),
-			p_sh_front - fwd * white_fw + Vector2(0, chest_depth_offset),
+			p_sh_front + torso_down_b * 0.35,
+			p_sh_front - fwd * white_fw + torso_down_b * 0.35,
 		])
 		ctx.canvas.draw_polygon(shirt_cover, PackedColorArray([shirt_inner]))
 
@@ -440,8 +446,9 @@ static func draw_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float
 		waist_angle: float, bow_color: Color) -> void:
 	# 側面では蝶ネクタイが胴体の前面に小さく見える。肩と乳首の間にハイライト
 	var p_sh = Vector2(sx, sy)
-	var chest_y_offset = (navel_y - sy) * 0.22
-	var center = p_sh + Vector2(0, chest_y_offset) + fwd * half_t * 0.88
+	var navel_x_bow = ctx.d["navel_x"]
+	var torso_down_bow = Vector2(navel_x_bow - sx, navel_y - sy)
+	var center = p_sh + torso_down_bow * 0.22 + fwd * half_t * 0.88
 	var bow_w = half_t * 0.6
 	var bow_h = half_t * 0.35
 
@@ -527,7 +534,7 @@ static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 #   strap_len   : ストラップの縦方向の長さ（navel_y - sy + 10px）
 # ---------------------------------------------------------------
 static func draw_jumper_side(ctx: DrawContext, sx: float, sy: float, navel_y: float,
-		half_t: float, fwd: Vector2, up_v: Vector2,
+		half_t: float, fwd: Vector2, _up_v: Vector2,
 		_waist_angle: float, _jumper_color: Color) -> void:
 	var p_sh = Vector2(sx, sy)
 	var p_sh_front = p_sh + fwd * half_t * 0.95
@@ -535,25 +542,29 @@ static func draw_jumper_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 	var fw = half_t * 0.12 # ストラップの幅（細い黒帯）
 	var strap_color = Color(0.08, 0.08, 0.08) # 黒
 
+	# 胴体に沿った下向きベクトル（肩→へそ方向、腰曲げを考慮）
+	var navel_x = ctx.d["navel_x"]
+	var torso_down = Vector2(navel_x - sx, navel_y - sy)
+	var torso_dir = torso_down.normalized() if torso_down.length() > 0.01 else Vector2(0, 1)
+
 	# 前面ストラップ（胴体前端に細い黒帯、上端は胸のでっぱり位置から）
-	var nipple_y = lerp(navel_y, sy, 0.55) # 胴体でっぱり（乳首）高さ
-	var p_front_top = p_sh_front + Vector2(0, nipple_y - sy) # 前端の胸位置
-	var front_strap_len = Vector2(0, (navel_y - nipple_y) + 10.0)
+	var p_front_top = p_sh_front + torso_down * 0.45 # 乳首高さ(肩から45%下)
+	var p_front_bot = p_sh_front + torso_down + torso_dir * 10.0
 	var front_band = PackedVector2Array([
 		p_front_top,
 		p_front_top - fwd * fw,
-		p_front_top - fwd * fw + front_strap_len,
-		p_front_top + front_strap_len,
+		p_front_bot - fwd * fw,
+		p_front_bot,
 	])
 	ctx.canvas.draw_polygon(front_band, PackedColorArray([strap_color]))
 
 	# 背面ストラップ（胴体背端に細い黒帯）
-	var back_strap_len = Vector2(0, (navel_y - sy) + 10.0)
+	var p_back_bot = p_sh_back + torso_down + torso_dir * 10.0
 	var back_band = PackedVector2Array([
 		p_sh_back,
 		p_sh_back + fwd * fw,
-		p_sh_back + fwd * fw + back_strap_len,
-		p_sh_back + back_strap_len,
+		p_back_bot + fwd * fw,
+		p_back_bot,
 	])
 	ctx.canvas.draw_polygon(back_band, PackedColorArray([strap_color]))
 

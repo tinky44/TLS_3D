@@ -149,6 +149,18 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var b_sy = d["front_sy"] if facing in ["front", "back"] else d["sy"]
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		waist_pos.y = b_sy + u_arm
+		# 側面ビューのとき、胴体の傾きに合わせてX座標も補正する
+		# (waist_pos.y に対応する胴体上のX座標を肩〜へそ間で補間)
+		if facing == "side":
+			var s_y = d["sy"]
+			var s_x = d["sx"]
+			var navel_y = d["navel_y"]
+			var navel_x = d["navel_x"]
+			if abs(navel_y - s_y) > 0.01:
+				var t = clamp((waist_pos.y - s_y) / (navel_y - s_y), 0.0, 1.0)
+				waist_pos.x = lerp(s_x, navel_x, t)
+			else:
+				waist_pos.x = s_x
 
 	var waist_to_crotch = d["cy"] - waist_pos.y
 	var skirt_length: float
