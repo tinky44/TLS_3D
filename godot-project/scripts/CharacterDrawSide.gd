@@ -22,8 +22,8 @@ static func draw(ctx: DrawContext) -> void:
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p * 0.85
 	var torso_thickness = head_w
 
-	var foot_w = 9.0 * p
-	var foot_h = 3.5 * p
+	var foot_w = m["height"] * p * 0.15
+	var foot_h = m["height"] * p / 20.0
 	# 側面の手: 縦=頭の縦×0.83、横=肩幅/5（正面の4倍）
 	var shoulder_full = (m["shoulder"] if m.has("shoulder") else 35.0) * p
 	var hand_hw = shoulder_full / 5.0 / 2.0
@@ -58,11 +58,14 @@ static func draw(ctx: DrawContext) -> void:
 	# 2. 奥の足
 	var pants_thigh_w = thigh_w * 1.3
 	var pelvis_bottom_w = max(torso_thickness * 1.08, pants_thigh_w)
+	# すねを foot_h 分短くして足底が地面に合うようにする
+	var shin_draw = d["shin_l"] - foot_h
 
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
-	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, d["shin_l"], d["leg_l_angle"] * PI / 180 + PI / 2 + d["knee_l"])
+	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, shin_draw, d["leg_l_angle"] * PI / 180 + PI / 2 + d["knee_l"])
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_crotch, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_dark, pants_dark, bottoms_type, pelvis_bottom_w)
-	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_l, foot_w, foot_h, shoe_color.darkened(0.15))
+	# 踵を脚の後ろ端（shin_w/2 分後ろ）に合わせる
+	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_l - Vector2(shin_w * 0.5, 0), foot_w, foot_h, shoe_color.darkened(0.15))
 
 	# 3. 胴体（服）: 腰で曲がるように分割
 	var p_waist = Vector2(d["navel_x"], d["navel_y"])
@@ -71,9 +74,10 @@ static func draw(ctx: DrawContext) -> void:
 
 	# 4. 手前の足
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
-	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, d["shin_l"], d["leg_r_angle"] * PI / 180 + PI / 2 + d["knee_r"])
+	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, shin_draw, d["leg_r_angle"] * PI / 180 + PI / 2 + d["knee_r"])
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_crotch, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type, pelvis_bottom_w)
-	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_r, foot_w, foot_h, shoe_color)
+	# 踵を脚の後ろ端（shin_w/2 分後ろ）に合わせる
+	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_r - Vector2(shin_w * 0.5, 0), foot_w, foot_h, shoe_color)
 
 	# 5. ボトムス（骨盤部分またはスカート — 足の上に重ねる）
 	# ジャンパースカート(blazer)のスカート部分は服の上に描画するためここでは描かない
