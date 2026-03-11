@@ -161,11 +161,8 @@ static func draw_limb_part(canvas: CanvasItem, shape: String, p_top: Vector2, p_
     elif shape == "line":
         canvas.draw_line(p_top, p_bottom, color, width)
     elif shape == "stick":
-        # 線 + 両端に円関節
-        var joint_r = width * 0.35
-        canvas.draw_line(p_top, p_bottom, color, max(1.5, width * 0.15))
-        canvas.draw_circle(p_top, joint_r, color)
-        canvas.draw_circle(p_bottom, joint_r, color)
+        # 太い線（ジョイントボールなし）
+        draw_rect(canvas, p_top, p_bottom, width, color)
     else:
         # デフォルトは丸みを帯びた limb
         draw_limb(canvas, p_top, p_bottom, width, color)
