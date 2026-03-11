@@ -144,7 +144,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	# ジャンパースカート(blazer)やリボンブラウス(blouse_bow)の場合は、スカート開始位置をひじ付近に引き上げる
 	var is_jumper = (ctx.tops_type == "blazer")
 	var is_blouse_bow = (ctx.tops_type == "blouse_bow")
-	if is_jumper or is_blouse_bow:
+	var is_jumper_skirt = (ctx.tops_type == "jumper_skirt")
+	if is_jumper or is_blouse_bow or is_jumper_skirt:
 		var b_sy = d["front_sy"] if facing in ["front", "back"] else d["sy"]
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		waist_pos.y = b_sy + u_arm
@@ -160,6 +161,10 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		# リボンブラウスのスカートは膝上（thigh_lの80%）
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.8
 		hem_w = base_width * 1.45
+	elif is_jumper_skirt:
+		# サスペンダースカートは膝上丈（thigh_lの40%）
+		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
+		hem_w = base_width * 1.5
 	elif bottoms_type == "skirt_sailor" or is_jumper:
 		# 膝（thigh_l）より少し下（shin_lの10%）まで
 		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.1
@@ -169,7 +174,7 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
 		hem_w = base_width * 1.5
 
-	var is_pleated = (bottoms_type == "skirt_sailor" or is_jumper or is_blouse_bow)
+	var is_pleated = (bottoms_type == "skirt_sailor" or is_jumper or is_blouse_bow or is_jumper_skirt)
 
 	# 側面では脚の動きに合わせて前後に傾け、裾を広げる
 	if facing == "side":
@@ -220,6 +225,20 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 					var top_p = waist_pos + n * lerp(-h_top, h_top, t)
 					var bot_p = p_bottom + n * lerp(-h_hem, h_hem, t)
 					ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
+
+		# サスペンダースカート用：スカート上端にダークネイビーのベルト
+		if is_jumper_skirt:
+			var belt_color = bottoms_color.darkened(0.35)
+			var belt_h = 7.0
+			var n = Vector2(-p_bottom.y + waist_pos.y, p_bottom.x - waist_pos.x).normalized() if (p_bottom - waist_pos).length() > 0.01 else Vector2(1, 0)
+			var h_top = base_width / 2.0
+			var belt_pts = PackedVector2Array([
+				waist_pos - n * h_top,
+				waist_pos + n * h_top,
+				waist_pos + n * h_top + (p_bottom - waist_pos).normalized() * belt_h,
+				waist_pos - n * h_top + (p_bottom - waist_pos).normalized() * belt_h,
+			])
+			ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
 		return
 
 	# 正面・背面の場合、足の広がりに合わせて裾を広げ、下端に緩やかなカーブを付ける
@@ -265,3 +284,15 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 			var drop = curve_drop * (1.0 - pow((t - 0.5) * 2.0, 2.0))
 			var bot_p = Vector2(bx, p_bottom_y + drop)
 			ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
+
+	# サスペンダースカート用：スカート上端にダークネイビーのベルト
+	if is_jumper_skirt:
+		var belt_color = bottoms_color.darkened(0.35)
+		var belt_h = 7.0
+		var belt_pts = PackedVector2Array([
+			Vector2(waist_pos.x - half_top, waist_pos.y),
+			Vector2(waist_pos.x + half_top, waist_pos.y),
+			Vector2(waist_pos.x + half_top, waist_pos.y + belt_h),
+			Vector2(waist_pos.x - half_top, waist_pos.y + belt_h),
+		])
+		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))

@@ -482,58 +482,34 @@ static func draw_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float
 #   strap_top_y  : ストラップ上端Y（sy - 4.0 で肩より少し上）
 #   strap_bot_y  : ストラップ下端Y（navel_y + 10.0 でウエストより少し下）
 # ---------------------------------------------------------------
-static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float,
-		half_sh: float, half_body: float, jumper_color: Color) -> void:
-	var strap_outer = half_sh * 0.98 # ストラップ外端（肩幅満杖）
-	var strap_inner = half_body * 0.30 # ストラップ内端（白い部分の境界）
-	var strap_top_y = sy - 4.0 # ストラップ上端
-	var strap_bot_y = navel_y + 10.0 # ストラップ下端
+static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, _navel_y: float,
+		_half_sh: float, half_body: float, _jumper_color: Color) -> void:
+	var strap_top_y = sy # ストラップ上端（肩）
+	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
+	var strap_bot_y = sy + u_arm # ストラップ下端（ひじ＝スカート上端）
+
+	# サスペンダーストラップ（細い黒縦線、左右に余白あり）
+	var strap_color = Color(0.08, 0.08, 0.08) # 黒
+	var strap_w = 7.0 # ストラップ幅
+	var strap_cx = half_body * 0.6 # 中心からストラップ中心位置（横10分割の2・8の位置）
 
 	# 左ストラップ
 	var left_pts = PackedVector2Array([
-		Vector2(sx - strap_outer, strap_top_y),
-		Vector2(sx - strap_inner, strap_top_y),
-		Vector2(sx - strap_inner, strap_bot_y),
-		Vector2(sx - strap_outer, strap_bot_y),
+		Vector2(sx - strap_cx - strap_w * 0.5, strap_top_y),
+		Vector2(sx - strap_cx + strap_w * 0.5, strap_top_y),
+		Vector2(sx - strap_cx + strap_w * 0.5, strap_bot_y),
+		Vector2(sx - strap_cx - strap_w * 0.5, strap_bot_y),
 	])
-	ctx.canvas.draw_polygon(left_pts, PackedColorArray([jumper_color]))
+	ctx.canvas.draw_polygon(left_pts, PackedColorArray([strap_color]))
 
 	# 右ストラップ
 	var right_pts = PackedVector2Array([
-		Vector2(sx + strap_inner, strap_top_y),
-		Vector2(sx + strap_outer, strap_top_y),
-		Vector2(sx + strap_outer, strap_bot_y),
-		Vector2(sx + strap_inner, strap_bot_y),
+		Vector2(sx + strap_cx - strap_w * 0.5, strap_top_y),
+		Vector2(sx + strap_cx + strap_w * 0.5, strap_top_y),
+		Vector2(sx + strap_cx + strap_w * 0.5, strap_bot_y),
+		Vector2(sx + strap_cx - strap_w * 0.5, strap_bot_y),
 	])
-	ctx.canvas.draw_polygon(right_pts, PackedColorArray([jumper_color]))
-
-	# ストラップ内側繁（陰影感）
-	var edge_dark = jumper_color.darkened(0.28)
-	ctx.canvas.draw_line(Vector2(sx - strap_inner, strap_top_y), Vector2(sx - strap_inner, strap_bot_y), edge_dark, 1.6)
-	ctx.canvas.draw_line(Vector2(sx + strap_inner, strap_top_y), Vector2(sx + strap_inner, strap_bot_y), edge_dark, 1.6)
-
-	# 小さな折り返し襟（ブラウスの襟）
-	var collar_white = Color(1.0, 1.0, 1.0)
-	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
-	# 左襟フラップ
-	var lc = PackedVector2Array([
-		Vector2(sx - half_body * 0.22, neck_y + 2.0),
-		Vector2(sx - half_body * 0.04, sy + 4.0),
-		Vector2(sx + half_body * 0.06, neck_y + 4.0),
-		Vector2(sx - half_body * 0.08, neck_y + 2.0),
-	])
-	ctx.canvas.draw_polygon(lc, PackedColorArray([collar_white]))
-	# 右襟フラップ
-	var rc = PackedVector2Array([
-		Vector2(sx + half_body * 0.22, neck_y + 2.0),
-		Vector2(sx + half_body * 0.04, sy + 4.0),
-		Vector2(sx - half_body * 0.06, neck_y + 4.0),
-		Vector2(sx + half_body * 0.08, neck_y + 2.0),
-	])
-	ctx.canvas.draw_polygon(rc, PackedColorArray([collar_white]))
-	# 襟の縁取りライン
-	ctx.canvas.draw_line(Vector2(sx - half_body * 0.22, neck_y + 2.0), Vector2(sx, sy + 4.0), collar_shadow, 1.2)
-	ctx.canvas.draw_line(Vector2(sx + half_body * 0.22, neck_y + 2.0), Vector2(sx, sy + 4.0), collar_shadow, 1.2)
+	ctx.canvas.draw_polygon(right_pts, PackedColorArray([strap_color]))
 
 # ---------------------------------------------------------------
 # サスペンダースカート 側面オーバーレイ
@@ -552,39 +528,43 @@ static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # ---------------------------------------------------------------
 static func draw_jumper_side(ctx: DrawContext, sx: float, sy: float, navel_y: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
-		waist_angle: float, jumper_color: Color) -> void:
+		_waist_angle: float, _jumper_color: Color) -> void:
 	var p_sh = Vector2(sx, sy)
 	var p_sh_front = p_sh + fwd * half_t * 0.95
 	var p_sh_back = p_sh - fwd * half_t * 0.95
-	var strap_len = Vector2(0, (navel_y - sy) + 10.0)
-	var fw = half_t * 0.40 # ストラップの幅
+	var fw = half_t * 0.12 # ストラップの幅（細い黒帯）
+	var strap_color = Color(0.08, 0.08, 0.08) # 黒
 
-	# 前面ストラップ（胴体前面側の帯）
+	# 前面ストラップ（胴体前端に細い黒帯、上端は胸のでっぱり位置から）
+	var nipple_y = lerp(navel_y, sy, 0.55) # 胴体でっぱり（乳首）高さ
+	var p_front_top = p_sh_front + Vector2(0, nipple_y - sy) # 前端の胸位置
+	var front_strap_len = Vector2(0, (navel_y - nipple_y) + 10.0)
 	var front_band = PackedVector2Array([
-		p_sh_front,
-		p_sh_front - fwd * fw,
-		p_sh_front - fwd * fw + strap_len,
-		p_sh_front + strap_len,
+		p_front_top,
+		p_front_top - fwd * fw,
+		p_front_top - fwd * fw + front_strap_len,
+		p_front_top + front_strap_len,
 	])
-	ctx.canvas.draw_polygon(front_band, PackedColorArray([jumper_color]))
+	ctx.canvas.draw_polygon(front_band, PackedColorArray([strap_color]))
 
-	# 背面ストラップ（胴体背面側の帯）
+	# 背面ストラップ（胴体背端に細い黒帯）
+	var back_strap_len = Vector2(0, (navel_y - sy) + 10.0)
 	var back_band = PackedVector2Array([
 		p_sh_back,
 		p_sh_back + fwd * fw,
-		p_sh_back + fwd * fw + strap_len,
-		p_sh_back + strap_len,
+		p_sh_back + fwd * fw + back_strap_len,
+		p_sh_back + back_strap_len,
 	])
-	ctx.canvas.draw_polygon(back_band, PackedColorArray([jumper_color]))
+	ctx.canvas.draw_polygon(back_band, PackedColorArray([strap_color]))
 
-	# 側面から見える小さな襟（白いブラウス）
-	var collar_white = Color(1.0, 1.0, 1.0)
-	var p_nk = p_sh + up_v * 9.0
-	var p_nk_f = p_nk + fwd * half_t * 0.5
-	var collar_pts = PackedVector2Array([
-		p_nk_f,
-		p_nk_f + fwd * 5.0,
-		p_nk_f + fwd * 4.0 + Vector2(0, 11.0),
-		p_nk_f + Vector2(0, 9.0),
-	])
-	ctx.canvas.draw_polygon(collar_pts, PackedColorArray([collar_white]))
+	# # 側面から見える小さな襟（白いブラウス）
+	# var collar_white = Color(1.0, 1.0, 1.0)
+	# var p_nk = p_sh + up_v * 9.0
+	# var p_nk_f = p_nk + fwd * half_t * 0.5
+	# var collar_pts = PackedVector2Array([
+	# 	p_nk_f,
+	# 	p_nk_f + fwd * 5.0,
+	# 	p_nk_f + fwd * 4.0 + Vector2(0, 11.0),
+	# 	p_nk_f + Vector2(0, 9.0),
+	# ])
+	# ctx.canvas.draw_polygon(collar_pts, PackedColorArray([collar_white]))
