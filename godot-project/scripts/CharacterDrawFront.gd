@@ -96,6 +96,8 @@ static func draw(ctx: DrawContext) -> void:
 	# ジャンパースカート(blazer)のスカート部分は服の上に描画するためここでは描かない
 	if is_skirt and tops_type != "blazer":
 		var skirt_c = base_shirt_color if bottoms_type == "skirt_sailor" else pants_color
+		if tops_type == "blouse_bow":
+			skirt_c = Color(0.15, 0.2, 0.35) # 紺色
 		CharacterBodyDrawer.draw_skirt(ctx, bottoms_type, skirt_c, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, facing)
 	elif bottoms_type == "pants":
 		var p_pelvis_top = Vector2(d["front_hip_x"], d["front_hip_y"])

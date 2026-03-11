@@ -307,9 +307,9 @@ static func draw_blouse_bow_front(ctx: DrawContext, sx: float, sy: float, neck_y
 	ctx.canvas.draw_line(Vector2(sx - half_body * 0.2, bow_y + 5.0), Vector2(sx, bow_y), collar_shadow, 1.2)
 	ctx.canvas.draw_line(Vector2(sx + half_body * 0.2, bow_y + 5.0), Vector2(sx, bow_y), collar_shadow, 1.2)
 
-	# リボン（水色）
-	var ribbon_color = Color(0.4, 0.75, 0.95)
-	draw_bow_front(ctx, sx, sy, navel_y, half_body, ribbon_color)
+	# リボン（黒色で小さめ）
+	var ribbon_color = Color(0.15, 0.15, 0.15)
+	draw_bow_front(ctx, sx, sy, navel_y, half_body * 0.55, ribbon_color)
 
 # ---------------------------------------------------------------
 # リボンブラウスオーバーレイ（側面）
@@ -335,9 +335,9 @@ static func draw_blouse_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y
 	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
 	ctx.canvas.draw_line(p_nk_f, center + fwd * 4.0, collar_shadow, 1.2)
 
-	# リボン（水色）
-	var ribbon_color = Color(0.4, 0.75, 0.95)
-	draw_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, ribbon_color)
+	# リボン（黒色で小さめ）
+	var ribbon_color = Color(0.15, 0.15, 0.15)
+	draw_bow_side(ctx, sx, sy, navel_y, half_t * 0.55, fwd, up_v, waist_angle, ribbon_color)
 
 # ---------------------------------------------------------------
 # セーラー服オーバーレイ（側面）
