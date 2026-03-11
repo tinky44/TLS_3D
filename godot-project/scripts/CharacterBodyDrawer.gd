@@ -141,9 +141,10 @@ static func draw_pants_leg(ctx: DrawContext, p_hip: Vector2, p_knee: Vector2, p_
 static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float, facing: String = "front") -> void:
 	var d = ctx.d
 
-	# ジャンパースカート（現状tops_type="blazer"）の場合は、スカート開始位置をベルトの高さ（ひじ付近）に引き上げる
+	# ジャンパースカート(blazer)やリボンブラウス(blouse_bow)の場合は、スカート開始位置をひじ付近に引き上げる
 	var is_jumper = (ctx.tops_type == "blazer")
-	if is_jumper:
+	var is_blouse_bow = (ctx.tops_type == "blouse_bow")
+	if is_jumper or is_blouse_bow:
 		var b_sy = d["front_sy"] if facing in ["front", "back"] else d["sy"]
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		waist_pos.y = b_sy + u_arm
@@ -155,6 +156,10 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	if bottoms_type == "skirt_long":
 		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.3
 		hem_w = base_width * 1.3
+	elif is_blouse_bow:
+		# リボンブラウスのスカートは膝上（thigh_lの80%）
+		skirt_length = waist_to_crotch + d["thigh_l"] * 0.8
+		hem_w = base_width * 1.45
 	elif bottoms_type == "skirt_sailor" or is_jumper:
 		# 膝（thigh_l）より少し下（shin_lの10%）まで
 		skirt_length = waist_to_crotch + d["thigh_l"] + d["shin_l"] * 0.1
@@ -164,7 +169,7 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		skirt_length = waist_to_crotch + d["thigh_l"] * 0.4
 		hem_w = base_width * 1.5
 
-	var is_pleated = (bottoms_type == "skirt_sailor" or is_jumper)
+	var is_pleated = (bottoms_type == "skirt_sailor" or is_jumper or is_blouse_bow)
 
 	# 側面では脚の動きに合わせて前後に傾け、裾を広げる
 	if facing == "side":

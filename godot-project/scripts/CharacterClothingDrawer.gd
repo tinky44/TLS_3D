@@ -25,7 +25,7 @@ static func draw_tops_detail_front(ctx: DrawContext, tops_type: String, tops_col
 		"blazer":
 			draw_blazer_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
-			draw_bow_front(ctx, sx, sy, navel_y, half_body, tops_color)
+			draw_blouse_bow_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body)
 		"jumper_skirt":
 			draw_jumper_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
 
@@ -54,7 +54,7 @@ static func draw_tops_detail_side(ctx: DrawContext, tops_type: String, tops_colo
 		"blazer":
 			draw_blazer_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, true)
 		"blouse_bow":
-			draw_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
+			draw_blouse_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle)
 		"jumper_skirt":
 			draw_jumper_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
 
@@ -271,6 +271,73 @@ static func draw_bow_front(ctx: DrawContext, sx: float, sy: float, navel_y: floa
 	])
 	ctx.canvas.draw_polygon(tail_l_pts, PackedColorArray([bow_color]))
 	ctx.canvas.draw_polygon(tail_r_pts, PackedColorArray([bow_color]))
+
+# ---------------------------------------------------------------
+# リボンブラウスオーバーレイ（正面）
+# ---------------------------------------------------------------
+static func draw_blouse_bow_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float, _half_sh: float, half_body: float) -> void:
+	var bow_y = lerp(sy, navel_y, 0.22)
+	
+	# 大きめのブラウス襟
+	var collar_white = Color(1.0, 1.0, 1.0)
+	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
+	
+	# 左襟フラップ
+	var lc = PackedVector2Array([
+		Vector2(sx - half_body * 0.5, neck_y + 1.0),
+		Vector2(sx - half_body * 0.2, bow_y + 5.0),
+		Vector2(sx, bow_y - 2.0),
+		Vector2(sx - half_body * 0.15, neck_y + 4.0),
+	])
+	ctx.canvas.draw_polygon(lc, PackedColorArray([collar_white]))
+	
+	# 右襟フラップ
+	var rc = PackedVector2Array([
+		Vector2(sx + half_body * 0.5, neck_y + 1.0),
+		Vector2(sx + half_body * 0.2, bow_y + 5.0),
+		Vector2(sx, bow_y - 2.0),
+		Vector2(sx + half_body * 0.15, neck_y + 4.0),
+	])
+	ctx.canvas.draw_polygon(rc, PackedColorArray([collar_white]))
+	
+	# 襟の縁取りライン
+	ctx.canvas.draw_line(Vector2(sx - half_body * 0.5, neck_y + 1.0), Vector2(sx, bow_y), collar_shadow, 1.2)
+	ctx.canvas.draw_line(Vector2(sx + half_body * 0.5, neck_y + 1.0), Vector2(sx, bow_y), collar_shadow, 1.2)
+	
+	ctx.canvas.draw_line(Vector2(sx - half_body * 0.2, bow_y + 5.0), Vector2(sx, bow_y), collar_shadow, 1.2)
+	ctx.canvas.draw_line(Vector2(sx + half_body * 0.2, bow_y + 5.0), Vector2(sx, bow_y), collar_shadow, 1.2)
+
+	# リボン（水色）
+	var ribbon_color = Color(0.4, 0.75, 0.95)
+	draw_bow_front(ctx, sx, sy, navel_y, half_body, ribbon_color)
+
+# ---------------------------------------------------------------
+# リボンブラウスオーバーレイ（側面）
+# ---------------------------------------------------------------
+static func draw_blouse_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, half_t: float, fwd: Vector2, up_v: Vector2, waist_angle: float) -> void:
+	var p_sh = Vector2(sx, sy)
+	var chest_y_offset = (navel_y - sy) * 0.22
+	var center = p_sh + Vector2(0, chest_y_offset) + fwd * half_t * 0.88
+	
+	var collar_white = Color(1.0, 1.0, 1.0)
+	var p_nk = p_sh + up_v * 9.0
+	var p_nk_f = p_nk + fwd * half_t * 0.6
+	
+	# 側面の襟フラップ
+	var collar_pts = PackedVector2Array([
+		p_nk_f,
+		center + fwd * 4.0,
+		center - fwd * 2.0 + Vector2(0, 5.0),
+		p_nk_f - fwd * 5.0 + Vector2(0, 5.0),
+	])
+	ctx.canvas.draw_polygon(collar_pts, PackedColorArray([collar_white]))
+	
+	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
+	ctx.canvas.draw_line(p_nk_f, center + fwd * 4.0, collar_shadow, 1.2)
+
+	# リボン（水色）
+	var ribbon_color = Color(0.4, 0.75, 0.95)
+	draw_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, ribbon_color)
 
 # ---------------------------------------------------------------
 # セーラー服オーバーレイ（側面）
