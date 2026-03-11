@@ -379,9 +379,31 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	)
 	hair_row.add_child(hair_opt)
 
+	# 帽子選択
+	var hat_row = HBoxContainer.new()
+	vbox.add_child(hat_row)
+	var hat_label = Label.new()
+	hat_label.text = "帽子:"
+	hat_label.custom_minimum_size = Vector2(76, 0)
+	hat_row.add_child(hat_label)
+	var hat_opt = OptionButton.new()
+	hat_opt.focus_mode = Control.FOCUS_NONE
+	hat_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var hat_values = ["none", "school_hat"]
+	hat_opt.add_item("なし", 0)
+	hat_opt.add_item("学校帽", 1)
+	var cur_hat = hat_values.find(Global.current_appearance.get("hat_type", "none"))
+	hat_opt.selected = max(0, cur_hat)
+	hat_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["hat_type"] = hat_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	hat_row.add_child(hat_opt)
+
 	# ヒント
 	var hint_lbl = Label.new()
-	hint_lbl.text = "[Q] 服装を順番に切り替え"
+	hint_lbl.text = "[Q] 服装パネルを開閉"
 	hint_lbl.add_theme_font_size_override("font_size", 12)
 	hint_lbl.add_theme_color_override("font_color", Color("#888"))
 	vbox.add_child(hint_lbl)
@@ -850,12 +872,19 @@ func _setup_ui():
 	style.border_color = Color("#dee2e6")
 	sidebar.add_theme_stylebox_override("panel", style)
 	
+	var scroll = ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sidebar.add_child(scroll)
+
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 20)
 	margin.add_theme_constant_override("margin_top", 20)
 	margin.add_theme_constant_override("margin_right", 20)
 	margin.add_theme_constant_override("margin_bottom", 20)
-	sidebar.add_child(margin)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(margin)
 	
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 20)
