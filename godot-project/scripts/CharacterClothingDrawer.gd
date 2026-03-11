@@ -228,8 +228,8 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: f
 # ---------------------------------------------------------------
 static func draw_bow_front(ctx: DrawContext, sx: float, sy: float, navel_y: float, half_body: float, bow_color: Color) -> void:
 	var bow_y = lerp(sy, navel_y, 0.22) # 肩と乳首の間くらいの高さにリボン
-	var bow_w = half_body * 0.55 # リボンの横方向の広がり
-	var bow_h = half_body * 0.28 # リボンの縦の高さ
+	var bow_w = half_body * 0.8 # リボンの横方向の広がり
+	var bow_h = half_body * 0.5 # リボンの縦の高さ
 
 	# 左ウィング（五角形: 中央から外側に膨らんで先が細い形）
 	var left_wing = PackedVector2Array([
