@@ -102,13 +102,14 @@ static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, f
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
-    # 側面: 台形（上辺が短く下辺（靴底）が長い、右向き）
-    var top_w = foot_w * 0.3
+    # 側面: 靴シルエット（6頂点、つま先に短い縦面を持たせて丸みを表現）
     var pts = PackedVector2Array([
-        ankle, # 踵上（足首）
-        ankle + Vector2(top_w, 0.0), # 甲上端
-        ankle + Vector2(foot_w, foot_h), # つま先下端
-        ankle + Vector2(0.0, foot_h), # 踵下端
+        ankle,                                  # 1. 踵上
+        ankle + Vector2(foot_w * 0.3, 0.0),    # 2. 甲上端（短い上辺）
+        ankle + Vector2(foot_w, foot_h * 0.4), # 3. つま先上端
+        ankle + Vector2(foot_w, foot_h * 0.85),# 4. つま先下端（前面を短い縦辺に）
+        ankle + Vector2(foot_w * 0.8, foot_h), # 5. 靴底前端（少し手前）
+        ankle + Vector2(0.0, foot_h),           # 6. 踵下端
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
