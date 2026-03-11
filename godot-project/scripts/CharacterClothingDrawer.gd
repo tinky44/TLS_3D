@@ -583,17 +583,19 @@ static func draw_jumper_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 # 帽子描画関数
 # ============================================================
 
-static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float, head_w: float, hat_type: String, hat_color: Color) -> void:
+static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float, _head_w: float, hat_type: String, hat_color: Color) -> void:
 	if hat_type == "none" or hat_type == "":
 		return
 	
 	match hat_type:
 		"school_hat":
 			# 通学帽 (正面) - ハット型 (全周つば)
-			# クラウン: 頭(head_w/2)や髪(hr*1.12)を覆うように少し大きめに設定
-			var crown_w = head_w * 0.65 # 頭より少し広め
-			var crown_h = head_r * 0.7
-			var crown_base_y = hy - head_r * 0.25 # 被る深さ
+			# 髪を含めた頭の実幅: hair_outer_w = head_r * 1.12
+			var hair_outer_w = head_r * 1.12
+			# クラウン半幅: 髪の幅より少し大きく覆う
+			var crown_w = hair_outer_w * 1.05
+			var crown_h = head_r * 0.9
+			var crown_base_y = hy - head_r * 0.4 # 被る深さ
 			var crown_pts = PackedVector2Array()
 			var segments = 16
 			for i in range(segments + 1):
@@ -601,8 +603,8 @@ static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float
 				crown_pts.append(Vector2(hx + cos(angle) * crown_w, crown_base_y + sin(angle) * crown_h))
 			ctx.canvas.draw_polygon(crown_pts, PackedColorArray([hat_color]))
 			
-			# つば: 顔の左右に大きく広がる
-			var brim_w = head_w * 1.05
+			# つば: 髪を含めた頭の幅に合わせて広がる (hair_outer_w + つば追加分)
+			var brim_w = hair_outer_w * 1.35
 			var brim_h = head_r * 0.15
 			var brim_pts = PackedVector2Array()
 			# 下半分のカーブ
@@ -615,7 +617,7 @@ static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float
 				brim_pts.append(Vector2(hx - cos(angle) * brim_w, crown_base_y - sin(angle) * brim_h * 0.5))
 			ctx.canvas.draw_polygon(brim_pts, PackedColorArray([hat_color.darkened(0.15)]))
 
-static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float, head_w: float, head_angle: float, hat_type: String, hat_color: Color) -> void:
+static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float, _head_w: float, head_angle: float, hat_type: String, hat_color: Color) -> void:
 	if hat_type == "none" or hat_type == "":
 		return
 	
@@ -625,10 +627,20 @@ static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float,
 			var dir_fwd = Vector2(cos(head_angle), sin(head_angle))
 			var dir_up = Vector2(-sin(head_angle), cos(head_angle))
 			
-			# クラウン位置（頭の少し上、前後対称に乗せる）
-			var crown_base = Vector2(hx, hy) + dir_up * head_r * 0.25 - dir_fwd * head_w * 0.05
-			var crown_r_x = head_w * 0.65 # 前後幅
-			var crown_r_y = head_r * 0.6  # 高さ
+			# 髪を含めた頭の実幅 (正面と同じ計算)
+			var hair_outer_w_s = head_r * 1.12
+			var crown_r_x = hair_outer_w_s * 1.05
+			var crown_r_y = head_r * 0.9
+			
+			# ── クラウン ──────────────────────────────────────
+			# 髪の上端を計算（CharacterHairDrawer と同じ値）:
+			#   dome_up_offset = head_r * 0.1
+			#   hair_dome_R    = head_r * 1.08
+			#   → 髪上端 = dir_up * (0.1 + 1.08) * head_r = dir_up * head_r * 1.18
+			var hair_top = Vector2(hx, hy) + dir_up * (head_r * 1.18) - dir_up * (head_r) * 0.7
+			# クラウン中心 = 髪上端から crown_r_y 分だけ下（内側）
+			var crown_center = hair_top - dir_up * crown_r_y
+			
 			var crown_pts = PackedVector2Array()
 			var segments = 16
 			for i in range(segments + 1):
@@ -637,26 +649,28 @@ static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float,
 				var local_y = sin(angle) * crown_r_y
 				var rot_x = local_x * cos(head_angle) - local_y * sin(head_angle)
 				var rot_y = local_x * sin(head_angle) + local_y * cos(head_angle)
-				crown_pts.append(crown_base + Vector2(rot_x, rot_y))
+				crown_pts.append(crown_center + Vector2(rot_x, rot_y))
 			ctx.canvas.draw_polygon(crown_pts, PackedColorArray([hat_color]))
 			
-			# つば（前後に突き出す）
-			# ハットなので前後対称。
-			var brim_len = head_w * 0.95 # 半径
+			# ── つば ──────────────────────────────────────────
+			# つばの基準位置: 正面の crown_base_y = hy - head_r * 0.25 に対応
+			# （クラウン中心とは独立して計算）
+			var crown_brim_base = crown_center # Vector2(hx, hy) + dir_up * (head_r * 0.25)
+			var brim_len = hair_outer_w_s * 1.35 # 正面の brim_w と統一
 			var brim_curve = head_r * 0.15 # つばの端が少し下がる設定
 			var brim_pts = PackedVector2Array()
 			
-			# 前側のつばの端
-			var p_front = crown_base + dir_fwd * brim_len - dir_up * brim_curve
+			# 前側のつばの端（底辺基準から前方・下方へ）
+			var p_front = crown_brim_base + dir_fwd * brim_len - dir_up * brim_curve
 			# 後ろ側のつばの端
-			var p_back = crown_base - dir_fwd * brim_len - dir_up * brim_curve
+			var p_back = crown_brim_base - dir_fwd * brim_len - dir_up * brim_curve
 			
-			# 前から後ろへ線を引く (太さを付ける)
+			# 前から後ろへ（太さを持たせたポリゴン）
 			brim_pts.append(p_front - dir_up * 2.0)
-			brim_pts.append(crown_base + dir_up * 1.0) # 中央を少し上げる
+			brim_pts.append(crown_brim_base + dir_up * 1.0) # 中央は少し上げる
 			brim_pts.append(p_back - dir_up * 2.0)
 			brim_pts.append(p_back + dir_up * 2.0)
-			brim_pts.append(crown_base + dir_up * 5.0)
+			brim_pts.append(crown_brim_base + dir_up * 5.0)
 			brim_pts.append(p_front + dir_up * 2.0)
 			
 			ctx.canvas.draw_polygon(brim_pts, PackedColorArray([hat_color.darkened(0.15)]))
