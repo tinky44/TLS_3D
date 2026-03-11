@@ -221,9 +221,12 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var spread_x = abs(max_x - min_x)
 		# 【調整用】裾の広がりマージン。大きいほど裾が脚より広がる
 		var spread_margin = 1.5 if bottoms_type == "skirt_long" else (1.6 if is_pleated else 1.2)
-		var actual_hem_w = max(hem_w, spread_x * spread_margin)
+		# 屈んだとき両膝が同方向(前方)に揃うと spread_x ≈ 0 になるため、
+		# 裾中心(p_bottom.x)から各脚位置までの最大距離も考慮する
+		var reach_from_hem = max(abs(max_x - p_bottom.x), abs(min_x - p_bottom.x))
+		var side_hem_w = max(hem_w, spread_x * spread_margin, reach_from_hem * 2.0) + 15.0 # +15.0は調整用。膝を隠すため
 
-		CharacterDrawUtils.draw_trapezoid(ctx.canvas, waist_pos, p_bottom, base_width, actual_hem_w, bottoms_color)
+		CharacterDrawUtils.draw_trapezoid(ctx.canvas, waist_pos, p_bottom, base_width, side_hem_w, bottoms_color)
 
 		# プリーツ（セーラー服・ジャンパースカート用）
 		if is_pleated:
@@ -232,7 +235,7 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 			if d_vec.length() > 0.01:
 				var n = Vector2(-d_vec.y, d_vec.x).normalized()
 				var h_top = base_width / 2.0
-				var h_hem = actual_hem_w / 2.0
+				var h_hem = side_hem_w / 2.0
 				for i in range(1, 7): # 6本の線を入れる
 					var t = float(i) / 7.0
 					var top_p = waist_pos + n * lerp(-h_top, h_top, t)
