@@ -275,39 +275,19 @@ static func draw_bow_front(ctx: DrawContext, sx: float, sy: float, navel_y: floa
 # ---------------------------------------------------------------
 # リボンブラウスオーバーレイ（正面）
 # ---------------------------------------------------------------
-static func draw_blouse_bow_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float, _half_sh: float, half_body: float) -> void:
-	var bow_y = lerp(sy, navel_y, 0.22)
-	
-	# 大きめのブラウス襟
-	var collar_white = Color(1.0, 1.0, 1.0)
-	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
-	
-	# 左襟フラップ
-	var lc = PackedVector2Array([
-		Vector2(sx - half_body * 0.5, neck_y + 1.0),
-		Vector2(sx - half_body * 0.2, bow_y + 5.0),
-		Vector2(sx, bow_y - 2.0),
-		Vector2(sx - half_body * 0.15, neck_y + 4.0),
-	])
-	ctx.canvas.draw_polygon(lc, PackedColorArray([collar_white]))
-	
-	# 右襟フラップ
-	var rc = PackedVector2Array([
-		Vector2(sx + half_body * 0.5, neck_y + 1.0),
-		Vector2(sx + half_body * 0.2, bow_y + 5.0),
-		Vector2(sx, bow_y - 2.0),
-		Vector2(sx + half_body * 0.15, neck_y + 4.0),
-	])
-	ctx.canvas.draw_polygon(rc, PackedColorArray([collar_white]))
-	
-	# 襟の縁取りライン
-	ctx.canvas.draw_line(Vector2(sx - half_body * 0.5, neck_y + 1.0), Vector2(sx, bow_y), collar_shadow, 1.2)
-	ctx.canvas.draw_line(Vector2(sx + half_body * 0.5, neck_y + 1.0), Vector2(sx, bow_y), collar_shadow, 1.2)
-	
-	ctx.canvas.draw_line(Vector2(sx - half_body * 0.2, bow_y + 5.0), Vector2(sx, bow_y), collar_shadow, 1.2)
-	ctx.canvas.draw_line(Vector2(sx + half_body * 0.2, bow_y + 5.0), Vector2(sx, bow_y), collar_shadow, 1.2)
+static func draw_blouse_bow_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float, _half_sh: float, half_body: float) -> void:
+	# ブラウスの下端（スカートの開始位置）
+	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
+	var belt_y = sy + u_arm
 
-	# リボン（黒色で小さめ）
+	# 前立て（ボタンの重なり部分）
+	var placket_color = Color(0.8, 0.8, 0.8)
+	var placket_w = 4.0
+	# 上端は sy (肩のライン)、下端は belt_y (スカート境界) に合わせる
+	ctx.canvas.draw_line(Vector2(sx - placket_w, sy), Vector2(sx - placket_w, belt_y), placket_color, 1.2)
+	ctx.canvas.draw_line(Vector2(sx + placket_w, sy), Vector2(sx + placket_w, belt_y), placket_color, 1.2)
+	
+	# リボン（黒色で小さめ、最前面に描画）
 	var ribbon_color = Color(0.15, 0.15, 0.15)
 	draw_bow_front(ctx, sx, sy, navel_y, half_body * 0.55, ribbon_color)
 
@@ -315,27 +295,7 @@ static func draw_blouse_bow_front(ctx: DrawContext, sx: float, sy: float, neck_y
 # リボンブラウスオーバーレイ（側面）
 # ---------------------------------------------------------------
 static func draw_blouse_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, half_t: float, fwd: Vector2, up_v: Vector2, waist_angle: float) -> void:
-	var p_sh = Vector2(sx, sy)
-	var chest_y_offset = (navel_y - sy) * 0.22
-	var center = p_sh + Vector2(0, chest_y_offset) + fwd * half_t * 0.88
-	
-	var collar_white = Color(1.0, 1.0, 1.0)
-	var p_nk = p_sh + up_v * 9.0
-	var p_nk_f = p_nk + fwd * half_t * 0.6
-	
-	# 側面の襟フラップ
-	var collar_pts = PackedVector2Array([
-		p_nk_f,
-		center + fwd * 4.0,
-		center - fwd * 2.0 + Vector2(0, 5.0),
-		p_nk_f - fwd * 5.0 + Vector2(0, 5.0),
-	])
-	ctx.canvas.draw_polygon(collar_pts, PackedColorArray([collar_white]))
-	
-	var collar_shadow = Color(0.2, 0.2, 0.2, 0.35)
-	ctx.canvas.draw_line(p_nk_f, center + fwd * 4.0, collar_shadow, 1.2)
-
-	# リボン（黒色で小さめ）
+	# リボン（黒色で小さめ、最前面に描画）
 	var ribbon_color = Color(0.15, 0.15, 0.15)
 	draw_bow_side(ctx, sx, sy, navel_y, half_t * 0.55, fwd, up_v, waist_angle, ribbon_color)
 
