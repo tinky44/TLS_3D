@@ -69,6 +69,25 @@ static func draw(ctx: DrawContext) -> void:
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_hip_r, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type, leg_pants_top_w)
 	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_r, foot_w, foot_h, shoe_color)
 
+	# 1.5 両腕（台形袖の描画）
+	var arm_len = m["armLength"] * p
+	var u_arm = arm_len * 0.5
+	var l_arm = arm_len * 0.5
+
+	var arm_skin = skin_color if facing == "front" else skin_dark
+	var arm_shirt = base_shirt_color if facing == "front" else shirt_dark
+
+	var f_arm_l_ang = 0.12 + (d["arm_l_angle"] * 0.3) * PI / 180 + PI / 2
+	var p_elb_l = CharacterPoseCalculator.rotated_point(p_sh_l.x, p_sh_l.y, u_arm, f_arm_l_ang)
+	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, f_arm_l_ang)
+
+	var f_arm_r_ang = -0.12 + (d["arm_r_angle"] * 0.3) * PI / 180 + PI / 2
+	var p_elb_r = CharacterPoseCalculator.rotated_point(p_sh_r.x, p_sh_r.y, u_arm, f_arm_r_ang)
+	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, f_arm_r_ang)
+
+	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_l, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, f_arm_l_ang - PI / 2, tops_type, arm_skin, arm_shirt)
+	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_r, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, f_arm_r_ang - PI / 2, tops_type, arm_skin, arm_shirt)
+
 	# 2. 胴体 (シャツ) — 正面ビュー用座標を使用
 	CharacterDrawUtils.draw_torso_part(ctx.canvas, ctx.part_shapes["torso_front_lower"], Vector2(d["front_navel_x"], d["front_navel_y"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
 	CharacterDrawUtils.draw_torso_part(ctx.canvas, ctx.part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_navel_x"], d["front_navel_y"]), body_w, body_w, base_shirt_color)
@@ -90,25 +109,6 @@ static func draw(ctx: DrawContext) -> void:
 
 	# 4.5 服装オーバーレイ（カラー・ラペル・リボンなど）
 	CharacterClothingDrawer.draw_tops_detail_front(ctx, tops_type, base_shirt_color, body_w, shoulder_w, skin_color)
-
-	# 5. 両腕（台形袖の描画）
-	var arm_len = m["armLength"] * p
-	var u_arm = arm_len * 0.5
-	var l_arm = arm_len * 0.5
-
-	var arm_skin = skin_color if facing == "front" else skin_dark
-	var arm_shirt = base_shirt_color if facing == "front" else shirt_dark
-
-	var f_arm_l_ang = 0.12 + (d["arm_l_angle"] * 0.3) * PI / 180 + PI / 2
-	var p_elb_l = CharacterPoseCalculator.rotated_point(p_sh_l.x, p_sh_l.y, u_arm, f_arm_l_ang)
-	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, f_arm_l_ang)
-
-	var f_arm_r_ang = -0.12 + (d["arm_r_angle"] * 0.3) * PI / 180 + PI / 2
-	var p_elb_r = CharacterPoseCalculator.rotated_point(p_sh_r.x, p_sh_r.y, u_arm, f_arm_r_ang)
-	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, f_arm_r_ang)
-
-	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_l, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, f_arm_l_ang - PI / 2, tops_type, arm_skin, arm_shirt)
-	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_r, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, f_arm_r_ang - PI / 2, tops_type, arm_skin, arm_shirt)
 
 	# 6. 顔とディテール
 	if facing == "front":
