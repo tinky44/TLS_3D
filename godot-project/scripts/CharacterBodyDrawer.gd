@@ -146,21 +146,18 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	var is_blouse_bow = (ctx.tops_type == "blouse_bow")
 	var is_jumper_skirt = (ctx.tops_type == "jumper_skirt")
 	if is_jumper or is_blouse_bow or is_jumper_skirt:
-		var b_sy = d["front_sy"] if facing in ["front", "back"] else d["sy"]
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
-		waist_pos.y = b_sy + u_arm
-		# 側面ビューのとき、胴体の傾きに合わせてX座標も補正する
-		# (waist_pos.y に対応する胴体上のX座標を肩〜へそ間で補間)
 		if facing == "side":
-			var s_y = d["sy"]
+			# 【調整用】側面: 肩から胴体方向(torso_dir)にu_armだけ進んだ点がベルト位置
+			# → draw_blazer_side/draw_jumper_side のベルト描画と同じ計算で揃える
 			var s_x = d["sx"]
-			var navel_y = d["navel_y"]
-			var navel_x = d["navel_x"]
-			if abs(navel_y - s_y) > 0.01:
-				var t = clamp((waist_pos.y - s_y) / (navel_y - s_y), 0.0, 1.0)
-				waist_pos.x = lerp(s_x, navel_x, t)
-			else:
-				waist_pos.x = s_x
+			var s_y = d["sy"]
+			var torso_vec = Vector2(d["navel_x"] - s_x, d["navel_y"] - s_y)
+			var torso_dir = torso_vec.normalized() if torso_vec.length() > 0.01 else Vector2(0, 1)
+			waist_pos = Vector2(s_x, s_y) + torso_dir * u_arm
+		else:
+			# 正面・背面: Xは固定(cx=0)のままYのみ引き上げる
+			waist_pos.y = d["front_sy"] + u_arm
 
 	var waist_to_crotch = d["cy"] - waist_pos.y
 	var skirt_length: float
