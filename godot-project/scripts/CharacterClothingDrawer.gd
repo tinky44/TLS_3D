@@ -693,16 +693,16 @@ static func _draw_randoseru_side(ctx: DrawContext, bag_color: Color) -> void:
 	var half_t = head_w_m * 0.5
 
 	var fwd = Vector2(cos(waist_angle), sin(waist_angle))
-	var up_v = Vector2(-sin(waist_angle), cos(waist_angle))  # +方向=画面下
+	var up_v = Vector2(-sin(waist_angle), cos(waist_angle)) # +方向=画面下
 
 	var p_sh = Vector2(d["sx"], d["sy"])
-	var torso_vec = Vector2(d["navel_x"] - d["sx"], d["navel_y"] - d["sy"])
+	var _torso_vec = Vector2(d["navel_x"] - d["sx"], d["navel_y"] - d["sy"])
 
-	var bag_depth = head_w_m * 0.62
+	var bag_depth = 22.0 * p # x方向（前後の奥行き）: 22cm
 
 	# 胴体背面上端・下端
 	var back_top = p_sh - fwd * half_t
-	var back_bot = p_sh - fwd * half_t + torso_vec * 0.90
+	var back_bot = back_top + up_v * 34.0 * p # y方向（高さ）: 34cm
 	# バッグ外側上端・下端
 	var outer_top = back_top - fwd * bag_depth
 	var outer_bot = back_bot - fwd * bag_depth
@@ -762,7 +762,7 @@ static func _draw_randoseru_back(ctx: DrawContext, bag_color: Color) -> void:
 	var navel_y = d["front_navel_y"]
 	var torso_h = navel_y - sy
 
-	var bag_w = ctx.shoulder_w * 0.55
+	var bag_w = 26.0 * ctx.p # x方向（幅）: 26cm
 	var bag_h = torso_h * 0.90
 	var bag_l = sx - bag_w * 0.5
 	var bag_r = sx + bag_w * 0.5
