@@ -707,22 +707,41 @@ static func _draw_randoseru_side(ctx: DrawContext, bag_color: Color) -> void:
 	var outer_top = back_top - fwd * bag_depth
 	var outer_bot = back_bot - fwd * bag_depth
 
-	# メイン本体
-	ctx.canvas.draw_polygon(
-		PackedVector2Array([back_top, back_bot, outer_bot, outer_top]),
-		PackedColorArray([bag_color])
-	)
-	# 蓋（上部38%を明るく）
+	# アーチ上部の頂点生成
+	# 頂点 = 元の back_top/outer_top レベル（高さ変わらず）
+	# 両端コーナーを arch_ry 分だけ下げ、中央頂点が元の上端に揃う
+	var top_center = (back_top + outer_top) * 0.5
+	var arch_ry = bag_depth * 0.30 # アーチ高さ（奥行きの30%）
+	var arch_segs = 12
+	var arch_pts = PackedVector2Array()
+	for i in range(arch_segs + 1):
+		var theta = PI * float(i) / arch_segs
+		arch_pts.append(top_center
+			- fwd * (cos(theta) * bag_depth * 0.5)
+			+ up_v * (arch_ry * (1.0 - sin(theta))))
+
+	# メイン本体（アーチ上部 + 直線下部）
+	var body_pts = arch_pts.duplicate()
+	body_pts.append(back_bot)
+	body_pts.append(outer_bot)
+	ctx.canvas.draw_polygon(body_pts, PackedColorArray([bag_color]))
+
+	# 蓋（アーチ上部 + 蓋下端）
 	var lid_r = 0.38
 	var lid_ib = back_top + (back_bot - back_top) * lid_r
 	var lid_ob = outer_top + (outer_bot - outer_top) * lid_r
-	ctx.canvas.draw_polygon(
-		PackedVector2Array([back_top, lid_ib, lid_ob, outer_top]),
-		PackedColorArray([bag_color.lightened(0.15)])
-	)
+	var lid_pts = arch_pts.duplicate()
+	lid_pts.append(lid_ob)
+	lid_pts.append(lid_ib)
+	ctx.canvas.draw_polygon(lid_pts, PackedColorArray([bag_color.lightened(0.15)]))
+
 	# 枠線と蓋の境界線
 	var edge = bag_color.darkened(0.25)
-	ctx.canvas.draw_polyline(PackedVector2Array([outer_top, outer_bot, back_bot, back_top, outer_top]), edge, 1.2)
+	var outline_pts = arch_pts.duplicate()
+	outline_pts.append(back_bot)
+	outline_pts.append(outer_bot)
+	outline_pts.append(arch_pts[0]) # outer_top へ戻る（閉じる）
+	ctx.canvas.draw_polyline(outline_pts, edge, 1.2)
 	ctx.canvas.draw_line(lid_ib, lid_ob, edge, 1.5)
 
 	# 前ポケット
@@ -733,16 +752,6 @@ static func _draw_randoseru_side(ctx: DrawContext, bag_color: Color) -> void:
 	var pk_ot = outer_top + (outer_bot - outer_top) * pk0
 	var pk_ob2 = outer_top + (outer_bot - outer_top) * pk1
 	ctx.canvas.draw_polyline(PackedVector2Array([pk_it, pk_ot, pk_ob2, pk_ib2, pk_it]), edge, 0.9)
-
-	# 持ち手（上部にアーチ）
-	# -up_v 方向 = 画面上（Yを小さくする）
-	var mid = (back_top + outer_top) * 0.5
-	var h_l = mid - fwd * bag_depth * 0.12 - up_v * 8.0
-	var h_r = mid + fwd * bag_depth * 0.12 - up_v * 8.0
-	ctx.canvas.draw_polyline(
-		PackedVector2Array([mid - fwd * bag_depth * 0.12, h_l, h_r, mid + fwd * bag_depth * 0.12]),
-		edge, 3.0
-	)
 
 	# 金具
 	ctx.canvas.draw_circle((lid_ib + lid_ob) * 0.5, 2.5, Color(0.85, 0.75, 0.2))
