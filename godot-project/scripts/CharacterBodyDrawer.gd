@@ -190,10 +190,12 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var avg_leg_ang = (d["leg_l_angle"] + d["leg_r_angle"]) / 2.0
 		# スカートは布のため重力で多少下に向くので、脚の角度を完全に追うのではなく軽減(0.7倍)
 		var skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
-		# 【調整用】ジャンパー系(blazer/blouse_bow/jumper_skirt)は背中の傾きも反映する
-		# waist_angleが増えるほど前方へ傾く。係数0.5で傾きの50%を追従
-		if is_jumper or is_blouse_bow or is_jumper_skirt:
-			skirt_ang += d["waist_angle"] * 0.5
+		# 【調整用】背中の傾きをスカート角度に反映する。waist_angleが増えるほど前方へ傾く。
+		# ジャンパー系(blazer/blouse_bow/jumper_skirt)は構造が固いため50%追従。
+		# 通常スカートは布が重力に引かれるため30%追従。
+		# → 屈んだとき、ベルト位置とスカート上端のズレを解消する
+		var waist_lean = 0.5 if (is_jumper or is_blouse_bow or is_jumper_skirt) else 0.3
+		skirt_ang += d["waist_angle"] * waist_lean
 		var p_bottom = Vector2(waist_pos.x + skirt_length * cos(skirt_ang), waist_pos.y + skirt_length * sin(skirt_ang))
 
 		# 脚の実際のX座標の広がりを計算して、裾が脚を覆い隠せるようにする
