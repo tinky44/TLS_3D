@@ -85,6 +85,21 @@
         background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
       }
 
+      .btn-feedback {
+        background: rgba(6, 182, 212, 0.1);
+        color: var(--accent);
+        border: 1px solid rgba(6, 182, 212, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 12px;
+      }
+      .btn-feedback:hover {
+        background: rgba(6, 182, 212, 0.2);
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+
       main {
         flex: 1;
         display: flex;
@@ -184,6 +199,12 @@
           </svg>
           全画面でプレイ
         </button>
+        <a href="#" target="_blank" class="btn btn-feedback">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          感想・フィードバック
+        </a>
       </div>
       
       <p class="hint">ヒント: ゲーム画面内をクリックすると操作可能になります。全画面モードは ESC キーで解除できます。</p>
