@@ -31,7 +31,8 @@ func _draw() -> void:
 	if m == null or m.is_empty():
 		return
 
-	var d = CharacterPoseCalculator.calculate_pose_data(player, m, p)
+	var _sd = player.get("smooth_d")
+	var d = (_sd if (_sd != null and not _sd.is_empty()) else CharacterPoseCalculator.calculate_pose_data(player, m, p))
 	var flip = (dir == -1 and facing == "side")
 
 	var appearance = player.get("appearance")

@@ -35,6 +35,10 @@ var _head_bump_shake_left: float = 0.0
 var _camera_base_offset: Vector2 = Vector2.ZERO
 var _camera_shake_active: bool = false
 
+# ポーズ遷移の補間用
+var smooth_d: Dictionary = {}
+const POSE_LERP_SPEED: float = 7.0
+
 func _ready() -> void:
 	collision_layer = 0
 	collision_mask |= 4
@@ -132,6 +136,7 @@ func _physics_process(delta: float) -> void:
 	_handle_auto_crouch()
 	_update_visual_height(delta)
 	_update_collision()
+	_update_smooth_pose(delta)
 	move_and_slide()
 	_process_head_bump(delta)
 	_update_camera_shake()
@@ -227,6 +232,19 @@ func _handle_auto_crouch() -> void:
 func _is_ceiling_blocked() -> bool:
 	sensors[4].force_raycast_update()
 	return sensors[4].is_colliding()
+
+func _update_smooth_pose(delta: float) -> void:
+	if m == null or m.is_empty():
+		return
+	var target_d = CharacterPoseCalculator.calculate_pose_data(self, m, CM_TO_PX)
+	if smooth_d.is_empty():
+		smooth_d = target_d.duplicate()
+		return
+	var t = clamp(POSE_LERP_SPEED * delta, 0.0, 1.0)
+	for key in target_d:
+		var val = target_d[key]
+		if val is float or val is int:
+			smooth_d[key] = lerp(float(smooth_d.get(key, val)), float(val), t)
 
 func _update_visual_height(delta: float) -> void:
 	var target_h_cm = m["height"]

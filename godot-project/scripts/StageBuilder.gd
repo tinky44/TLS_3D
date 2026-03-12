@@ -212,6 +212,19 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
     
     parent_node.add_child(floor_body)
 
+    # 左右の見えない壁（ステージ端から落ちないようにする）
+    var _edge_w_px: float = stage_data["width"] * cm_to_px
+    for wall_x in [0.0, _edge_w_px]:
+        var wall_body = StaticBody2D.new()
+        wall_body.set_meta("is_stage_obj", true)
+        var wall_shape = CollisionShape2D.new()
+        var wall_rect = RectangleShape2D.new()
+        wall_rect.size = Vector2(20, 2000)
+        wall_shape.shape = wall_rect
+        wall_shape.position = Vector2(wall_x, -500)
+        wall_body.add_child(wall_shape)
+        parent_node.add_child(wall_body)
+
     # 部屋系ステージの場合、背景を壁紙風にする
     if (stage_id == "room" or stage_id == "myroom") and stage_data.get("ceiling_height") != null:
         var wall_bg = Node2D.new()
