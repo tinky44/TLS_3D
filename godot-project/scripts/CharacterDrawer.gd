@@ -80,6 +80,8 @@ func _draw() -> void:
 	
 	var default_hat_color = "#ffd700" if ctx.hat_type == "school_hat" else "#ffffff"
 	ctx.hat_color = Color(appearance.get("hat_color", default_hat_color))
+	ctx.bag_type = appearance.get("bag_type", "none")
+	ctx.bag_color = Color(appearance.get("bag_color", "#c01020"))
 	
 	ctx.head_r = d["head_h"] / 2.0
 

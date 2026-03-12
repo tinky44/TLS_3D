@@ -30,6 +30,9 @@ static func draw(ctx: DrawContext) -> void:
 	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = ctx.shoe_color
 
+	# 0. バッグ（ランドセルなど） — 最背面に描画
+	CharacterClothingDrawer.draw_bag_side(ctx)
+
 	# === 側面用の微調整（ここを書き換えて動作確認します） ===
 	var side_offset_x = -4.0 # プラスで右(前)に移動、マイナスで左(後)に移動
 	var side_offset_y = 10.0 # プラスで下に移動、マイナスで上に移動

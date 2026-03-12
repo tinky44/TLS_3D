@@ -401,6 +401,28 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	)
 	hat_row.add_child(hat_opt)
 
+	# バッグ選択
+	var bag_row = HBoxContainer.new()
+	vbox.add_child(bag_row)
+	var bag_label = Label.new()
+	bag_label.text = "バッグ:"
+	bag_label.custom_minimum_size = Vector2(76, 0)
+	bag_row.add_child(bag_label)
+	var bag_opt = OptionButton.new()
+	bag_opt.focus_mode = Control.FOCUS_NONE
+	bag_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bag_values = ["none", "randoseru"]
+	bag_opt.add_item("なし", 0)
+	bag_opt.add_item("ランドセル", 1)
+	var cur_bag = bag_values.find(Global.current_appearance.get("bag_type", "none"))
+	bag_opt.selected = max(0, cur_bag)
+	bag_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["bag_type"] = bag_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	bag_row.add_child(bag_opt)
+
 	# ヒント
 	var hint_lbl = Label.new()
 	hint_lbl.text = "[Q] 服装パネルを開閉"

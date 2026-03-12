@@ -668,5 +668,156 @@ static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float,
 			brim_pts.append(p_back + dir_up * 2.0)
 			brim_pts.append(crown_brim_base + dir_up * 5.0)
 			brim_pts.append(p_front + dir_up * 2.0)
-			
+
 			ctx.canvas.draw_polygon(brim_pts, PackedColorArray([hat_color.darkened(0.15)]))
+
+# ============================================================
+# バッグ（ランドセルなど）描画関数
+# ============================================================
+
+# 側面ビュー用バッグ描画
+static func draw_bag_side(ctx: DrawContext) -> void:
+	if ctx.bag_type == "none" or ctx.bag_type == "":
+		return
+	match ctx.bag_type:
+		"randoseru":
+			_draw_randoseru_side(ctx, ctx.bag_color)
+
+static func _draw_randoseru_side(ctx: DrawContext, bag_color: Color) -> void:
+	var d = ctx.d
+	var m = ctx.m
+	var p = ctx.p
+	var waist_angle = d["waist_angle"]
+
+	var head_w_m = (m.get("headWidth", m["head"] * 0.702)) * p * 0.85
+	var half_t = head_w_m * 0.5
+
+	var fwd = Vector2(cos(waist_angle), sin(waist_angle))
+	var up_v = Vector2(-sin(waist_angle), cos(waist_angle))  # +方向=画面下
+
+	var p_sh = Vector2(d["sx"], d["sy"])
+	var torso_vec = Vector2(d["navel_x"] - d["sx"], d["navel_y"] - d["sy"])
+
+	var bag_depth = head_w_m * 0.62
+
+	# 胴体背面上端・下端
+	var back_top = p_sh - fwd * half_t
+	var back_bot = p_sh - fwd * half_t + torso_vec * 0.90
+	# バッグ外側上端・下端
+	var outer_top = back_top - fwd * bag_depth
+	var outer_bot = back_bot - fwd * bag_depth
+
+	# メイン本体
+	ctx.canvas.draw_polygon(
+		PackedVector2Array([back_top, back_bot, outer_bot, outer_top]),
+		PackedColorArray([bag_color])
+	)
+	# 蓋（上部38%を明るく）
+	var lid_r = 0.38
+	var lid_ib = back_top + (back_bot - back_top) * lid_r
+	var lid_ob = outer_top + (outer_bot - outer_top) * lid_r
+	ctx.canvas.draw_polygon(
+		PackedVector2Array([back_top, lid_ib, lid_ob, outer_top]),
+		PackedColorArray([bag_color.lightened(0.15)])
+	)
+	# 枠線と蓋の境界線
+	var edge = bag_color.darkened(0.25)
+	ctx.canvas.draw_polyline(PackedVector2Array([outer_top, outer_bot, back_bot, back_top, outer_top]), edge, 1.2)
+	ctx.canvas.draw_line(lid_ib, lid_ob, edge, 1.5)
+
+	# 前ポケット
+	var pk0 = lid_r + 0.06
+	var pk1 = pk0 + 0.28
+	var pk_it = back_top + (back_bot - back_top) * pk0
+	var pk_ib2 = back_top + (back_bot - back_top) * pk1
+	var pk_ot = outer_top + (outer_bot - outer_top) * pk0
+	var pk_ob2 = outer_top + (outer_bot - outer_top) * pk1
+	ctx.canvas.draw_polyline(PackedVector2Array([pk_it, pk_ot, pk_ob2, pk_ib2, pk_it]), edge, 0.9)
+
+	# 持ち手（上部にアーチ）
+	# -up_v 方向 = 画面上（Yを小さくする）
+	var mid = (back_top + outer_top) * 0.5
+	var h_l = mid - fwd * bag_depth * 0.12 - up_v * 8.0
+	var h_r = mid + fwd * bag_depth * 0.12 - up_v * 8.0
+	ctx.canvas.draw_polyline(
+		PackedVector2Array([mid - fwd * bag_depth * 0.12, h_l, h_r, mid + fwd * bag_depth * 0.12]),
+		edge, 3.0
+	)
+
+	# 金具
+	ctx.canvas.draw_circle((lid_ib + lid_ob) * 0.5, 2.5, Color(0.85, 0.75, 0.2))
+
+# 背面ビュー用バッグ描画（胴体の後で呼ぶ）
+static func draw_bag_back(ctx: DrawContext) -> void:
+	if ctx.bag_type == "none" or ctx.bag_type == "":
+		return
+	match ctx.bag_type:
+		"randoseru":
+			_draw_randoseru_back(ctx, ctx.bag_color)
+
+static func _draw_randoseru_back(ctx: DrawContext, bag_color: Color) -> void:
+	var d = ctx.d
+	var sx = d["front_sx"]
+	var sy = d["front_sy"]
+	var navel_y = d["front_navel_y"]
+	var torso_h = navel_y - sy
+
+	var bag_w = ctx.shoulder_w * 0.55
+	var bag_h = torso_h * 0.90
+	var bag_l = sx - bag_w * 0.5
+	var bag_r = sx + bag_w * 0.5
+	var bag_top = sy
+	var bag_bot = sy + bag_h
+
+	# メイン本体
+	ctx.canvas.draw_polygon(
+		PackedVector2Array([Vector2(bag_l, bag_top), Vector2(bag_r, bag_top), Vector2(bag_r, bag_bot), Vector2(bag_l, bag_bot)]),
+		PackedColorArray([bag_color])
+	)
+	# 蓋
+	var lid_bot = sy + bag_h * 0.38
+	ctx.canvas.draw_polygon(
+		PackedVector2Array([Vector2(bag_l, bag_top), Vector2(bag_r, bag_top), Vector2(bag_r, lid_bot), Vector2(bag_l, lid_bot)]),
+		PackedColorArray([bag_color.lightened(0.15)])
+	)
+	# 枠線
+	var edge = bag_color.darkened(0.25)
+	ctx.canvas.draw_rect(Rect2(Vector2(bag_l, bag_top), Vector2(bag_w, bag_h)), edge, false, 1.5)
+	ctx.canvas.draw_line(Vector2(bag_l, lid_bot), Vector2(bag_r, lid_bot), edge, 1.5)
+
+	# 前ポケット
+	var pk_top = lid_bot + bag_h * 0.06
+	var pk_bot = pk_top + bag_h * 0.28
+	var pk_l = bag_l + bag_w * 0.15
+	var pk_r = bag_r - bag_w * 0.15
+	ctx.canvas.draw_rect(Rect2(Vector2(pk_l, pk_top), Vector2(pk_r - pk_l, pk_bot - pk_top)), edge, false, 0.9)
+
+	# 持ち手
+	var hb = bag_top - 7.0
+	var hl = sx - bag_w * 0.12
+	var hr = sx + bag_w * 0.12
+	ctx.canvas.draw_line(Vector2(hl, bag_top), Vector2(hl, hb), edge, 3.0)
+	ctx.canvas.draw_line(Vector2(hl, hb), Vector2(hr, hb), edge, 3.0)
+	ctx.canvas.draw_line(Vector2(hr, hb), Vector2(hr, bag_top), edge, 3.0)
+
+	# ショルダーストラップ
+	var strap = bag_color.darkened(0.35)
+	ctx.canvas.draw_line(Vector2(bag_l + bag_w * 0.2, bag_top), Vector2(sx - ctx.shoulder_w * 0.28, sy - 5.0), strap, 4.0)
+	ctx.canvas.draw_line(Vector2(bag_r - bag_w * 0.2, bag_top), Vector2(sx + ctx.shoulder_w * 0.28, sy - 5.0), strap, 4.0)
+
+	# 金具
+	ctx.canvas.draw_circle(Vector2(sx, lid_bot), 3.0, Color(0.85, 0.75, 0.2))
+
+# 正面ビュー用ストラップ描画（胴体の前で呼ぶ）
+static func draw_bag_straps_front(ctx: DrawContext) -> void:
+	if ctx.bag_type == "none" or ctx.bag_type == "":
+		return
+	var d = ctx.d
+	var sx = d["front_sx"]
+	var sy = d["front_sy"]
+	var navel_y = d["front_navel_y"]
+	var strap = ctx.bag_color.darkened(0.20)
+	var sw = ctx.shoulder_w
+	var strap_w = maxf(sw * 0.07, 3.0)
+	ctx.canvas.draw_line(Vector2(sx - sw * 0.28, sy - 3.0), Vector2(sx - sw * 0.12, navel_y), strap, strap_w)
+	ctx.canvas.draw_line(Vector2(sx + sw * 0.28, sy - 3.0), Vector2(sx + sw * 0.12, navel_y), strap, strap_w)

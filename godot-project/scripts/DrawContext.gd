@@ -42,6 +42,8 @@ var hair_color: Color
 var shoe_color: Color
 var hat_type: String
 var hat_color: Color
+var bag_type: String
+var bag_color: Color
 
 # 頭
 var head_r: float
