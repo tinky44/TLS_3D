@@ -4,16 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Play - Tall Life Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --primary: #6366f1;
+        --primary: #3b82f6;
+        --primary-light: #60a5fa;
+        --accent: #06b6d4;
         --bg: #0f172a;
         --text: #f8fafc;
       }
       body {
         margin: 0;
         padding: 0;
-        font-family: "Inter", sans-serif;
+        font-family: 'Outfit', 'Noto+Sans+JP', sans-serif;
         background-color: var(--bg);
         color: var(--text);
         display: flex;
@@ -37,7 +42,9 @@
       header h1 {
         margin: 0;
         font-size: 1.5rem;
-        background: linear-gradient(to right, #818cf8, #c084fc);
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        background: linear-gradient(135deg, #60a5fa 0%, #06b6d4 100%);
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -65,15 +72,17 @@
       }
 
       .btn-fullscreen {
-        background: linear-gradient(to right, #6366f1, #c084fc);
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        border-radius: 12px;
       }
       .btn-fullscreen:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+        background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
       }
 
       main {
@@ -128,25 +137,35 @@
         font-size: 0.875rem;
       }
 
-      /* Gradient background animation */
-      .bg-gradient {
+      /* Animated background */
+      .bg-ambient {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(
-          circle at 50% -20%,
-          rgba(99, 102, 241, 0.15) 0%,
-          rgba(15, 23, 42, 0) 60%
-        );
+        background: radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+                    radial-gradient(circle at 80% 90%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
         z-index: -1;
+        pointer-events: none;
+      }
+      .bg-grid {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 40px 40px;
+        z-index: -2;
         pointer-events: none;
       }
     </style>
   </head>
   <body>
-    <div class="bg-gradient"></div>
+    <div class="bg-ambient"></div>
+    <div class="bg-grid"></div>
     
     <header>
       <h1>Tall Life Simulator</h1>
