@@ -240,11 +240,16 @@ func _update_smooth_pose(delta: float) -> void:
 	if smooth_d.is_empty():
 		smooth_d = target_d.duplicate()
 		return
-	var t = clamp(POSE_LERP_SPEED * delta, 0.0, 1.0)
+	var pose_t = clamp(POSE_LERP_SPEED * delta, 0.0, 1.0)
+	# 腰がほぼ直立に戻っていれば、脚・腕の角度はラグなしで追従させる
+	var waist_settled: bool = abs(smooth_d.get("waist_angle", 0.0)) < 0.05
+	const WALK_ANGLE_KEYS = ["leg_l_angle", "leg_r_angle", "arm_l_angle", "arm_r_angle", "knee_l", "knee_r"]
 	for key in target_d:
 		var val = target_d[key]
-		if val is float or val is int:
-			smooth_d[key] = lerp(float(smooth_d.get(key, val)), float(val), t)
+		if not (val is float or val is int):
+			continue
+		var t: float = 1.0 if (waist_settled and key in WALK_ANGLE_KEYS) else pose_t
+		smooth_d[key] = lerp(float(smooth_d.get(key, val)), float(val), t)
 
 func _update_visual_height(delta: float) -> void:
 	var target_h_cm = m["height"]
