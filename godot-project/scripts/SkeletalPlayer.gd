@@ -35,6 +35,10 @@ var _head_bump_shake_left: float = 0.0
 var _camera_base_offset: Vector2 = Vector2.ZERO
 var _camera_shake_active: bool = false
 
+# ポーズ遷移の補間用
+var smooth_d: Dictionary = {}
+const POSE_LERP_SPEED: float = 7.0
+
 func _ready() -> void:
 	collision_layer = 0
 	collision_mask |= 4
@@ -113,7 +117,9 @@ func _physics_process(delta: float) -> void:
 			_leg_pain_factor = 0.5
 
 	var direction := Input.get_axis("ui_left", "ui_right")
-	if direction:
+	if pose != "normal":
+		velocity.x = move_toward(velocity.x, 0, SPEED)
+	elif direction:
 		velocity.x = direction * SPEED * _leg_pain_factor
 		dir = int(sign(direction))
 		if not (Input.is_action_pressed("ui_up") or Input.is_action_pressed("ui_down")):
@@ -130,6 +136,7 @@ func _physics_process(delta: float) -> void:
 	_handle_auto_crouch()
 	_update_visual_height(delta)
 	_update_collision()
+	_update_smooth_pose(delta)
 	move_and_slide()
 	_process_head_bump(delta)
 	_update_camera_shake()
@@ -225,6 +232,24 @@ func _handle_auto_crouch() -> void:
 func _is_ceiling_blocked() -> bool:
 	sensors[4].force_raycast_update()
 	return sensors[4].is_colliding()
+
+func _update_smooth_pose(delta: float) -> void:
+	if m == null or m.is_empty():
+		return
+	var target_d = CharacterPoseCalculator.calculate_pose_data(self, m, CM_TO_PX)
+	if smooth_d.is_empty():
+		smooth_d = target_d.duplicate()
+		return
+	var pose_t = clamp(POSE_LERP_SPEED * delta, 0.0, 1.0)
+	# 腰がほぼ直立に戻っていれば、脚・腕の角度はラグなしで追従させる
+	var waist_settled: bool = abs(smooth_d.get("waist_angle", 0.0)) < 0.05
+	const WALK_ANGLE_KEYS = ["leg_l_angle", "leg_r_angle", "arm_l_angle", "arm_r_angle", "knee_l", "knee_r"]
+	for key in target_d:
+		var val = target_d[key]
+		if not (val is float or val is int):
+			continue
+		var t: float = 1.0 if (waist_settled and key in WALK_ANGLE_KEYS) else pose_t
+		smooth_d[key] = lerp(float(smooth_d.get(key, val)), float(val), t)
 
 func _update_visual_height(delta: float) -> void:
 	var target_h_cm = m["height"]

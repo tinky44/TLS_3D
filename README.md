@@ -2,12 +2,12 @@
 
 [![Play Now!](https://img.shields.io/badge/Play-Web_Version-green?style=for-the-badge&logo=godotengine)](https://tinky44.github.io/tall_life_simulator/)
 
+[感想お待ちしております！](https://docs.google.com/forms/d/e/1FAIpQLScLX_9BPy6C1sz0aZ9qgVi_qHGIWhBPBJzX3hucorF2V763Rw/viewform?usp=publish-editor)
+
 ## 概要
 
 **Tall Life Simulator** は、高身長な人物が体験する「独自の視点」と「日常の工夫」を追体験する、Godot製のライフシミュレーターです。
 100cmから240cmを超える極端な身長差まで、環境や周囲のNPCとのインタラクションを通じて、スケール感の違いを楽しむことができます。
-
-🌐 **[ブラウザで今すぐプレイする](https://tinky44.github.io/tall_life_simulator/)**
 
 ## 主な機能
 

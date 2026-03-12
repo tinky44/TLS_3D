@@ -90,21 +90,26 @@ static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, co
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
-    # 正面: 小さな四角形
+    # 正面: 台形（上端=脚の太さ、底辺が少し広い）
+    var top_w = foot_w
+    var bot_w = foot_w * 1.15
     var pts = PackedVector2Array([
-        ankle + Vector2(-foot_w * 0.5, 0.0),
-        ankle + Vector2(foot_w * 0.5, 0.0),
-        ankle + Vector2(foot_w * 0.5, foot_h),
-        ankle + Vector2(-foot_w * 0.5, foot_h),
+        ankle + Vector2(-top_w * 0.5, 0.0),
+        ankle + Vector2(top_w * 0.5, 0.0),
+        ankle + Vector2(bot_w * 0.5, foot_h),
+        ankle + Vector2(-bot_w * 0.5, foot_h),
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
 static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
-    # 側面: くさび形（三角形）、右向き（つま先が右）
+    # 側面: 靴シルエット（6頂点、つま先に短い縦面を持たせて丸みを表現）
     var pts = PackedVector2Array([
-        ankle,
-        ankle + Vector2(0.0, foot_h),
-        ankle + Vector2(foot_w, foot_h),
+        ankle,                                  # 1. 踵上
+        ankle + Vector2(foot_w * 0.3, 0.0),    # 2. 甲上端（短い上辺）
+        ankle + Vector2(foot_w, foot_h * 0.4), # 3. つま先上端
+        ankle + Vector2(foot_w, foot_h * 0.85),# 4. つま先下端（前面を短い縦辺に）
+        ankle + Vector2(foot_w * 0.8, foot_h), # 5. 靴底前端（少し手前）
+        ankle + Vector2(0.0, foot_h),           # 6. 踵下端
     ])
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
@@ -161,11 +166,8 @@ static func draw_limb_part(canvas: CanvasItem, shape: String, p_top: Vector2, p_
     elif shape == "line":
         canvas.draw_line(p_top, p_bottom, color, width)
     elif shape == "stick":
-        # 線 + 両端に円関節
-        var joint_r = width * 0.35
-        canvas.draw_line(p_top, p_bottom, color, max(1.5, width * 0.15))
-        canvas.draw_circle(p_top, joint_r, color)
-        canvas.draw_circle(p_bottom, joint_r, color)
+        # 太い線（ジョイントボールなし）
+        draw_rect(canvas, p_top, p_bottom, width, color)
     else:
         # デフォルトは丸みを帯びた limb
         draw_limb(canvas, p_top, p_bottom, width, color)

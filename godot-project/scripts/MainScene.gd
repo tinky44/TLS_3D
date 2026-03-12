@@ -320,14 +320,13 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	var tops_opt = OptionButton.new()
 	tops_opt.focus_mode = Control.FOCUS_NONE
 	tops_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var tops_values = ["sailor", "blazer", "blazer_dark", "blouse_bow", "jumper_skirt", "sweater", "t_shirt"]
+	var tops_values = ["sailor", "blazer", "blouse_bow", "jumper_skirt", "sweater", "t_shirt"]
 	tops_opt.add_item("セーラー服", 0)
-	tops_opt.add_item("ブレザー", 1)
-	tops_opt.add_item("ダークブレザー", 2)
-	tops_opt.add_item("リボンブラウス", 3)
-	tops_opt.add_item("ジャンパースカート", 4)
-	tops_opt.add_item("スウェッター", 5)
-	tops_opt.add_item("Tシャツ", 6)
+	tops_opt.add_item("ジャンパースカート", 1)
+	tops_opt.add_item("リボンブラウス", 2)
+	tops_opt.add_item("サスペンダースカート", 3)
+	tops_opt.add_item("スウェッター", 4)
+	tops_opt.add_item("Tシャツ", 5)
 	var cur_tops = tops_values.find(Global.current_appearance.get("tops_type", "t_shirt"))
 	tops_opt.selected = max(0, cur_tops)
 	tops_opt.item_selected.connect(func(idx: int) -> void:
@@ -380,9 +379,53 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	)
 	hair_row.add_child(hair_opt)
 
+	# 帽子選択
+	var hat_row = HBoxContainer.new()
+	vbox.add_child(hat_row)
+	var hat_label = Label.new()
+	hat_label.text = "帽子:"
+	hat_label.custom_minimum_size = Vector2(76, 0)
+	hat_row.add_child(hat_label)
+	var hat_opt = OptionButton.new()
+	hat_opt.focus_mode = Control.FOCUS_NONE
+	hat_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var hat_values = ["none", "school_hat"]
+	hat_opt.add_item("なし", 0)
+	hat_opt.add_item("学校帽", 1)
+	var cur_hat = hat_values.find(Global.current_appearance.get("hat_type", "none"))
+	hat_opt.selected = max(0, cur_hat)
+	hat_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["hat_type"] = hat_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	hat_row.add_child(hat_opt)
+
+	# バッグ選択
+	var bag_row = HBoxContainer.new()
+	vbox.add_child(bag_row)
+	var bag_label = Label.new()
+	bag_label.text = "バッグ:"
+	bag_label.custom_minimum_size = Vector2(76, 0)
+	bag_row.add_child(bag_label)
+	var bag_opt = OptionButton.new()
+	bag_opt.focus_mode = Control.FOCUS_NONE
+	bag_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bag_values = ["none", "randoseru"]
+	bag_opt.add_item("なし", 0)
+	bag_opt.add_item("ランドセル", 1)
+	var cur_bag = bag_values.find(Global.current_appearance.get("bag_type", "none"))
+	bag_opt.selected = max(0, cur_bag)
+	bag_opt.item_selected.connect(func(idx: int) -> void:
+		Global.current_appearance["bag_type"] = bag_values[idx]
+		var drawer = player.get_node_or_null("CharacterDrawer")
+		if drawer: drawer.queue_redraw()
+	)
+	bag_row.add_child(bag_opt)
+
 	# ヒント
 	var hint_lbl = Label.new()
-	hint_lbl.text = "[Q] 服装を順番に切り替え"
+	hint_lbl.text = "[Q] 服装パネルを開閉"
 	hint_lbl.add_theme_font_size_override("font_size", 12)
 	hint_lbl.add_theme_color_override("font_color", Color("#888"))
 	vbox.add_child(hint_lbl)
@@ -851,12 +894,19 @@ func _setup_ui():
 	style.border_color = Color("#dee2e6")
 	sidebar.add_theme_stylebox_override("panel", style)
 	
+	var scroll = ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sidebar.add_child(scroll)
+
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 20)
 	margin.add_theme_constant_override("margin_top", 20)
 	margin.add_theme_constant_override("margin_right", 20)
 	margin.add_theme_constant_override("margin_bottom", 20)
-	sidebar.add_child(margin)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(margin)
 	
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 20)
@@ -1066,8 +1116,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _apply_tops_type(tops_type: String) -> void:
 	const COLOR_MAP = {
 		"sailor": "#1a2a5e",
-		"blazer": "#6a7da8",
-		"blazer_dark": "#212840",
+		"blazer": "#212840",
 		"blouse_bow": "#f0e8e0",
 		"jumper_skirt": "#212840",
 		"sweater": "#7a9a7a",
