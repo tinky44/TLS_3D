@@ -815,9 +815,20 @@ static func draw_bag_straps_front(ctx: DrawContext) -> void:
 	var d = ctx.d
 	var sx = d["front_sx"]
 	var sy = d["front_sy"]
-	var navel_y = d["front_navel_y"]
 	var strap = ctx.bag_color.darkened(0.20)
 	var sw = ctx.shoulder_w
 	var strap_w = maxf(sw * 0.07, 3.0)
-	ctx.canvas.draw_line(Vector2(sx - sw * 0.28, sy - 3.0), Vector2(sx - sw * 0.12, navel_y), strap, strap_w)
-	ctx.canvas.draw_line(Vector2(sx + sw * 0.28, sy - 3.0), Vector2(sx + sw * 0.12, navel_y), strap, strap_w)
+	# ストラップ下端 = 側面ランドセルの下端（肩から34cm下）に合わせる
+	var bag_bot_y = sy + 34.0 * ctx.p
+	# ＞＜形状: 肩（外）→ 胸（内）→ バッグ下端（外）とカーブさせて背負い感を演出
+	var chest_y = sy + (bag_bot_y - sy) * 0.45
+	ctx.canvas.draw_polyline(PackedVector2Array([
+		Vector2(sx - sw * 0.28, sy - 3.0),
+		Vector2(sx - sw * 0.18, chest_y),
+		Vector2(sx - sw * 0.25, bag_bot_y),
+	]), strap, strap_w, true)
+	ctx.canvas.draw_polyline(PackedVector2Array([
+		Vector2(sx + sw * 0.28, sy - 3.0),
+		Vector2(sx + sw * 0.18, chest_y),
+		Vector2(sx + sw * 0.25, bag_bot_y),
+	]), strap, strap_w, true)
