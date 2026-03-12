@@ -100,10 +100,6 @@ static func draw(ctx: DrawContext) -> void:
 	CharacterDrawUtils.draw_torso_part(ctx.canvas, ctx.part_shapes["torso_front_lower"], Vector2(d["front_navel_x"], d["front_navel_y"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
 	CharacterDrawUtils.draw_torso_part(ctx.canvas, ctx.part_shapes["torso_front_upper"], Vector2(d["front_sx"], d["front_sy"]), Vector2(d["front_navel_x"], d["front_navel_y"]), body_w, body_w, base_shirt_color)
 
-	# 2.5 バッグ（背面ビュー: 胴体の上に描画）
-	if facing == "back":
-		CharacterClothingDrawer.draw_bag_back(ctx)
-
 	# 3. ボトムス（骨盤部分またはスカート）
 	# ジャンパースカート(blazer)のスカート部分は服の上に描画するためここでは描かない
 	if is_skirt and tops_type != "blazer":
@@ -126,6 +122,10 @@ static func draw(ctx: DrawContext) -> void:
 
 	# 4.5 服装オーバーレイ（カラー・ラペル・リボンなど）
 	CharacterClothingDrawer.draw_tops_detail_front(ctx, tops_type, base_shirt_color, body_w, shoulder_w, skin_color)
+
+	# 4.55 バッグ（背面ビュー: ストラップの上に描画）
+	if facing == "back":
+		CharacterClothingDrawer.draw_bag_back(ctx)
 
 	# 4.6 バッグストラップ（正面ビュー）
 	if facing == "front":
