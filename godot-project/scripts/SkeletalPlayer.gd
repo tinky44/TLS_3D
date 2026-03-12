@@ -113,7 +113,9 @@ func _physics_process(delta: float) -> void:
 			_leg_pain_factor = 0.5
 
 	var direction := Input.get_axis("ui_left", "ui_right")
-	if direction:
+	if pose != "normal":
+		velocity.x = move_toward(velocity.x, 0, SPEED)
+	elif direction:
 		velocity.x = direction * SPEED * _leg_pain_factor
 		dir = int(sign(direction))
 		if not (Input.is_action_pressed("ui_up") or Input.is_action_pressed("ui_down")):
