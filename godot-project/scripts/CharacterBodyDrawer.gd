@@ -138,18 +138,18 @@ static func draw_pants_leg(ctx: DrawContext, p_hip: Vector2, p_knee: Vector2, p_
 #   skirt_long   : 腰〜股 + 太もも全長 + すねの30%（足首丈）
 #   skirt / skirt_short : 腰〜股 + 太もも40%（膝上丈）
 # ---------------------------------------------------------------
-static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float, facing: String = "front") -> void:
+static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Color, waist_pos: Vector2, base_width: float, tops_type: String = "", facing: String = "front") -> void:
 	var d = ctx.d
 
 	# ジャンパースカート(blazer)やリボンブラウス(blouse_bow)の場合は、スカート開始位置をひじ付近に引き上げる
-	var is_jumper = (ctx.tops_type == "blazer")
-	var is_blouse_bow = (ctx.tops_type == "blouse_bow")
-	var is_jumper_skirt = (ctx.tops_type == "jumper_skirt")
+	var is_jumper = (tops_type == "blazer")
+	var is_blouse_bow = (tops_type == "blouse_bow")
+	var is_jumper_skirt = (tops_type == "jumper_skirt")
 	if is_jumper or is_blouse_bow or is_jumper_skirt:
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		if facing == "side":
 			# 【調整用】側面: 肩から胴体方向(torso_dir)にu_armだけ進んだ点がベルト位置
-			# → draw_blazer_side/draw_jumper_side のベルト描画と同じ計算で揃える
+			# → draw_jumperSkirt_side/draw_suspenderSkirt_side のベルト描画と同じ計算で揃える
 			var s_x = d["sx"]
 			var s_y = d["sy"]
 			var torso_vec = Vector2(d["navel_x"] - s_x, d["navel_y"] - s_y)

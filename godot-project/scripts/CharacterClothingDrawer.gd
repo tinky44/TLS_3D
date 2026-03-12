@@ -23,11 +23,11 @@ static func draw_tops_detail_front(ctx: DrawContext, tops_type: String, tops_col
 		"sailor":
 			draw_sailor_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
 		"blazer":
-			draw_blazer_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
+			draw_jumperSkirt_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
 			draw_blouse_bow_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body)
 		"jumper_skirt":
-			draw_jumper_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
+			draw_suspenderSkirt_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
 
 # ---------------------------------------------------------------
 # 側面ビューの服装オーバーレイ振り分け
@@ -52,11 +52,11 @@ static func draw_tops_detail_side(ctx: DrawContext, tops_type: String, tops_colo
 		"sailor":
 			draw_sailor_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, skin_color)
 		"blazer":
-			draw_blazer_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, true)
+			draw_jumperSkirt_side(ctx, sx, sy, navel_y, navel_x, half_t, fwd, up_v, waist_angle, tops_color, true)
 		"blouse_bow":
 			draw_blouse_bow_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle)
 		"jumper_skirt":
-			draw_jumper_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
+			draw_suspenderSkirt_side(ctx, sx, sy, navel_y, half_t, fwd, up_v, waist_angle, tops_color)
 
 # ---------------------------------------------------------------
 # セーラー服オーバーレイ（正面）
@@ -146,7 +146,6 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 
 # ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（正面）
-# TODO 本当はジャンパースカート
 #
 # 描画パーツ:
 #   1. (is_dark のみ) ジャケット胴体の塗りつぶし（暗色用途）
@@ -159,8 +158,8 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # 【調整用】
 #   lapel_inner_y : ラペル内側下端（sy〜navel_y の lerp）
 # ---------------------------------------------------------------
-static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float,
-		half_sh: float, half_body: float, jacket_color: Color, is_dark: bool) -> void:
+static func draw_jumperSkirt_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float,
+		_half_sh: float, half_body: float, jacket_color: Color, is_dark: bool) -> void:
 	# 暗色仕様の場合: 胴体部分をひじの高さまで塗りつぶし
 	if is_dark:
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # offset分下げている
@@ -185,7 +184,7 @@ static func draw_blazer_front(ctx: DrawContext, sx: float, sy: float, _neck_y: f
 
 		if ctx.is_skirt:
 			# ベルトの横幅(half_body * 2.0)に合わせてスカートの上端幅を設定
-			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(sx, belt_y), half_body * 2.0, ctx.facing)
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(sx, belt_y), half_body * 2.0, ctx.tops_type, ctx.facing)
 
 	# 内側の白シャツ（四角く開いたスクエアネック）
 	var shirt_inner = Color(0.97, 0.97, 0.97)
@@ -312,7 +311,7 @@ static func draw_blouse_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y
 # ---------------------------------------------------------------
 static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, navel_x: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
-		waist_angle: float, sailor_color: Color, skin_color: Color) -> void:
+		_waist_angle: float, sailor_color: Color, skin_color: Color) -> void:
 	# 胴体に沿った下方ベクトル（肩→へそ方向、腰曲げを考慮）
 	var torso_down_s = Vector2(navel_x - sx, navel_y - sy)
 
@@ -359,19 +358,16 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 
 # ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（側面）
-# TODO 関数名変更 draw_blazer_side
 #
 # 描画パーツ:
 #   1. (is_dark のみ) ジャケット胴体の塗りつぶし
 #   2. 白シャツ（前面の細い帯）
-#   3. 前面のラペル（折り返し部分の三角形）
-#   4. ラペルのエッジライン
-#   5. リボン（draw_bow_side を呼び出し）
+#   3. リボン（draw_bow_side を呼び出し）
 #
 # 引数:
 #   is_dark : 常にtrue (暗色仕様に統一)
 # ---------------------------------------------------------------
-static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, navel_x: float,
+static func draw_jumperSkirt_side(ctx: DrawContext, sx: float, sy: float, navel_y: float, navel_x: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
 		waist_angle: float, jacket_color: Color, is_dark: bool) -> void:
 	var p_sh = Vector2(sx, sy)
@@ -408,7 +404,7 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 
 		if ctx.is_skirt:
 			var center_x = lerp(p_sh_back.x, p_sh_front.x, 0.5)
-			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(center_x, sy + u_arm), half_t * 2.0, ctx.facing)
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(center_x, sy + u_arm), half_t * 2.0, ctx.tops_type, ctx.facing)
 
 		# 前面側1/3の上部（正面の35%の深さまで）を白シャツとして上書き描画
 		var white_fw = half_t * 0.35 # 胴体の厚みに対しておよそ1/3（前面側）
@@ -443,7 +439,7 @@ static func draw_blazer_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 # ---------------------------------------------------------------
 static func draw_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float,
 		half_t: float, fwd: Vector2, up_v: Vector2,
-		waist_angle: float, bow_color: Color) -> void:
+		_waist_angle: float, bow_color: Color) -> void:
 	# 側面では蝶ネクタイが胴体の前面に小さく見える。肩と乳首の間にハイライト
 	var p_sh = Vector2(sx, sy)
 	var navel_x_bow = ctx.d["navel_x"]
@@ -489,7 +485,7 @@ static func draw_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float
 #   strap_top_y  : ストラップ上端Y（sy - 4.0 で肩より少し上）
 #   strap_bot_y  : ストラップ下端Y（navel_y + 10.0 でウエストより少し下）
 # ---------------------------------------------------------------
-static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: float, _navel_y: float,
+static func draw_suspenderSkirt_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, _navel_y: float,
 		_half_sh: float, half_body: float, _jumper_color: Color) -> void:
 	var strap_top_y = sy # ストラップ上端（肩）
 	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
@@ -533,7 +529,7 @@ static func draw_jumper_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 #   fw          : ストラップ帯の幅（half_t * 0.40）
 #   strap_len   : ストラップの縦方向の長さ（navel_y - sy + 10px）
 # ---------------------------------------------------------------
-static func draw_jumper_side(ctx: DrawContext, sx: float, sy: float, navel_y: float,
+static func draw_suspenderSkirt_side(ctx: DrawContext, sx: float, sy: float, navel_y: float,
 		half_t: float, fwd: Vector2, _up_v: Vector2,
 		_waist_angle: float, _jumper_color: Color) -> void:
 	var p_sh = Vector2(sx, sy)

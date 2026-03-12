@@ -106,7 +106,7 @@ static func draw(ctx: DrawContext) -> void:
 		var skirt_c = base_shirt_color if bottoms_type == "skirt_sailor" else pants_color
 		if tops_type == "blouse_bow" or tops_type == "jumper_skirt":
 			skirt_c = Color(0.15, 0.2, 0.35) # 紺色
-		CharacterBodyDrawer.draw_skirt(ctx, bottoms_type, skirt_c, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, facing)
+		CharacterBodyDrawer.draw_skirt(ctx, bottoms_type, skirt_c, Vector2(d["front_hip_x"], d["front_hip_y"]), body_w, tops_type, facing)
 	elif bottoms_type == "pants":
 		var p_pelvis_top = Vector2(d["front_hip_x"], d["front_hip_y"])
 		var p_crotch = Vector2(d["cx"], d["cy"])
