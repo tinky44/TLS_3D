@@ -152,7 +152,7 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 #
 # 描画パーツ:
 #   1. 背中の矩形フラップ
-#   2. 上部の白ライン
+#   2. 側面 + 下端のU字白ライン
 #
 # バッグはこの後ろに重なってよく、背中側が隠れても自然とみなす。
 # ---------------------------------------------------------------
@@ -171,11 +171,26 @@ static func draw_sailor_back(ctx: DrawContext, sx: float, sy: float, _neck_y: fl
 	ctx.canvas.draw_polygon(flap_pts, PackedColorArray([sailor_color]))
 
 	var line_col = Color(1, 1, 1, 0.78)
-	var stripe_margin = flap_half_w * 0.16
-	var stripe_y1 = sy + 6.0
-	var stripe_y2 = sy + 12.0
-	ctx.canvas.draw_line(Vector2(sx - flap_half_w + stripe_margin, stripe_y1), Vector2(sx + flap_half_w - stripe_margin, stripe_y1), line_col, 2.0)
-	ctx.canvas.draw_line(Vector2(sx - flap_half_w + stripe_margin, stripe_y2), Vector2(sx + flap_half_w - stripe_margin, stripe_y2), line_col, 1.6)
+	var flap_h = flap_bot_y - flap_top_y
+	var side_inset_1 = flap_half_w * 0.16
+	var side_inset_2 = flap_half_w * 0.30
+	var top_gap_1 = flap_h * 0.22
+	var top_gap_2 = flap_h * 0.36
+	var bottom_gap_1 = flap_h * 0.10
+	var bottom_gap_2 = flap_h * 0.20
+
+	ctx.canvas.draw_polyline(PackedVector2Array([
+		Vector2(sx - flap_half_w + side_inset_1, flap_top_y + top_gap_1),
+		Vector2(sx - flap_half_w + side_inset_1, flap_bot_y - bottom_gap_1),
+		Vector2(sx + flap_half_w - side_inset_1, flap_bot_y - bottom_gap_1),
+		Vector2(sx + flap_half_w - side_inset_1, flap_top_y + top_gap_1),
+	]), line_col, 2.0)
+	ctx.canvas.draw_polyline(PackedVector2Array([
+		Vector2(sx - flap_half_w + side_inset_2, flap_top_y + top_gap_2),
+		Vector2(sx - flap_half_w + side_inset_2, flap_bot_y - bottom_gap_2),
+		Vector2(sx + flap_half_w - side_inset_2, flap_bot_y - bottom_gap_2),
+		Vector2(sx + flap_half_w - side_inset_2, flap_top_y + top_gap_2),
+	]), line_col, 1.6)
 
 # ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（正面）
