@@ -120,6 +120,16 @@ static func draw_pants_leg(ctx: DrawContext, p_hip: Vector2, p_knee: Vector2, p_
 		CharacterDrawUtils.draw_trapezoid(ctx.canvas, p_hip, p_knee, pants_top_w, pants_knee_w, pants)
 		CharacterDrawUtils.draw_trapezoid(ctx.canvas, p_knee, p_ankle, pants_knee_w, pants_ankle_w, pants)
 
+# ジャンパー系トップスが側面で共有するウエスト上端位置。
+# draw_skirt と衣装ディテール側で同じアンカーを使い、屈み時の分離を防ぐ。
+static func get_side_garment_waist_pos(ctx: DrawContext) -> Vector2:
+	var d = ctx.d
+	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
+	var shoulder = Vector2(d["sx"], d["sy"])
+	var torso_vec = Vector2(d["navel_x"] - shoulder.x, d["navel_y"] - shoulder.y)
+	var torso_dir = torso_vec.normalized() if torso_vec.length() > 0.01 else Vector2(0, 1)
+	return shoulder + torso_dir * u_arm
+
 # ---------------------------------------------------------------
 # スカート描画ヘルパー
 #
@@ -148,13 +158,7 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	if is_jumper or is_blouse_bow or is_jumper_skirt:
 		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		if facing == "side":
-			# 【調整用】側面: 肩から胴体方向(torso_dir)にu_armだけ進んだ点がベルト位置
-			# → draw_jumperSkirt_side/draw_suspenderSkirt_side のベルト描画と同じ計算で揃える
-			var s_x = d["sx"]
-			var s_y = d["sy"]
-			var torso_vec = Vector2(d["navel_x"] - s_x, d["navel_y"] - s_y)
-			var torso_dir = torso_vec.normalized() if torso_vec.length() > 0.01 else Vector2(0, 1)
-			waist_pos = Vector2(s_x, s_y) + torso_dir * u_arm
+			waist_pos = get_side_garment_waist_pos(ctx)
 		else:
 			# 正面・背面: Xは固定(cx=0)のままYのみ引き上げる
 			waist_pos.y = d["front_sy"] + u_arm

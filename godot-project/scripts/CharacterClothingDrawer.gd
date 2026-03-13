@@ -21,7 +21,10 @@ static func draw_tops_detail_front(ctx: DrawContext, tops_type: String, tops_col
 
 	match tops_type:
 		"sailor":
-			draw_sailor_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
+			if ctx.facing == "back":
+				draw_sailor_back(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
+			else:
+				draw_sailor_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
 		"blazer":
 			draw_jumperSkirt_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
@@ -143,6 +146,47 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 		Vector2(sx - half_body * 0.06, knot_y + 9.0),
 	])
 	ctx.canvas.draw_polygon(knot_pts, PackedColorArray([sc.lightened(0.12)]))
+
+# ---------------------------------------------------------------
+# セーラー服オーバーレイ（背面）
+#
+# 描画パーツ:
+#   1. 肩から広がる背面フラップ
+#   2. フラップ内側の白ライン
+#
+# バッグはこの後ろに重なってよく、背中側が隠れても自然とみなす。
+# ---------------------------------------------------------------
+static func draw_sailor_back(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float,
+		half_sh: float, half_body: float, sailor_color: Color) -> void:
+	var flap_top_y = neck_y + 4.0
+	var flap_mid_y = lerp(sy, navel_y, 0.35)
+	var flap_bot_y = lerp(sy, navel_y, 0.48)
+	var flap_tip_y = flap_bot_y + half_body * 0.55
+
+	var flap_pts = PackedVector2Array([
+		Vector2(sx - half_sh * 1.05, sy),
+		Vector2(sx - half_body * 0.32, flap_top_y),
+		Vector2(sx + half_body * 0.32, flap_top_y),
+		Vector2(sx + half_sh * 1.05, sy),
+		Vector2(sx + half_body * 0.70, flap_bot_y),
+		Vector2(sx, flap_tip_y),
+		Vector2(sx - half_body * 0.70, flap_bot_y),
+	])
+	ctx.canvas.draw_polygon(flap_pts, PackedColorArray([sailor_color]))
+
+	var line_col = Color(1, 1, 1, 0.78)
+	ctx.canvas.draw_polyline(PackedVector2Array([
+		Vector2(sx - half_sh * 0.78, sy + 3.0),
+		Vector2(sx - half_body * 0.52, flap_mid_y),
+		Vector2(sx, flap_tip_y - 5.0),
+		Vector2(sx + half_body * 0.52, flap_mid_y),
+		Vector2(sx + half_sh * 0.78, sy + 3.0),
+	]), line_col, 2.0)
+	ctx.canvas.draw_polyline(PackedVector2Array([
+		Vector2(sx - half_body * 0.38, flap_mid_y - 7.0),
+		Vector2(sx, flap_tip_y - 11.0),
+		Vector2(sx + half_body * 0.38, flap_mid_y - 7.0),
+	]), line_col, 1.4)
 
 # ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（正面）
@@ -380,9 +424,8 @@ static func draw_jumperSkirt_side(ctx: DrawContext, sx: float, sy: float, navel_
 
 	# 暗色仕様: 胴体全体を上書きしてから、前面のみ白シャツを描画
 	if is_dark:
-		# ひじの高さをベルト位置（胴体の下端）とする
-		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # offset分下げている
-		var belt_vec = torso_dir_b * u_arm # 胴体方向にu_armだけ下げたベクトル
+		var waist_anchor = CharacterBodyDrawer.get_side_garment_waist_pos(ctx)
+		var belt_vec = waist_anchor - p_sh
 
 		# まず胴体のベルト位置までを暗色のジャンパースカートで塗る
 		var jacket_cover = PackedVector2Array([
@@ -403,8 +446,7 @@ static func draw_jumperSkirt_side(ctx: DrawContext, sx: float, sy: float, navel_
 		ctx.canvas.draw_polygon(belt_pts, PackedColorArray([jacket_color.darkened(0.25)]))
 
 		if ctx.is_skirt:
-			var center_x = lerp(p_sh_back.x, p_sh_front.x, 0.5)
-			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(center_x, sy + u_arm), half_t * 2.0, ctx.tops_type, ctx.facing)
+			CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, waist_anchor, half_t * 2.0, ctx.tops_type, ctx.facing)
 
 		# 前面側1/3の上部（正面の35%の深さまで）を白シャツとして上書き描画
 		var white_fw = half_t * 0.35 # 胴体の厚みに対しておよそ1/3（前面側）
@@ -541,11 +583,11 @@ static func draw_suspenderSkirt_side(ctx: DrawContext, sx: float, sy: float, nav
 	# 胴体に沿った下向きベクトル（肩→へそ方向、腰曲げを考慮）
 	var navel_x = ctx.d["navel_x"]
 	var torso_down = Vector2(navel_x - sx, navel_y - sy)
-	var torso_dir = torso_down.normalized() if torso_down.length() > 0.01 else Vector2(0, 1)
+	var belt_vec = CharacterBodyDrawer.get_side_garment_waist_pos(ctx) - p_sh
 
 	# 前面ストラップ（胴体前端に細い黒帯、上端は胸のでっぱり位置から）
 	var p_front_top = p_sh_front + torso_down * 0.45 # 乳首高さ(肩から45%下)
-	var p_front_bot = p_sh_front + torso_down + torso_dir * 10.0
+	var p_front_bot = p_sh_front + belt_vec
 	var front_band = PackedVector2Array([
 		p_front_top,
 		p_front_top - fwd * fw,
@@ -555,7 +597,7 @@ static func draw_suspenderSkirt_side(ctx: DrawContext, sx: float, sy: float, nav
 	ctx.canvas.draw_polygon(front_band, PackedColorArray([strap_color]))
 
 	# 背面ストラップ（胴体背端に細い黒帯）
-	var p_back_bot = p_sh_back + torso_down + torso_dir * 10.0
+	var p_back_bot = p_sh_back + belt_vec
 	var back_band = PackedVector2Array([
 		p_sh_back,
 		p_sh_back + fwd * fw,

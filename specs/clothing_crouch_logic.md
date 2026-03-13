@@ -51,6 +51,7 @@ torso_dir  = torso_down.normalized()
 - スカーフ垂れ
 - ジャンパースカートのベルト位置
 - サスペンダー帯の終端
+- ジャンパー系スカート上端の共有アンカー
 
 つまり、腰を曲げると装飾ポリゴンの基準軸そのものが回る。
 
@@ -80,7 +81,7 @@ p_top_center = p_shoulder + n * (shaved / 2.0)
 u_arm = m["armLength"] * p * 0.5 + 10.0
 ```
 
-- 側面: `waist_pos = shoulder + torso_dir * u_arm`
+- 側面: `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` を共有利用
 - 正面/背面: `waist_pos.y = front_sy + u_arm`
 
 ## 4.2 スカート丈
@@ -152,6 +153,14 @@ side_hem_w = max(hem_w, spread_x * spread_margin, reach_from_hem * 2.0) + 15.0
 - プリーツ対象: `skirt_sailor`, `blazer`, `blouse_bow`, `jumper_skirt`
 - 縦線本数: 6本（`for i in 1..6`）
 - `jumper_skirt` は上端にダークベルトを追加描画
+- `blazer` / `jumper_skirt` の側面ベルト終端は、共有アンカー基準でそろえる
+
+## 5.4 観察ポイント（現行補正で見たいケース）
+
+- 深い屈みで両膝が同方向に揃うケース
+- `jumper_skirt` / `skirt_sailor` などのプリーツ系
+- 膝近くまで届く中間丈
+- 歩行と屈みが重なった中間姿勢
 
 ## 6. 正面・背面スカートの屈み追従
 

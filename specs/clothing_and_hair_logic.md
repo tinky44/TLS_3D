@@ -86,7 +86,7 @@ pants_ankle_w = shin_w * 1.15
 u_arm = m["armLength"] * p * 0.5 + 10.0
 ```
 
-- 側面: `waist_pos = (sx,sy) + torso_dir * u_arm`
+- 側面: `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` を共有利用
 - 正面/背面: `waist_pos.y = front_sy + u_arm`
 
 ## 3.2 丈計算
@@ -136,7 +136,9 @@ curve_drop   = skirt_length * 0.05
 
 ## 4. トップス詳細ロジック
 
-## 4.1 セーラー（front）
+## 4.1 セーラー（front/back）
+
+front:
 
 - V開口（肌色）
 - 襟ポリゴン
@@ -148,6 +150,12 @@ curve_drop   = skirt_length * 0.05
 
 - `v_y = lerp(sy, navel_y, 0.45)`
 - `scarf_tip_y = lerp(v_y, navel_y, 0.72)`
+
+back:
+
+- 背面フラップを別ポリゴンで描画
+- フラップ内側に白ラインを追加
+- 背面バッグはこの上に重なってよい
 
 ## 4.2 セーラー（side）
 
@@ -165,7 +173,7 @@ front:
 
 side:
 
-- 胴体方向ベクトル `torso_dir_b` に沿ってベルト位置を決定
+- `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` をベルト中心として共有
 - 暗色胴体 + ベルト + 前面白シャツ帯 + リボン
 
 ## 4.4 blouse_bow
@@ -185,7 +193,7 @@ side:
 
 - 前後2本の細帯
 - `fw = half_t * 0.12`
-- `torso_down` に沿って下端を作る
+- 下端は `get_side_garment_waist_pos(ctx)` を基準に前後へ展開
 
 ## 5. 髪ロジック（高さ・向き）
 
