@@ -401,6 +401,9 @@ func _on_next_pressed() -> void:
         # 新規ゲーム開始時に成長履歴をリセット
         global.growth_history = []
         global.prev_height = 0.0
+        global.stress = 0
+        global.pending_term_choice = true
+        global.current_term_plan = ""
         global.record_growth_history("start")
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"

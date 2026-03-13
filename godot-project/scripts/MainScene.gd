@@ -52,6 +52,36 @@ var _current_dialogue_key: String = ""
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
+# ─── 学期選択 ──────────────────────────────────────────────────
+var term_choice_panel: Control
+var term_choice_header_label: Label
+var _term_choice_showing: bool = false
+
+const TERM_CHOICE_ORDER = ["home", "school", "station"]
+const TERM_CHOICES: Dictionary = {
+	"home": {
+		"title": "1. 家で過ごす",
+		"summary": "家族の近くで落ち着いて過ごす。ストレスは下がるが、外の刺激は少ない。",
+		"stage_id": "room",
+		"stress_delta": -12,
+		"event_id": "term_home"
+	},
+	"school": {
+		"title": "2. 学校を優先する",
+		"summary": "授業や人間関係に向き合う。少し気疲れするが、学校イベントが進みやすい。",
+		"stage_id": "school",
+		"stress_delta": 8,
+		"event_id": ""
+	},
+	"station": {
+		"title": "3. 駅前に出る",
+		"summary": "人の多い場所で、自分の大きさを強く意識する。ストレスは大きく上がる。",
+		"stage_id": "station",
+		"stress_delta": 16,
+		"event_id": "term_station"
+	},
+}
+
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
 	if has_node("Floor"): get_node("Floor").queue_free()
@@ -72,6 +102,7 @@ func _ready() -> void:
 	_setup_dialogue_panel() # ダイアログパネル（bubble_panelの上）
 	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_setup_measurement_panel()
+	_setup_term_choice_panel()
 	_load_stage()
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
@@ -287,8 +318,136 @@ func _setup_dialogue_panel() -> void:
 
 	ui_layer.add_child(dialogue_panel)
 
+func _setup_term_choice_panel() -> void:
+	term_choice_panel = ColorRect.new()
+	term_choice_panel.color = Color(0, 0, 0, 0.72)
+	term_choice_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	term_choice_panel.hide()
+	term_choice_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	term_choice_panel.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#16202c")
+	style.corner_radius_top_left = 18
+	style.corner_radius_top_right = 18
+	style.corner_radius_bottom_left = 18
+	style.corner_radius_bottom_right = 18
+	style.content_margin_left = 28
+	style.content_margin_right = 28
+	style.content_margin_top = 24
+	style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "今学期どこで過ごす？"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title)
+
+	term_choice_header_label = Label.new()
+	term_choice_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	term_choice_header_label.add_theme_font_size_override("font_size", 15)
+	term_choice_header_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.94))
+	vbox.add_child(term_choice_header_label)
+
+	for choice_id: String in TERM_CHOICE_ORDER:
+		var choice: Dictionary = TERM_CHOICES[choice_id]
+		var btn = Button.new()
+		btn.focus_mode = Control.FOCUS_NONE
+		btn.custom_minimum_size = Vector2(580, 74)
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.text = "%s\n%s  (stress %s%d)" % [
+			String(choice.get("title", choice_id)),
+			String(choice.get("summary", "")),
+			"+" if int(choice.get("stress_delta", 0)) >= 0 else "",
+			int(choice.get("stress_delta", 0))
+		]
+		btn.add_theme_font_size_override("font_size", 16)
+		btn.pressed.connect(_on_term_choice_selected.bind(choice_id))
+		vbox.add_child(btn)
+
+	var hint = Label.new()
+	hint.text = "[1][2][3] でも選択できます"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(0.72, 0.79, 0.86))
+	vbox.add_child(hint)
+
+	ui_layer.add_child(term_choice_panel)
+
+func _show_term_choice_panel() -> void:
+	if _term_choice_showing:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global or not global.pending_term_choice:
+		return
+	_term_choice_showing = true
+	term_choice_header_label.text = "%d歳 / 第%d学期 / stress %d" % [
+		int(global.age),
+		int(global.term) + 1,
+		int(global.stress)
+	]
+	term_choice_panel.show()
+	get_tree().paused = true
+
+func _hide_term_choice_panel() -> void:
+	_term_choice_showing = false
+	term_choice_panel.hide()
+	get_tree().paused = false
+
+func _on_term_choice_selected(choice_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	if not TERM_CHOICES.has(choice_id):
+		return
+
+	var choice: Dictionary = TERM_CHOICES[choice_id]
+	global.pending_term_choice = false
+	global.current_term_plan = choice_id
+	global.add_stress(int(choice.get("stress_delta", 0)))
+
+	var summer_front: bool = (
+		global.pending_events.size() > 0
+		and String(global.pending_events[0]) == "summer_growth"
+	)
+	if summer_front and choice_id != "home":
+		global.pending_events.pop_front()
+		global.queue_event("summer_growth")
+
+	var event_id: String = String(choice.get("event_id", ""))
+	if event_id != "" and not (choice_id == "home" and summer_front):
+		global.pending_events.push_front(event_id)
+
+	global.current_stage_id = String(choice.get("stage_id", global.current_stage_id))
+	global.save_settings()
+	_hide_term_choice_panel()
+	_load_stage()
+
+func _is_term_intro_dialogue() -> bool:
+	if _current_dialogue_npc != "player":
+		return false
+	return _current_dialogue_key in [
+		"new_semester",
+		"entrance_elementary",
+		"entrance_middle",
+		"entrance_high",
+		"summer_growth",
+		"summer_growth_vball"
+	]
+
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
-	if _in_dialogue or _measurement_showing: return
+	if _in_dialogue or _measurement_showing or _term_choice_showing: return
 	if not _dialogues.has(npc_id): return
 	var npc_data: Dictionary = _dialogues[npc_id]
 	if not npc_data.has(key): return
@@ -392,6 +551,11 @@ func _advance_dialogue() -> void:
 	_show_dialogue_line()
 
 func _end_dialogue() -> void:
+	var should_show_term_choice: bool = false
+	var global = get_node_or_null("/root/Global")
+	if global and global.pending_term_choice and _is_term_intro_dialogue():
+		should_show_term_choice = true
+
 	_in_dialogue = false
 	_choice_pending = false
 	choice_container.hide()
@@ -400,7 +564,6 @@ func _end_dialogue() -> void:
 	dialogue_panel.hide()
 	# measure_invite 終了 → はるかがプレイヤーに追随し始める
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
-		var global = get_node_or_null("/root/Global")
 		if global:
 			global.haruka_following = true
 		for child in get_children():
@@ -409,16 +572,13 @@ func _end_dialogue() -> void:
 				break
 	# ─── バレー部ストーリー後処理 ────────────────────────────────
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "first_meet":
-		var global = get_node_or_null("/root/Global")
 		if global and global.vball_story_phase == 0:
 			global.vball_story_phase = 1
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "practice_first":
-		var global = get_node_or_null("/root/Global")
 		if global and global.vball_joined:
 			global.is_leg_pain = true
 			global.vball_story_phase = 3
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "pain_concern":
-		var global = get_node_or_null("/root/Global")
 		if global:
 			global.is_leg_pain = false
 			global.vball_joined = false
@@ -427,6 +587,9 @@ func _end_dialogue() -> void:
 		pass # 特に後処理なし
 	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "haruka_after_summer":
 		pass # 特に後処理なし
+
+	if should_show_term_choice:
+		call_deferred("_show_term_choice_panel")
 
 func _get_bubble_screen_pos() -> Vector2:
 	var cam = player.get_node_or_null("Camera2D")
@@ -858,6 +1021,18 @@ func _setup_pause_menu() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
+		return
+	if _term_choice_showing and event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_1:
+				_on_term_choice_selected("home")
+			KEY_2:
+				_on_term_choice_selected("school")
+			KEY_3:
+				_on_term_choice_selected("station")
+		return
+
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
 		_toggle_pause()
 	elif event is InputEventKey and event.pressed and not event.echo:
@@ -900,6 +1075,8 @@ func _toggle_action_hint() -> void:
 		action_hint_panel.visible = not action_hint_panel.visible
 
 func _get_action_hint_text() -> String:
+	if _term_choice_showing:
+		return "[1][2][3] 学期の過ごし方を選ぶ"
 	if _in_dialogue:
 		return "[E] 次へ"
 	if _measurement_showing:
@@ -960,19 +1137,25 @@ func _update_ui():
 	if not player or not status_label: return
 	
 	var global = get_node_or_null("/root/Global")
-	var stage_id = global.current_stage_id if global else "room"
-	var stage_name = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
+	var stage_id: String = global.current_stage_id if global else "room"
+	var stage_name: String = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
 	var m = player.get("m")
 	if not m: return
 	
 	var params = global.current_params if global else m
 	
-	var age_val = global.age if global else 0
-	var term_val = global.term if global else 0
-	var school_type = StageBuilder.get_stage_name("school", age_val)
+	var age_val: int = global.age if global else 0
+	var term_val: int = global.term if global else 0
+	var stress_val: int = global.stress if global else 0
+	var term_plan: String = global.current_term_plan if global else ""
+	var school_type: String = StageBuilder.get_stage_name("school", age_val)
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
 	text += "%d歳 / %d学期 (%s)\n" % [age_val, term_val + 1, school_type]
+	if term_plan != "":
+		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
+		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
+	text += "stress: %d / 100\n" % int(stress_val)
 	text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
 	text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
 	
@@ -1034,6 +1217,18 @@ func _load_stage():
 				_start_dialogue("senior", "first_meet")
 			else:
 				global.pending_events.push_front(ev) # 体育館に入るまで保留
+		elif ev == "term_home":
+			if stage_id == "room":
+				await get_tree().create_timer(0.5).timeout
+				_start_dialogue("player", "term_home")
+			else:
+				global.pending_events.push_front(ev)
+		elif ev == "term_station":
+			if stage_id == "station":
+				await get_tree().create_timer(0.5).timeout
+				_start_dialogue("player", "term_station")
+			else:
+				global.pending_events.push_front(ev)
 		elif ev == "summer_growth":
 			if stage_id == "room":
 				await get_tree().create_timer(0.8).timeout
