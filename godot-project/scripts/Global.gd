@@ -43,8 +43,8 @@ var growth_history: Array = []
 
 var active_companion_id: String = "" # 現在同行しているNPCのID
 var met_npcs: Array = [] # 面識のあるNPCのIDリスト
-var haruka_invited_this_term: bool = false # ほのかが今学期測定に誘ったか
-var haruka_following: bool = false # ほのかが追随中か
+var haruka_invited_this_term: bool = false # はるかが今学期測定に誘ったか
+var haruka_following: bool = false # はるかが追随中か
 var senior_gym_invited: bool = false # 先輩から体育館に誘われたか（1回のみ）
 
 # ─── バレー部ストーリーフラグ ──────────────────────────────────────
@@ -63,8 +63,8 @@ var term_memory_note: String = "" # 今学期の印象的な出来事メモ
 
 # コアNPCの定義
 var core_npcs: Dictionary = {
-	"honoka": {
-		"name": "ほのか",
+	"haruka": {
+		"name": "はるか",
 		"role": "friend",
 		"height_base": 155.0,
 		"height_mode": "avg", # 年齢平均に近い設定

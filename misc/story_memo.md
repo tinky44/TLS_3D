@@ -132,7 +132,7 @@
 
 ### `vball_tell_senior`
 
-- ほのかへの脚痛相談で「先輩に伝えてもらう」を選ぶとキューされる。
+- はるかへの脚痛相談で「先輩に伝えてもらう」を選ぶとキューされる。
 - `gymnasium` に入ったときのみ発火。
 - 先輩の `pain_concern` 会話が流れる。
 
@@ -311,7 +311,7 @@
 
 このルールは主に `generic` や一部NPCで使われる。
 
-### ほのか
+### はるか
 
 - 初対面なら `first_meet`
 - `is_leg_pain == true` かつ `vball_story_phase == 3`
@@ -371,7 +371,7 @@
   - `term_station_bench`
   - `term_station_vending`
 
-### 7.2 ほのか
+### 7.2 はるか
 
 役割
 
@@ -499,7 +499,7 @@
 7. 会話終了後
    - `is_leg_pain = true`
    - `phase = 3`
-8. この状態でほのかに話しかけると `vball_pain_consult`。
+8. この状態ではるかに話しかけると `vball_pain_consult`。
 9. `先輩に伝えてもらう` を選ぶと
    - `phase = 4`
    - `vball_tell_senior` をキュー
@@ -545,8 +545,7 @@
 ### `school`
 
 - 学校ルートの中心。
-- ほのかがいる。
-- はるかNPCも配置されている。
+- はるかがいる。
 - 先生の始業式後に学校ルートの導入会話へ接続する。
 - 自分の席ホットスポットがある。
 
@@ -573,17 +572,14 @@
 
 ### はるか関連
 
-- `MainScene.gd` には `haruka` 用の処理が残っている。
-- 具体的には、
-  - `measure_invite` 終了後に追随開始
-  - 測定後に `haruka.measure_after` を再生しようとする
-- しかし `DialogueDatabase.gd` に `haruka` エントリが存在しない。
-- そのため、コード上は導線があるが、現時点では会話データが欠けている。
+- `measure_invite` 終了後に追随開始する処理がある。
+- 測定後は `haruka.measure_after` に接続する。
+- 会話キーと NPC ID は `haruka` に統一済み。
 
-### ほのか / はるか の命名の揺れ
+### はるか の命名整理
 
-- `haruka_invited_this_term` というフラグ名があるが、
-  実際には主にほのかの `measure_invite` 制御に使われている。
+- `haruka_invited_this_term` というフラグ名がある。
+- 現在は会話キーと NPC ID も `haruka` に統一している。
 - ここは将来的に整理した方がよい。
 
 ### バレー部引退分岐

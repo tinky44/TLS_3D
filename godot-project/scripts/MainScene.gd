@@ -160,6 +160,62 @@ const TERM_HOTSPOTS: Dictionary = {
 	},
 }
 
+const STRESS_PREFIX_KEYS: Array[String] = ["default", "tall", "huge", "check"]
+const NPC_STRESS_OPENERS: Dictionary = {
+	"haruka": {
+		"low": {"speaker": "はるか", "text": "今日は少し顔つきがやわらかいね。"},
+		"mid": {"speaker": "はるか", "text": "無理してない？ ちょっと肩に力が入ってる。"},
+		"high": {"speaker": "はるか", "text": "かなりしんどそう。少し端で話そっか。"},
+	},
+	"mother": {
+		"low": {"speaker": "母", "text": "今日は少し楽そうな顔をしてるね。"},
+		"mid": {"speaker": "母", "text": "背中、少し丸くなってるわよ。無理してない？"},
+		"high": {"speaker": "母", "text": "顔がこわばってる。今日は休めるところで休みなさい。"},
+	},
+	"father": {
+		"low": {"speaker": "父", "text": "今日はいつもより落ち着いて見えるな。"},
+		"mid": {"speaker": "父", "text": "少し疲れてるか。気を張りすぎるなよ。"},
+		"high": {"speaker": "父", "text": "かなり参ってる顔だ。ひとりで抱え込むなよ。"},
+	},
+	"nurse": {
+		"low": {"speaker": "保健の先生", "text": "今日は呼吸が落ち着いてるね。"},
+		"mid": {"speaker": "保健の先生", "text": "少し張ってるね。話すだけでも楽になるよ。"},
+		"high": {"speaker": "保健の先生", "text": "かなりしんどそう。まずは座って、息を整えよう。"},
+	},
+	"senior": {
+		"low": {"speaker": "バレー部先輩", "text": "今日は動けそうな顔してるじゃん。"},
+		"mid": {"speaker": "バレー部先輩", "text": "視線が気になる日か。呼吸だけでも合わせてみる？"},
+		"high": {"speaker": "バレー部先輩", "text": "かなり張ってるね。無理する前に言ってよ。"},
+	},
+	"generic": {
+		"low": {"speaker": "通りすがり", "text": "背が高いね。なんだか今日は堂々として見える。"},
+		"mid": {"speaker": "通りすがり", "text": "大丈夫？ ちょっと疲れて見えるけど。"},
+		"high": {"speaker": "通りすがり", "text": "平気？ 顔色、あまりよくないみたい。"},
+	},
+}
+const STRESS_IDLE_MONOLOGUES: Dictionary = {
+	"home": {
+		"low": "家の中なら、少し肩の力を抜けそう。",
+		"mid": "今日は家で整えたい。無理に背筋を張らなくていい。",
+		"high": "今日は人の目より、自分を休ませるほうを優先しよう。",
+	},
+	"school": {
+		"low": "学校でも、少しずつ居場所を作れる気がする。",
+		"mid": "教室に入る前に、一度呼吸を整えたい。",
+		"high": "このまま抱え込むのはきつい。はるかか保健室を頼ろう。",
+	},
+	"station": {
+		"low": "外は落ち着かないけど、歩き方は自分で選べる。",
+		"mid": "視線は気になる。まずは人の流れから少し外れよう。",
+		"high": "今は人波が重い。ベンチで呼吸を整えてから動こう。",
+	},
+	"default": {
+		"low": "今日の背丈で、今日の過ごし方を選んでいこう。",
+		"mid": "少し気持ちが揺れてる。急がず整えていこう。",
+		"high": "今日は張りつめすぎてる。ひとつずつ、楽になれる方を選ぼう。",
+	},
+}
+
 func _ready() -> void:
 	# 既存のテスト用古いノード群があれば削除
 	if has_node("Floor"): get_node("Floor").queue_free()
@@ -536,6 +592,87 @@ func _get_stress_state_text(stress_value: int) -> String:
 		return "やや緊張している"
 	return "落ち着いている"
 
+func _get_stress_band(stress_value: int) -> String:
+	if stress_value >= 70:
+		return "high"
+	if stress_value >= 35:
+		return "mid"
+	return "low"
+
+func _build_dialogue_sequence(npc_id: String, key: String) -> Array:
+	var npc_data: Dictionary = _dialogues.get(npc_id, {})
+	var base_lines: Array = npc_data.get(key, []).duplicate(true)
+	if base_lines.is_empty():
+		return []
+	if npc_id == "player":
+		return base_lines
+	if not STRESS_PREFIX_KEYS.has(key):
+		return base_lines
+	var opener: Dictionary = _get_stress_dialogue_opener(npc_id)
+	if opener.is_empty():
+		return base_lines
+	var merged_lines: Array = [opener]
+	merged_lines.append_array(base_lines)
+	return merged_lines
+
+func _get_stress_dialogue_opener(npc_id: String) -> Dictionary:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return {}
+	var band: String = _get_stress_band(int(global.stress))
+	var opener_set: Dictionary = NPC_STRESS_OPENERS.get(npc_id, NPC_STRESS_OPENERS.get("generic", {}))
+	var opener: Variant = opener_set.get(band, {})
+	return opener.duplicate(true) if opener is Dictionary else {}
+
+func _get_idle_monologue_text(global: Node) -> String:
+	if not global:
+		return ""
+	var plan_id: String = String(global.current_term_plan)
+	if plan_id == "":
+		return ""
+	var monologue_set: Dictionary = STRESS_IDLE_MONOLOGUES.get(plan_id, STRESS_IDLE_MONOLOGUES.get("default", {}))
+	return String(monologue_set.get(_get_stress_band(int(global.stress)), ""))
+
+func _get_default_action_hint_text() -> String:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return "[Q] 設定  [G] 記録  [E] インタラクト"
+	var band: String = _get_stress_band(int(global.stress))
+	match String(global.current_term_plan):
+		"home":
+			if band == "high":
+				return "今日は休むのを優先しよう  [E] 調べる  [G] 記録"
+			if band == "mid":
+				return "無理に張らず、家で整えよう  [E] 調べる  [G] 記録"
+			return "家で呼吸を整えられそうだ  [E] 調べる  [G] 記録"
+		"school":
+			if band == "high":
+				return "しんどさを抱え込まない。はるかか保健室に寄ろう  [E] 話す"
+			if band == "mid":
+				return "教室が重いなら、はるかか保健室へ  [E] 話す  [G] 記録"
+			return "はるかや保健室を頼りながら通えそうだ  [E] 話す  [G] 記録"
+		"station":
+			if band == "high":
+				return "視線がきつい。ベンチで休んでから動こう  [E] 調べる"
+			if band == "mid":
+				return "人波から少し外れて気持ちを整えよう  [E] 調べる"
+			return "ベンチや自販機でひと息入れながら進もう  [E] 調べる"
+
+	var vball_phase: int = Global.vball_story_phase
+	if vball_phase == 0 and Global.senior_gym_invited:
+		return "廊下の部室に話しかけてみよう"
+	if vball_phase == 1:
+		return "体育館に向かってバレー部に話しかけよう"
+	if vball_phase == 2:
+		return "バレー部と教室、どちらも見て回ろう"
+	if vball_phase == 3 and Global.is_leg_pain:
+		return "脚のことを誰かに相談してみよう"
+	if band == "high":
+		return "かなり張りつめている。今日は楽になれる方を選ぼう"
+	if band == "mid":
+		return "少ししんどい。無理せず整えよう  [Q] 設定  [G] 記録"
+	return "[Q] 設定  [G] 記録  [E] インタラクト"
+
 func _get_term_reflection_text(global: Node) -> String:
 	var plan_id: String = String(global.current_term_plan)
 	var balance: int = int(global.self_confidence) - int(global.self_complex)
@@ -613,7 +750,7 @@ func _start_dialogue(npc_id: String, key: String = "default") -> void:
 
 	_current_dialogue_npc = npc_id
 	_current_dialogue_key = key
-	_dialogue_lines = npc_data[key]
+	_dialogue_lines = _build_dialogue_sequence(npc_id, key)
 	_dialogue_index = 0
 	_in_dialogue = true
 	get_tree().paused = true
@@ -762,9 +899,9 @@ func _end_dialogue() -> void:
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and global.current_term_plan == "school":
 			call_deferred("_start_dialogue", "player", "term_school")
-	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "vball_join_cheer":
+	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "vball_join_cheer":
 		pass # 特に後処理なし
-	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "haruka_after_summer":
+	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "haruka_after_summer":
 		pass # 特に後処理なし
 
 	if should_show_term_choice:
@@ -845,8 +982,11 @@ func _interact_with_npc(npc: Node) -> void:
 				key = "senior_after_summer"
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
-		elif npc_id == "honoka":
-			if global and global.is_leg_pain and vball_phase == 3:
+		elif npc_id == "haruka":
+			if global and global.current_term_plan == "school" and global.current_stage_id == "school" and not global.has_term_hotspot_done("school_haruka_support"):
+				key = "term_school_haruka_support"
+				global.mark_term_hotspot_done("school_haruka_support")
+			elif global and global.is_leg_pain and vball_phase == 3:
 				key = "vball_pain_consult"
 			elif global and not global.haruka_invited_this_term:
 				key = "measure_invite"
@@ -855,9 +995,6 @@ func _interact_with_npc(npc: Node) -> void:
 				key = "huge"
 			elif diff >= 15.0 and npc_data.has("tall"):
 				key = "tall"
-		elif (npc_id == "haruka") and global and not global.haruka_invited_this_term:
-			key = "measure_invite"
-			global.haruka_invited_this_term = true
 		elif diff >= 35.0 and npc_data.has("huge"):
 			key = "huge"
 		elif diff >= 15.0 and npc_data.has("tall"):
@@ -1049,7 +1186,17 @@ func _update_bubble():
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
 		_nearby_term_hotspot = ""
-		bubble_panel.hide()
+		if _in_dialogue or _measurement_showing or _term_choice_showing:
+			bubble_panel.hide()
+			return
+		var global = get_node_or_null("/root/Global")
+		var idle_monologue: String = _get_idle_monologue_text(global)
+		if idle_monologue == "":
+			bubble_panel.hide()
+		else:
+			bubble_label.text = idle_monologue
+			bubble_panel.show()
+			bubble_panel.position = _get_bubble_screen_pos()
 
 func _setup_ui():
 	ui_layer = CanvasLayer.new()
@@ -1332,21 +1479,7 @@ func _get_action_hint_text() -> String:
 		var npc_id: String = _nearby_npc.get("npc_id") if _nearby_npc.get("npc_id") != null else ""
 		if npc_id != "":
 			return "[E] 話しかける"
-	if Global.stress >= 70:
-		return "肩がこわばる……今学期は少し休みたい"
-	if Global.stress >= 40:
-		return "少し気が張っている  [Q] 設定  [G] 成長記録"
-	# バレー部ストーリーヒント
-	var vball_phase = Global.vball_story_phase
-	if vball_phase == 0 and Global.senior_gym_invited:
-		return "廊下の先輩に話しかけてみよう"
-	if vball_phase == 1:
-		return "体育館に行って先輩に話しかけよう"
-	if vball_phase == 2:
-		return "先輩と練習してみよう"
-	if vball_phase == 3 and Global.is_leg_pain:
-		return "ほのかに脚のことを相談してみよう"
-	return "[Q] 設定  [G] 成長記録  [E] インタラクト"
+	return _get_default_action_hint_text()
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -1599,23 +1732,18 @@ func _spawn_npcs(stage_id: String) -> void:
 		add_child(npc_hall)
 
 	elif stage_id == "school":
-		# 友人「ほのか」
-		var honoka = npc_scene.instantiate()
-		honoka.set_meta("is_npc", true)
-		honoka.npc_id = "honoka"
-		honoka.position = Vector2(300 * p, 0)
-		add_child(honoka)
+		# 友人「はるか」
+		var haruka = npc_scene.instantiate()
+		haruka.set_meta("is_npc", true)
+		haruka.npc_id = "haruka"
 		# コアNPC「桐島はるか」
-		var npc1 = npc_scene.instantiate()
-		npc1.set_meta("is_npc", true)
-		npc1.npc_id = "haruka"
-		npc1.custom_params = {
+		haruka.custom_params = {
 			"height": 152.0,
 			"ratio": 6.8,
 			"legRatio": 44.0,
 			"sex": "female"
 		}
-		npc1.custom_appearance = {
+		haruka.custom_appearance = {
 			"hair_style": "long",
 			"hair_color": "#885533",
 			"tops_type": "blouse",
@@ -1625,8 +1753,8 @@ func _spawn_npcs(stage_id: String) -> void:
 			"shoes_type": "sneakers",
 			"shoes_color": "#ffffff"
 		}
-		npc1.position = Vector2(500 * p, 0)
-		add_child(npc1)
+		haruka.position = Vector2(300 * p, 0)
+		add_child(haruka)
 
 		# 背の高い男性教師のようなダミー（身長175cm）
 		var npc2 = npc_scene.instantiate()
