@@ -20,7 +20,7 @@ static func draw(ctx: DrawContext) -> void:
 	var body_w_half = body_w / 2.0
 	var sh_off = shoulder_w * 0.5 - arm_w * 0.5
 	var hp_off = body_w_half * 0.6
-	var stress_ratio = float(d.get("stress_ratio", 0.0))
+	var stress_ratio: float = float(d.get("stress_ratio", 0.0))
 
 	var p_hip_l = Vector2(d["cx"] - hp_off, d["cy"])
 	var p_hip_r = Vector2(d["cx"] + hp_off, d["cy"])

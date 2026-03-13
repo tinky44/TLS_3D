@@ -10,9 +10,9 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var visual_height_cm = player.visual_height_cm
 
     # 脚の痛みフラグを Global から取得
-    var is_leg_pain = false
-    var stress_ratio = 0.0
-    var _g = player.get_node_or_null("/root/Global")
+    var is_leg_pain: bool = false
+    var stress_ratio: float = 0.0
+    var _g: Node = player.get_node_or_null("/root/Global")
     if _g and _g.get("is_leg_pain"):
         is_leg_pain = _g.is_leg_pain
     if _g and _g.get("stress") != null:
@@ -105,7 +105,7 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         var dy2 = thigh_l * cos(leg_r_angle * PI / 180) + shin_l * cos(leg_r_angle * PI / 180 + knee_r)
         y_crotch = - max(dy1, dy2)
     else:
-        var stress_pose = stress_ratio * (0.35 if is_walking else 1.0)
+        var stress_pose: float = stress_ratio * (0.35 if is_walking else 1.0)
         waist_angle = 0.20 * stress_pose
         arm_l_angle += 8.0 * stress_pose
         arm_r_angle += 8.0 * stress_pose

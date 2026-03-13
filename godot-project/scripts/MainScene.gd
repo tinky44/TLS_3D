@@ -36,6 +36,8 @@ var history_header_label: Label
 var growth_graph: Control
 var bump_alert_label: Label
 var _bump_alert_time_left: float = 0.0
+var mood_feedback_label: Label
+var _mood_feedback_time_left: float = 0.0
 
 # ─── ダイアログシステム ──────────────────────────────────────────
 var dialogue_panel: Control
@@ -64,6 +66,7 @@ const TERM_CHOICES: Dictionary = {
 		"summary": "家族の近くで落ち着いて過ごす。ストレスは下がるが、外の刺激は少ない。",
 		"stage_id": "room",
 		"stress_delta": -12,
+		"feedback": "家に戻ると肩の力が少し抜ける",
 		"event_id": "term_home"
 	},
 	"school": {
@@ -71,6 +74,7 @@ const TERM_CHOICES: Dictionary = {
 		"summary": "授業や人間関係に向き合う。少し気疲れするが、学校イベントが進みやすい。",
 		"stage_id": "school",
 		"stress_delta": 8,
+		"feedback": "視線を意識して、少し気が張る",
 		"event_id": ""
 	},
 	"station": {
@@ -78,6 +82,7 @@ const TERM_CHOICES: Dictionary = {
 		"summary": "人の多い場所で、自分の大きさを強く意識する。ストレスは大きく上がる。",
 		"stage_id": "station",
 		"stress_delta": 16,
+		"feedback": "人通りの多さで肩がこわばる",
 		"event_id": "term_station"
 	},
 }
@@ -416,7 +421,9 @@ func _on_term_choice_selected(choice_id: String) -> void:
 	var choice: Dictionary = TERM_CHOICES[choice_id]
 	global.pending_term_choice = false
 	global.current_term_plan = choice_id
-	global.add_stress(int(choice.get("stress_delta", 0)))
+	var stress_delta: int = int(choice.get("stress_delta", 0))
+	global.add_stress(stress_delta)
+	_show_stress_feedback(stress_delta, String(choice.get("feedback", "")))
 
 	var summer_front: bool = (
 		global.pending_events.size() > 0
@@ -455,6 +462,24 @@ func _get_stress_state_text(stress_value: int) -> String:
 	if stress_value >= 20:
 		return "やや緊張している"
 	return "落ち着いている"
+
+func _get_term_reflection_text(global: Node) -> String:
+	var plan_id: String = String(global.current_term_plan)
+	var balance: int = int(global.self_confidence) - int(global.self_complex)
+	match plan_id:
+		"home":
+			if balance >= 0:
+				return "家で呼吸を整える時間が、今の体を少し受け止める助けになった。"
+			return "家にいれば落ち着く。でも外を思うと、まだ少し肩に力が入る。"
+		"school":
+			if balance >= 0:
+				return "教室にいるだけでも前進だ。視線の中で過ごした時間が、小さな自信になっている。"
+			return "学校にいるだけで気が張る日もあった。今学期は、そのしんどさもはっきり残った。"
+		"station":
+			if balance >= 0:
+				return "人の多い場所でも、見える景色が少し変わった。この高さを面白いと思えた瞬間がある。"
+			return "外の視線は想像以上に重かった。駅前に出るたび、肩が固くなるのを感じた。"
+	return "今学期の過ごし方が、少しずつ心と体の輪郭を作っていく。"
 
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	if _in_dialogue or _measurement_showing or _term_choice_showing: return
@@ -527,6 +552,8 @@ func _on_choice_selected(choice: Dictionary) -> void:
 	var action: String = choice.get("action", "")
 	if global and action != "":
 		_process_choice_action(action, global)
+	if global:
+		global.save_settings()
 	# 分岐先へ
 	var next_key: String = choice.get("next", "")
 	if next_key != "":
@@ -539,21 +566,33 @@ func _on_choice_selected(choice: Dictionary) -> void:
 	_advance_dialogue()
 
 func _process_choice_action(action: String, global: Node) -> void:
-	match action:
-		"vball_join":
-			global.vball_joined = true
-			global.vball_story_phase = 2
-		"vball_pain_report":
-			global.vball_story_phase = 4
-			global.queue_event("vball_tell_senior")
-		"vball_rejoin":
-			global.vball_joined = true
-			global.is_leg_pain = false
-			global.vball_story_phase = 7
-		"vball_manager_role":
-			global.vball_joined = false
-			global.is_leg_pain = false
-			global.vball_story_phase = 7
+	var action_parts: PackedStringArray = action.split(",", false)
+	for part in action_parts:
+		var action_id: String = String(part).strip_edges()
+		if action_id == "":
+			continue
+		if action_id.begins_with("stress:"):
+			var delta_text: String = action_id.substr("stress:".length())
+			if delta_text.is_valid_int():
+				var stress_delta: int = int(delta_text)
+				global.add_stress(stress_delta)
+				_show_stress_feedback(stress_delta)
+			continue
+		match action_id:
+			"vball_join":
+				global.vball_joined = true
+				global.vball_story_phase = 2
+			"vball_pain_report":
+				global.vball_story_phase = 4
+				global.queue_event("vball_tell_senior")
+			"vball_rejoin":
+				global.vball_joined = true
+				global.is_leg_pain = false
+				global.vball_story_phase = 7
+			"vball_manager_role":
+				global.vball_joined = false
+				global.is_leg_pain = false
+				global.vball_story_phase = 7
 
 func _advance_dialogue() -> void:
 	if _choice_pending: return
@@ -711,6 +750,21 @@ func _setup_bump_alert() -> void:
 	bump_alert_label.size = Vector2(360, 30)
 	ui_layer.add_child(bump_alert_label)
 
+func _setup_mood_feedback() -> void:
+	mood_feedback_label = Label.new()
+	mood_feedback_label.hide()
+	mood_feedback_label.anchor_left = 0.5
+	mood_feedback_label.anchor_right = 0.5
+	mood_feedback_label.offset_left = -260
+	mood_feedback_label.offset_right = 260
+	mood_feedback_label.offset_top = 36
+	mood_feedback_label.offset_bottom = 68
+	mood_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mood_feedback_label.add_theme_font_size_override("font_size", 20)
+	mood_feedback_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	mood_feedback_label.add_theme_constant_override("outline_size", 6)
+	ui_layer.add_child(mood_feedback_label)
+
 func _update_bump_alert(delta: float) -> void:
 	if not bump_alert_label:
 		return
@@ -735,6 +789,18 @@ func _update_bump_alert(delta: float) -> void:
 	bump_alert_label.position = screen_pos + Vector2(-bump_alert_label.size.x / 2.0, -player.visual_height_cm * p - 120.0)
 	bump_alert_label.show()
 
+func _update_mood_feedback(delta: float) -> void:
+	if not mood_feedback_label:
+		return
+	if _mood_feedback_time_left <= 0.0:
+		mood_feedback_label.hide()
+		return
+	_mood_feedback_time_left = max(0.0, _mood_feedback_time_left - delta)
+	if _mood_feedback_time_left <= 0.0:
+		mood_feedback_label.hide()
+		return
+	mood_feedback_label.show()
+
 func _show_bump_alert(text: String) -> void:
 	if not bump_alert_label:
 		_setup_bump_alert()
@@ -742,12 +808,32 @@ func _show_bump_alert(text: String) -> void:
 	_bump_alert_time_left = 0.9
 	bump_alert_label.show()
 
+func _show_mood_feedback(text: String, positive: bool) -> void:
+	if not mood_feedback_label:
+		_setup_mood_feedback()
+	mood_feedback_label.text = text
+	var font_color: Color = Color(0.95, 0.82, 0.72)
+	if positive:
+		font_color = Color(0.80, 0.94, 0.82)
+	mood_feedback_label.add_theme_color_override("font_color", font_color)
+	_mood_feedback_time_left = 1.5
+	mood_feedback_label.show()
+
+func _show_stress_feedback(delta: int, detail: String = "") -> void:
+	if delta == 0:
+		return
+	var feedback_text: String = "%+d stress" % delta
+	if detail != "":
+		feedback_text += "  " + detail
+	_show_mood_feedback(feedback_text, delta < 0)
+
 
 func _process(delta: float) -> void:
 	_update_ui()
 	_update_bubble()
 	_update_minimap()
 	_update_bump_alert(delta)
+	_update_mood_feedback(delta)
 	if action_hint_label and action_hint_panel and action_hint_panel.visible:
 		action_hint_label.text = _get_action_hint_text()
 
@@ -1173,6 +1259,9 @@ func _update_ui():
 		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
 		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
 	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
+	var confidence_val: int = global.self_confidence if global else 0
+	var complex_val: int = global.self_complex if global else 0
+	text += "気持ち: 受容 %d / 戸惑い %d\n" % [confidence_val, complex_val]
 	text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
 	text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
 	
@@ -1681,6 +1770,12 @@ func _show_measurement_result() -> void:
 	var detail = "年齢：%d歳  第%d学期\n" % [a, global.term + 1]
 	detail += "同学年平均：%.1f cm  （差：%+.1f cm）\n\n" % [avg_h, diff_avg]
 	detail += global.get_measurement_comment(diff_avg)
+	if global.current_term_plan != "":
+		var plan_data: Dictionary = TERM_CHOICES.get(String(global.current_term_plan), {})
+		detail += "\n\n【今学期の手触り】\n"
+		detail += "%s\n" % String(plan_data.get("title", global.current_term_plan))
+		detail += "stress %d / 100 (%s)\n" % [int(global.stress), _get_stress_state_text(int(global.stress))]
+		detail += _get_term_reflection_text(global)
 	measurement_content_label.text = detail
 
 	# 前回比ラベル

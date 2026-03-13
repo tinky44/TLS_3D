@@ -29,7 +29,7 @@ static func draw(ctx: DrawContext) -> void:
 	var hand_hw = shoulder_full / 5.0 / 2.0
 	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = ctx.shoe_color
-	var stress_ratio = float(d.get("stress_ratio", 0.0))
+	var stress_ratio: float = float(d.get("stress_ratio", 0.0))
 
 	# 0. バッグ（ランドセルなど） — 最背面に描画
 	CharacterClothingDrawer.draw_bag_side(ctx)

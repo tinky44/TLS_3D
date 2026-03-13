@@ -191,7 +191,22 @@ const DATA: Dictionary = {
 		"term_home": [
 			{"speaker": "（主人公）", "text": "今学期は、家で過ごす時間を少し増やしてみよう。"},
 			{"speaker": "お母さん", "text": "無理しないのが一番よ。家なら少しは落ち着けるでしょ。"},
-			{"speaker": "（主人公）", "text": "外にいると張っていた肩が、少しだけほどける気がした。"},
+			{
+				"speaker": "（主人公）",
+				"text": "今日は、どんなふうに過ごそう。",
+				"choices": [
+					{"label": "ちゃんと休む", "next": "term_home_rest", "action": "stress:-6"},
+					{"label": "背筋を伸ばしてみる", "next": "term_home_posture", "emotion": "confidence", "action": "stress:-3"},
+				]
+			},
+		],
+		"term_home_rest": [
+			{"speaker": "（主人公）", "text": "深く息をつく。張っていた肩が、少しずつほどけていく。"},
+			{"speaker": "お母さん", "text": "そうそう。そのくらい力を抜いていていいのよ。"},
+		],
+		"term_home_posture": [
+			{"speaker": "（主人公）", "text": "家の中でなら、少しだけ背筋を伸ばせる。"},
+			{"speaker": "（主人公）", "text": "この大きさを、少しずつ自分の形にしていけるかもしれない。"},
 		],
 		"term_school": [
 			{"speaker": "（主人公）", "text": "また後ろの席だ。みんなの視線が、少しだけ気になる。"},
@@ -199,8 +214,8 @@ const DATA: Dictionary = {
 				"speaker": "（主人公）",
 				"text": "でも、今学期はどう向き合おう？",
 				"choices": [
-					{"label": "目立っても、ちゃんと通う", "next": "term_school_brave", "emotion": "confidence"},
-					{"label": "やっぱり少ししんどい", "next": "term_school_tired", "emotion": "complex"},
+					{"label": "目立っても、ちゃんと通う", "next": "term_school_brave", "emotion": "confidence", "action": "stress:-4"},
+					{"label": "やっぱり少ししんどい", "next": "term_school_tired", "emotion": "complex", "action": "stress:+4"},
 				]
 			},
 		],
@@ -218,8 +233,8 @@ const DATA: Dictionary = {
 				"speaker": "（主人公）",
 				"text": "駅前は視線が多い。でも、そのぶん自分の大きさを強く意識する。",
 				"choices": [
-					{"label": "この高さも自分の一部だ", "next": "term_station_bold", "emotion": "confidence"},
-					{"label": "やっぱり早く帰りたい", "next": "term_station_shy", "emotion": "complex"},
+					{"label": "この高さも自分の一部だ", "next": "term_station_bold", "emotion": "confidence", "action": "stress:-5"},
+					{"label": "やっぱり早く帰りたい", "next": "term_station_shy", "emotion": "complex", "action": "stress:+5"},
 				]
 			},
 		],
