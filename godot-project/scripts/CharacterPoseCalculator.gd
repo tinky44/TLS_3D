@@ -11,9 +11,12 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
 
     # 脚の痛みフラグを Global から取得
     var is_leg_pain = false
+    var stress_ratio = 0.0
     var _g = player.get_node_or_null("/root/Global")
     if _g and _g.get("is_leg_pain"):
         is_leg_pain = _g.is_leg_pain
+    if _g and _g.get("stress") != null:
+        stress_ratio = clampf(float(_g.stress) / 100.0, 0.0, 1.0)
 
     var leg_l_angle = 0.0
     var leg_r_angle = 0.0
@@ -101,6 +104,11 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         var dy1 = thigh_l * cos(leg_l_angle * PI / 180) + shin_l * cos(leg_l_angle * PI / 180 + knee_l)
         var dy2 = thigh_l * cos(leg_r_angle * PI / 180) + shin_l * cos(leg_r_angle * PI / 180 + knee_r)
         y_crotch = - max(dy1, dy2)
+    else:
+        var stress_pose = stress_ratio * (0.35 if is_walking else 1.0)
+        waist_angle = 0.20 * stress_pose
+        arm_l_angle += 8.0 * stress_pose
+        arm_r_angle += 8.0 * stress_pose
 
     var cx = 0.0
     var cy = y_crotch
@@ -160,7 +168,8 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         "front_hip_x": front_hip_x, "front_hip_y": front_hip_y,
         "front_sx": front_sx, "front_sy": front_sy,
         "front_nx": front_nx, "front_ny": front_ny,
-        "front_hx": front_hx, "front_hy": front_hy
+        "front_hx": front_hx, "front_hy": front_hy,
+        "stress_ratio": stress_ratio
     }
 
 

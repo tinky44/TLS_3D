@@ -392,10 +392,11 @@ func _show_term_choice_panel() -> void:
 	if not global or not global.pending_term_choice:
 		return
 	_term_choice_showing = true
-	term_choice_header_label.text = "%d歳 / 第%d学期 / stress %d" % [
+	term_choice_header_label.text = "%d歳 / 第%d学期 / stress %d (%s)" % [
 		int(global.age),
 		int(global.term) + 1,
-		int(global.stress)
+		int(global.stress),
+		_get_stress_state_text(int(global.stress))
 	]
 	term_choice_panel.show()
 	get_tree().paused = true
@@ -445,6 +446,15 @@ func _is_term_intro_dialogue() -> bool:
 		"summer_growth",
 		"summer_growth_vball"
 	]
+
+func _get_stress_state_text(stress_value: int) -> String:
+	if stress_value >= 75:
+		return "かなり張りつめている"
+	if stress_value >= 45:
+		return "少ししんどい"
+	if stress_value >= 20:
+		return "やや緊張している"
+	return "落ち着いている"
 
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	if _in_dialogue or _measurement_showing or _term_choice_showing: return
@@ -583,6 +593,9 @@ func _end_dialogue() -> void:
 			global.is_leg_pain = false
 			global.vball_joined = false
 			global.vball_story_phase = 5
+	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
+		if global and global.current_term_plan == "school":
+			call_deferred("_start_dialogue", "player", "term_school")
 	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "vball_join_cheer":
 		pass # 特に後処理なし
 	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "haruka_after_summer":
@@ -1091,6 +1104,10 @@ func _get_action_hint_text() -> String:
 		var npc_id: String = _nearby_npc.get("npc_id") if _nearby_npc.get("npc_id") != null else ""
 		if npc_id != "":
 			return "[E] 話しかける"
+	if Global.stress >= 70:
+		return "肩がこわばる……今学期は少し休みたい"
+	if Global.stress >= 40:
+		return "少し気が張っている  [Q] 設定  [G] 成長記録"
 	# バレー部ストーリーヒント
 	var vball_phase = Global.vball_story_phase
 	if vball_phase == 0 and Global.senior_gym_invited:
@@ -1155,7 +1172,7 @@ func _update_ui():
 	if term_plan != "":
 		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
 		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
-	text += "stress: %d / 100\n" % int(stress_val)
+	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
 	text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
 	text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
 	

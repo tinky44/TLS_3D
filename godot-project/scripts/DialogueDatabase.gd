@@ -191,10 +191,45 @@ const DATA: Dictionary = {
 		"term_home": [
 			{"speaker": "（主人公）", "text": "今学期は、家で過ごす時間を少し増やしてみよう。"},
 			{"speaker": "お母さん", "text": "無理しないのが一番よ。家なら少しは落ち着けるでしょ。"},
+			{"speaker": "（主人公）", "text": "外にいると張っていた肩が、少しだけほどける気がした。"},
+		],
+		"term_school": [
+			{"speaker": "（主人公）", "text": "また後ろの席だ。みんなの視線が、少しだけ気になる。"},
+			{
+				"speaker": "（主人公）",
+				"text": "でも、今学期はどう向き合おう？",
+				"choices": [
+					{"label": "目立っても、ちゃんと通う", "next": "term_school_brave", "emotion": "confidence"},
+					{"label": "やっぱり少ししんどい", "next": "term_school_tired", "emotion": "complex"},
+				]
+			},
+		],
+		"term_school_brave": [
+			{"speaker": "（主人公）", "text": "……大丈夫。見られても、ちゃんとここにいる。"},
+			{"speaker": "ほのか", "text": "うん、その調子。今学期も一緒にやっていこう。"},
+		],
+		"term_school_tired": [
+			{"speaker": "（主人公）", "text": "……ちょっと、息が詰まる。"},
+			{"speaker": "ほのか", "text": "無理しすぎないでね。しんどい時は、ちゃんと休もう。"},
 		],
 		"term_station": [
 			{"speaker": "（主人公）", "text": "今学期は、少し外に出てみよう。"},
-			{"speaker": "（主人公）", "text": "駅前は視線が多い。でも、そのぶん自分の大きさを強く意識する。"},
+			{
+				"speaker": "（主人公）",
+				"text": "駅前は視線が多い。でも、そのぶん自分の大きさを強く意識する。",
+				"choices": [
+					{"label": "この高さも自分の一部だ", "next": "term_station_bold", "emotion": "confidence"},
+					{"label": "やっぱり早く帰りたい", "next": "term_station_shy", "emotion": "complex"},
+				]
+			},
+		],
+		"term_station_bold": [
+			{"speaker": "（主人公）", "text": "ざわつきはする。でも、立っているだけで世界の見え方が変わる。"},
+			{"speaker": "（主人公）", "text": "少しだけ、この高さを面白いと思えた。"},
+		],
+		"term_station_shy": [
+			{"speaker": "（主人公）", "text": "視線が集まるたびに、肩がぎゅっと固くなる。"},
+			{"speaker": "（主人公）", "text": "今日はもう、早く帰ってしまいたい。"},
 		],
 		"entrance_elementary": [
 			{"speaker": "（主人公）", "text": "今日は小学校の入学式だ。"},
