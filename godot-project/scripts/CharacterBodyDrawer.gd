@@ -130,6 +130,14 @@ static func get_side_garment_waist_pos(ctx: DrawContext) -> Vector2:
 	var torso_dir = torso_vec.normalized() if torso_vec.length() > 0.01 else Vector2(0, 1)
 	return shoulder + torso_dir * u_arm
 
+# セーラースカートの側面上端位置。
+# 下胴の中心線（へそ→股）上で合わせ、屈み時にトップス下端とのずれを抑える。
+static func get_side_sailor_waist_pos(ctx: DrawContext) -> Vector2:
+	var d = ctx.d
+	var p_waist = Vector2(d["navel_x"], d["navel_y"])
+	var p_crotch = Vector2(d["cx"], d["cy"])
+	return p_waist.lerp(p_crotch, 0.5)
+
 # ---------------------------------------------------------------
 # スカート描画ヘルパー
 #
@@ -162,6 +170,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		else:
 			# 正面・背面: Xは固定(cx=0)のままYのみ引き上げる
 			waist_pos.y = d["front_sy"] + u_arm
+	elif facing == "side" and bottoms_type == "skirt_sailor":
+		waist_pos = get_side_sailor_waist_pos(ctx)
 
 	var waist_to_crotch = d["cy"] - waist_pos.y
 	var skirt_length: float

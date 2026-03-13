@@ -84,6 +84,17 @@ u_arm = m["armLength"] * p * 0.5 + 10.0
 - 側面: `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` を共有利用
 - 正面/背面: `waist_pos.y = front_sy + u_arm`
 
+### 4.1.1 セーラースカート（側面）の上端補正
+
+`bottoms_type == "skirt_sailor"` かつ `facing == "side"` のときは、
+`hip_x/hip_y` をそのまま使わず、へそ〜股の中心線上の中点を上端に使う。
+
+```gdscript
+waist_pos = lerp((navel_x, navel_y), (cx, cy), 0.5)
+```
+
+- 下胴の見た目上の中心線に合わせることで、屈み時のトップスとの段差を減らす。
+
 ## 4.2 スカート丈
 
 `waist_to_crotch = d["cy"] - waist_pos.y`

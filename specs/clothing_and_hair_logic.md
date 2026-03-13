@@ -89,6 +89,11 @@ u_arm = m["armLength"] * p * 0.5 + 10.0
 - 側面: `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` を共有利用
 - 正面/背面: `waist_pos.y = front_sy + u_arm`
 
+セーラースカートの側面のみ:
+
+- `CharacterBodyDrawer.get_side_sailor_waist_pos(ctx)` を使う
+- へそ〜股の中心線上の中点に合わせ、屈み時のトップス下端とのずれを抑える
+
 ## 3.2 丈計算
 
 ```gdscript
