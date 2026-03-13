@@ -206,8 +206,49 @@ func mark_term_hotspot_done(hotspot_id: String) -> void:
 func has_term_hotspot_done(hotspot_id: String) -> bool:
 	return bool(term_hotspot_flags.get(hotspot_id, false))
 
+# 学校段階を返す: 0=小低 1=小高 2=中学 3=高校 4=卒業後
+static func _school_level_from_age(a: int) -> int:
+	if a <= 8: return 0
+	elif a <= 11: return 1
+	elif a <= 14: return 2
+	elif a <= 17: return 3
+	return 4
+
+# 学年に対応する制服パラメータを返す（該当なしなら空辞書）
+static func get_school_uniform(a: int) -> Dictionary:
+	if a >= 6 and a <= 8: # 小学校低学年（1-3年生）: サスペンダースカート
+		return {
+			"tops_type": "jumper_skirt",
+			"tops_color": "#1a2a5e",
+			"bottoms_type": "skirt",
+			"bottoms_color": "#1a2a5e"
+		}
+	elif a <= 11: # 小学校高学年（4-6年生）: リボンブラウス
+		return {
+			"tops_type": "blouse_bow",
+			"tops_color": "#f0e8e0",
+			"bottoms_type": "skirt",
+			"bottoms_color": "#1a2a5e"
+		}
+	elif a <= 14: # 中学校: セーラー服
+		return {
+			"tops_type": "sailor",
+			"tops_color": "#1a2a5e",
+			"bottoms_type": "skirt_sailor",
+			"bottoms_color": "#1a2a5e"
+		}
+	elif a <= 17: # 高校: ジャンパースカート
+		return {
+			"tops_type": "blazer",
+			"tops_color": "#212840",
+			"bottoms_type": "skirt",
+			"bottoms_color": "#212840"
+		}
+	return {}
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
+	var prev_age: int = age
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
@@ -218,6 +259,12 @@ func advance_term() -> void:
 	# 身長に合わせて頭身を自動更新（最大9頭身）
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
+	# 進学時（学校段階が変わった場合）に制服を自動更新
+	if _school_level_from_age(age) != _school_level_from_age(prev_age):
+		var uniform := get_school_uniform(age)
+		for key in uniform.keys():
+			current_appearance[key] = uniform[key]
+		current_appearance["hat_type"] = "school_hat" if age < 12 else "none"
 	record_growth_history("growth")
 	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false

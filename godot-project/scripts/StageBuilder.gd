@@ -33,7 +33,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 230,
         "obstacles": [
-            {"id": "door_to_outdoor", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
+            {"id": "door_to_station", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
             {"id": "door_2", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
