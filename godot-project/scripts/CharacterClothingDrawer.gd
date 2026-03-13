@@ -19,12 +19,19 @@ static func draw_tops_detail_front(ctx: DrawContext, tops_type: String, tops_col
 	var half_sh = shoulder_w * 0.5
 	var half_body = body_w * 0.5
 
+	# 背面は制服の装飾を足さず、ベース胴体色をそのまま見せる。
+	# ただし blazer はスカート部分をこのレイヤーで補っているため、背面用の簡易描画を行う。
+	if ctx.facing == "back":
+		match tops_type:
+			"sailor", "blouse_bow":
+				return
+			"blazer":
+				draw_jumperSkirt_back(ctx, sx, sy, half_body, tops_color)
+				return
+
 	match tops_type:
 		"sailor":
-			if ctx.facing == "back":
-				draw_sailor_back(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color)
-			else:
-				draw_sailor_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
+			draw_sailor_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, skin_color)
 		"blazer":
 			draw_jumperSkirt_front(ctx, sx, sy, neck_y, navel_y, half_sh, half_body, tops_color, true)
 		"blouse_bow":
@@ -148,51 +155,6 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 	ctx.canvas.draw_polygon(knot_pts, PackedColorArray([sc.lightened(0.12)]))
 
 # ---------------------------------------------------------------
-# セーラー服オーバーレイ（背面）
-#
-# 描画パーツ:
-#   1. 背中の矩形フラップ
-#   2. 側面 + 下端のU字白ライン
-#
-# バッグはこの後ろに重なってよく、背中側が隠れても自然とみなす。
-# ---------------------------------------------------------------
-static func draw_sailor_back(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float,
-		_half_sh: float, half_body: float, sailor_color: Color) -> void:
-	var flap_top_y = sy
-	var flap_bot_y = lerp(sy, navel_y, 0.45) # 正面のリボン始点(v_y)と同じ高さ
-	var flap_half_w = half_body
-
-	var flap_pts = PackedVector2Array([
-		Vector2(sx - flap_half_w, flap_top_y),
-		Vector2(sx + flap_half_w, flap_top_y),
-		Vector2(sx + flap_half_w, flap_bot_y),
-		Vector2(sx - flap_half_w, flap_bot_y),
-	])
-	ctx.canvas.draw_polygon(flap_pts, PackedColorArray([sailor_color]))
-
-	var line_col = Color(1, 1, 1, 0.78)
-	var flap_h = flap_bot_y - flap_top_y
-	var side_inset_1 = flap_half_w * 0.16
-	var side_inset_2 = flap_half_w * 0.30
-	var top_gap_1 = flap_h * 0.22
-	var top_gap_2 = flap_h * 0.36
-	var bottom_gap_1 = flap_h * 0.10
-	var bottom_gap_2 = flap_h * 0.20
-
-	ctx.canvas.draw_polyline(PackedVector2Array([
-		Vector2(sx - flap_half_w + side_inset_1, flap_top_y + top_gap_1),
-		Vector2(sx - flap_half_w + side_inset_1, flap_bot_y - bottom_gap_1),
-		Vector2(sx + flap_half_w - side_inset_1, flap_bot_y - bottom_gap_1),
-		Vector2(sx + flap_half_w - side_inset_1, flap_top_y + top_gap_1),
-	]), line_col, 2.0)
-	ctx.canvas.draw_polyline(PackedVector2Array([
-		Vector2(sx - flap_half_w + side_inset_2, flap_top_y + top_gap_2),
-		Vector2(sx - flap_half_w + side_inset_2, flap_bot_y - bottom_gap_2),
-		Vector2(sx + flap_half_w - side_inset_2, flap_bot_y - bottom_gap_2),
-		Vector2(sx + flap_half_w - side_inset_2, flap_top_y + top_gap_2),
-	]), line_col, 1.6)
-
-# ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（正面）
 #
 # 描画パーツ:
@@ -250,6 +212,18 @@ static func draw_jumperSkirt_front(ctx: DrawContext, sx: float, sy: float, _neck
 	# 【調整用】赤リボン
 	var bow_col = Color(0.75, 0.18, 0.25) if is_dark else Color(0.25, 0.35, 0.75)
 	draw_bow_front(ctx, sx, sy, navel_y, half_body * 0.55, bow_col)
+
+# ---------------------------------------------------------------
+# ジャンパースカートオーバーレイ（背面）
+#
+# 背面では装飾を追加せず、同色スカートだけを補って前後の一体感を保つ。
+# ---------------------------------------------------------------
+static func draw_jumperSkirt_back(ctx: DrawContext, sx: float, sy: float, half_body: float, jacket_color: Color) -> void:
+	if not ctx.is_skirt:
+		return
+	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
+	var belt_y = sy + u_arm
+	CharacterBodyDrawer.draw_skirt(ctx, ctx.bottoms_type, jacket_color, Vector2(sx, belt_y), half_body * 2.0, ctx.tops_type, ctx.facing)
 
 # ---------------------------------------------------------------
 # リボン（蝶結び）オーバーレイ（正面）
