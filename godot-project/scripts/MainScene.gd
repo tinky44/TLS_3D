@@ -930,18 +930,13 @@ func _setup_ui():
 	speed_slider.value = Global.system_settings.get("move_speed", 250.0)
 	
 	# 初期値をプレイヤーに適用
-	if player:
-		var initial_v = speed_slider.value
-		var ratio = initial_v / 250.0
-		player.set("SPEED", initial_v)
-		player.set("walk_speed", 12.0 * ratio)
+	if player and player.has_method("refresh_movement_tuning"):
+		player.call("refresh_movement_tuning")
 
 	speed_slider.value_changed.connect(func(v: float):
 		Global.system_settings["move_speed"] = v
-		if player:
-			var ratio = v / 250.0
-			player.set("SPEED", v)
-			player.set("walk_speed", 12.0 * ratio)
+		if player and player.has_method("refresh_movement_tuning"):
+			player.call("refresh_movement_tuning")
 	)
 	speed_slider.drag_ended.connect(func(_val: bool):
 		Global.save_settings()

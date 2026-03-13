@@ -8,6 +8,9 @@ const GRAVITY = 1200.0
 const HEAD_BUMP_COOLDOWN := 0.35
 const HEAD_BUMP_SHAKE_TIME := 0.18
 const HEAD_BUMP_SHAKE_STRENGTH := 6.0
+const BASE_MOVE_SPEED := 250.0
+const BASE_WALK_SPEED := 12.0
+const BASE_LEG_CM := 180.0 * 0.48
 var CM_TO_PX: float = 2.0
 
 var facing: String = "side"
@@ -60,9 +63,27 @@ func update_measurements() -> void:
 
 	_setup_sensors()
 	_update_collision()
+	refresh_movement_tuning()
 
 	if character_drawer:
 		character_drawer.queue_redraw()
+
+func refresh_movement_tuning() -> void:
+	if m == null or m.is_empty():
+		return
+
+	var base_move_speed: float = BASE_MOVE_SPEED
+	if has_node("/root/Global"):
+		var global = get_node("/root/Global")
+		base_move_speed = float(global.system_settings.get("move_speed", BASE_MOVE_SPEED))
+
+	var leg_cm: float = float(m.get("leg", BASE_LEG_CM))
+	var leg_scale: float = clampf(leg_cm / BASE_LEG_CM, 0.65, 1.8)
+
+	# 脚が長いほど一歩が伸びるので、前進速度だけ身長に応じて伸ばす。
+	# 歩行テンポはベース速度設定にのみ追従させ、足運びとのズレを抑える。
+	SPEED = base_move_speed * leg_scale
+	walk_speed = BASE_WALK_SPEED * (base_move_speed / BASE_MOVE_SPEED)
 
 func _process(delta: float) -> void:
 	_update_look_at_npc(delta)
