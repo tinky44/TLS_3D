@@ -29,13 +29,14 @@ static func draw(ctx: DrawContext) -> void:
 	var hand_hw = shoulder_full / 5.0 / 2.0
 	var hand_hh = d["head_h"] * 0.83 / 2.0
 	var shoe_color = ctx.shoe_color
+	var stress_ratio: float = float(d.get("stress_ratio", 0.0))
 
 	# 0. バッグ（ランドセルなど） — 最背面に描画
 	CharacterClothingDrawer.draw_bag_side(ctx)
 
 	# === 側面用の微調整（ここを書き換えて動作確認します） ===
 	var side_offset_x = -4.0 # プラスで右(前)に移動、マイナスで左(後)に移動
-	var side_offset_y = 10.0 # プラスで下に移動、マイナスで上に移動
+	var side_offset_y = 10.0 + stress_ratio * 6.0 # stressが高いほど肩を少し落とす
 	# Note: 腕の太さ分だけ下に下げたかった。x軸は、頭の中心あたりを目指した。今後は計算でやりたい
 
 	var p_shoulder = Vector2(d["sx"], d["sy"])
@@ -102,7 +103,7 @@ static func draw(ctx: DrawContext) -> void:
 		CharacterDrawUtils.draw_trapezoid(ctx.canvas, p_pelvis_top, p_crotch_center, pelvis_top_w, pelvis_bottom_w, pants_color)
 
 	# 6. 頭 + 髪
-	var head_angle = d["waist_angle"] * 0.6
+	var head_angle = d["waist_angle"] * 0.6 + stress_ratio * 0.18
 
 	var look_angle = ctx.look_head_angle
 	head_angle += look_angle

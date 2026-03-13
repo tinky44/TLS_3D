@@ -11,3 +11,4 @@ var pose: String = "normal"
 var is_walking: bool = false
 var walk_phase: float = 0.0
 var visual_height_cm: float = 160.0
+var receives_global_stress: bool = true

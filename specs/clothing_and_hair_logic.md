@@ -1,85 +1,283 @@
-# 服装・髪型関連ロジックおよび描画アーキテクチャ設計
+# 衣装・髪描画システム仕様（現行実装準拠）
 
-## 1. 目的
-`CharacterPoseCalculator.gd` 等から算出されるプロポーション・ポーズ座標を活用し、キャラクターに多様な「服」や「髪型」を着せ替えられるシステム。現在、手足の描画方法は旧来のポリゴンベースから、`CharacterDrawUtils` を活用した太さを持たせた線形描画（スティック・ベース）に移行している。
-本ドキュメントは、実際のスクリプト実装（`CharacterDrawFront`, `CharacterDrawSide`, `CharacterBodyDrawer`, `CharacterClothingDrawer` 等）に基づく正確な描画アーキテクチャ・手順を定義する。
+本書は、衣装と髪の描画を実装コードと一致させた最新版仕様です。  
+対象は「どの変数を使って、どの高さ/角度に描いているか」です。
 
-## 2. PoseCalculator 座標キーと微調整仕様
+## 0. 対象ファイル
 
-ポーズ計算から返却される主要座標は以下の通り。
+- `godot-project/scripts/CharacterBodyDrawer.gd`
+- `godot-project/scripts/CharacterClothingDrawer.gd`
+- `godot-project/scripts/CharacterHairDrawer.gd`
+- `godot-project/scripts/CharacterDrawFront.gd`
+- `godot-project/scripts/CharacterDrawSide.gd`
+- `godot-project/scripts/CharacterDrawer.gd`
 
-| ビュー | 股・脚の付け根 | へそ・腰 | 肩 | 頭中心 |
-|---|---|---|---|---|
-| 側面 | `cx, cy` | `navel_x, navel_y`, `hip_x, hip_y` | `sx, sy` | `hx, hy` |
-| 正面/背面 | `cx, cy` | `front_navel_x(y)`, `front_hip_x(y)` | `front_sx, front_sy` | `front_hx, front_hy` |
+## 1. 描画責務の分離
 
-※ `CharacterDrawFront` および `CharacterDrawSide` 側で、プロポーションの違和感を和らげるため、肩関節座標には独自のオフセット（`front_offset_x`, `front_offset_y`, `side_offset_x`, `side_offset_y`）が現在ハードコードで適用・調整されている。
+### 1.1 BodyDrawer（体＋衣装ベース）
 
-## 3. クラス構成と役割分担
+- `draw_sleeve_arm`: 腕ベース + 袖（長袖/半袖/袖なし）
+- `draw_pants_leg`: 脚ベース + パンツ上書き
+- `draw_skirt`: スカート本体（丈、角度、裾幅、プリーツ、ベルト）
 
-現在の描画実装は以下のクラスに分割されている。
+### 1.2 ClothingDrawer（衣装ディテール）
 
-1. **`CharacterDrawFront` / `CharacterDrawSide`** (エントリ・Zオーダー管理)
-   - キャラクター描画の起点。ここで「どのパーツから奥から手前へ描くか（Zオーダー）」を管理し、各描画ヘルパーを呼び出す。
-2. **`CharacterDrawUtils`** (プリミティブ・ベース描画)
-   - 最下層の描画ツール。`draw_limb_part`（肌色の手足ベース描画）、`draw_trapezoid`（台形描画）、`draw_torso_part` などを提供。
-3. **`CharacterBodyDrawer`** (手足＋服ベースの統合描画)
-   - `draw_sleeve_arm` : 腕を描きつつ、その上に袖（台形）を重ねて描く。
-   - `draw_pants_leg` : 脚を描きつつ、必要に応じてズボン（台形）を重ねて描く。
-   - `draw_skirt` : 指定した腰座標と胴体幅から、脚の広がりに応じて動的に裾が広がるスカートを描画。
-4. **`CharacterClothingDrawer`** (服装の固有ディテール描画)
-   - `draw_tops_detail_front` / `draw_tops_detail_side`
-   - セーラー服の襟やスカーフ、ブレザー、リボンブラウスのリボン、サスペンダースカートのベルトなど、それぞれの服特有の「飾りやレイヤー」を前面に上書きする。
-5. **`CharacterHairDrawer`** (髪型の描画)
-   - 髪レイヤーの描画（ベースレイヤーとトップレイヤー）。
+- `draw_tops_detail_front/side` で服種ごとの装飾を追加
+- 対応服:
+  - `sailor`
+  - `blazer`
+  - `blouse_bow`
+  - `jumper_skirt`
+- `t_shirt/sweater/blouse` はオーバーレイなし（袖・胴体色で表現済み）
+- 帽子/バッグもここに集約
 
-## 4. 実際の描画フローと Zオーダー (Z-Order)
+### 1.3 HairDrawer（髪）
 
-描画順は物理的に背後にあるものから手前に描く処理として、ビューごとに以下のように厳密にコントロールされている。
+- `draw_hair_base_layer`: 後ろ髪レイヤー
+- `draw_hair`: front/back/sideで本体 + 前髪
 
-### 4.1 正面・背面ビュー (`CharacterDrawFront.gd`)
-1. **髪ベース**: `CharacterHairDrawer.draw_hair_base_layer`
-   - 後頭部側の髪ベースレイヤーを体の後ろに置く。
-2. **両足**: `CharacterBodyDrawer.draw_pants_leg`
-   - 脚部本体＋パンツの描画、さらに靴下、靴を描く。
-3. **両腕**: `CharacterBodyDrawer.draw_sleeve_arm`
-   - 腕＋袖。左右同時に胴体より奥（または同レベル）として描画（肩のオフセット調整有り）。
-4. **胴体**: `CharacterDrawUtils.draw_torso_part`
-   - 下半身側（腰）、上半身側（胸）に分けて描画。前面に上書きする形となる。
-5. **ボトムス・スカート**: `CharacterBodyDrawer.draw_skirt`
-   - 腰の位置にスカートを描画。(但し `tops_type` がブレザーなど、上着で覆う特殊な服の場合は後で調整される)
-6. **頭＋髪レイヤー**: `CharacterHairDrawer.draw_hair`
-   - 頭部の円、前髪レイヤー。
-7. **詳細な衣服装飾**: `CharacterClothingDrawer.draw_tops_detail_front`
-   - 胸元のスカーフや襟などを乗せる。一番手前。
-8. **顔（目・口）**
-   - パラメータ計算と微調整に基づいて描画。
+## 2. 服（腕・脚）の基本ロジック
 
-### 4.2 側面ビュー (`CharacterDrawSide.gd`)
-1. **奥の腕**: `CharacterBodyDrawer.draw_sleeve_arm` (左腕など奥側)
-2. **奥の足**: `CharacterBodyDrawer.draw_pants_leg` ＋ 靴下 ＋ 靴
-3. **胴全体**: `CharacterDrawUtils.draw_side_torso`
-   - 胴体の厚みを持たせて曲線的に繋いで描画。
-4. **手前の足**: `CharacterBodyDrawer.draw_pants_leg` ＋ 靴下 ＋ 靴
-5. **ボトムス・スカート**: `CharacterBodyDrawer.draw_skirt`
-   - 歩行アニメ等で前後に脚が広がる際、両足のX座標幅 (`legs_spread`) を計算し、スカート布が脚を覆えるように動的に広がって描画される。
-6. **頭＋前髪**: `CharacterHairDrawer.draw_hair`
-7. **詳細な衣服装飾**: `CharacterClothingDrawer.draw_tops_detail_side`
-   - 側面の角度計算に沿って、首元のディテールなどを貼る。
-8. **顔（目・口）**
-9. **手前の腕**: `CharacterBodyDrawer.draw_sleeve_arm` (右腕など手前側)
-   - ***※最前面に描写される。胴体や手前の足よりも手前であることに注意。***
+## 2.1 袖のタイプ分岐
 
-## 5. 特殊な衣服（ Tops Specific Logic ）によるオーバーライド
+長袖対象:
 
-実装上、単に「台形を被せる」「ポリゴンを描く」以外にも `CharacterBodyDrawer` および `CharacterClothingDrawer` で以下のような衣服ごとの複雑な処理が導入されている。
+- `sweater`, `blouse`, `sailor`, `blazer`, `blouse_bow`, `jumper_skirt`
 
-- **半袖と長袖の切り分け** (`t_shirt`)
-  - `draw_sleeve_arm` にて、袖が全体の60%の長さに制限され、残りの下部分は肌色の腕として塗られる。それ以外（セーラー等）は上腕・前腕すべてを覆い隠す。
-- **セーラー服の袖の2本線** (`sailor`)
-  - `draw_sleeve_arm` にて、手首の先端数％の位置に白線を2本引いている。
-- **スカートの吊り上げとプリーツ表現** (`blouse_bow`, `jumper_skirt`, `blazer`)
-  - `draw_skirt` の内部で、スカートの開始位置（ウエスト）を独自に「肘の高さ (`sy + arm_len * 0.5 + offset`)」まで強制的に引き上げ、ハイウエスト構造（ワンピース形状）を作り出している。
-  - プリーツはスカートの下端カーブ計算を用いて頂点を結び、薄い暗色の縦線を6本等間隔に引いている。
-- **側面ビューにおける袖の上すぼみ補正** (`is_side` == true)
-  - `draw_sleeve_arm` で側面ビューの場合、単純な台形では前後に太くなりすぎるため、背中側の位置をアンカーとして前側（胸側）を切り詰める特殊な補正座標計算が適用されている。
+半袖:
+
+- `t_shirt`（肩→肘の60%まで袖）
+
+袖なし:
+
+- その他
+
+共通寸法:
+
+```gdscript
+sleeve_top_w = arm_w * 1.5
+sleeve_bot_w = arm_w * 1.8
+```
+
+側面補正:
+
+```gdscript
+sleeve_top_w = arm_w * 1.15
+```
+
+- 背中側固定で胸側を絞る（上すぼみ）。
+
+## 2.2 パンツ
+
+`bottoms_type == "pants"` のときのみ台形上書き:
+
+```gdscript
+pants_knee_w  = thigh_w * 1.1
+pants_ankle_w = shin_w * 1.15
+```
+
+## 3. スカート仕様（服ロジック中核）
+
+## 3.1 上端位置（waist_pos）
+
+ジャンパー系（`blazer`, `blouse_bow`, `jumper_skirt`）は上端を上げる:
+
+```gdscript
+u_arm = m["armLength"] * p * 0.5 + 10.0
+```
+
+- 側面: `waist_pos = (sx,sy) + torso_dir * u_arm`
+- 正面/背面: `waist_pos.y = front_sy + u_arm`
+
+## 3.2 丈計算
+
+```gdscript
+waist_to_crotch = d["cy"] - waist_pos.y
+```
+
+丈の式:
+
+- `skirt_long`: `waist_to_crotch + thigh_l + shin_l*0.3`
+- `blouse_bow`: `waist_to_crotch + thigh_l*0.8`
+- `jumper_skirt`: `waist_to_crotch + thigh_l*0.4`
+- `skirt_sailor` or `blazer`: `waist_to_crotch + thigh_l + shin_l*0.1`
+- `skirt/skirt_short`: `waist_to_crotch + thigh_l*0.4`
+
+## 3.3 裾幅計算（側面）
+
+```gdscript
+spread_x       = abs(max_x - min_x)
+reach_from_hem = max(abs(max_x - p_bottom.x), abs(min_x - p_bottom.x))
+side_hem_w     = max(hem_w, spread_x*spread_margin, reach_from_hem*2.0) + 15.0
+```
+
+`spread_margin`:
+
+- long=1.5
+- pleated=1.6
+- normal=1.2
+
+## 3.4 裾幅計算（正面/背面）
+
+```gdscript
+legs_spread  = abs(ankle_r_x - ankle_l_x)
+actual_hem_w = max(hem_w, legs_spread * 0.9)
+curve_drop   = skirt_length * 0.05
+```
+
+## 3.5 プリーツ対象
+
+- `skirt_sailor`, `blazer`, `blouse_bow`, `jumper_skirt`
+- 縦線6本
+
+## 3.6 `jumper_skirt` 専用
+
+- 上端にダークベルト追加（front/side 両方）。
+
+## 4. トップス詳細ロジック
+
+## 4.1 セーラー（front）
+
+- V開口（肌色）
+- 襟ポリゴン
+- 内側胸当て
+- 白ライン
+- 赤スカーフ + 結び目
+
+主要高さ:
+
+- `v_y = lerp(sy, navel_y, 0.45)`
+- `scarf_tip_y = lerp(v_y, navel_y, 0.72)`
+
+## 4.2 セーラー（side）
+
+- `fwd`, `up_v`, `torso_down` で襟・V底・スカーフ先端を配置
+- `v_bottom = p_sh_front + torso_down * 0.42`
+
+## 4.3 blazer（実装名は jumperSkirt 系）
+
+front:
+
+- 胴体を暗色で上書き
+- `belt_y = sy + u_arm`
+- 必要なら `draw_skirt()` を再呼び出しして同色で接続
+- 内側白シャツ矩形 + リボン
+
+side:
+
+- 胴体方向ベクトル `torso_dir_b` に沿ってベルト位置を決定
+- 暗色胴体 + ベルト + 前面白シャツ帯 + リボン
+
+## 4.4 blouse_bow
+
+- front: 前立て2本線 + 黒リボン
+- side: 側面リボンのみ（`draw_bow_side`）
+
+## 4.5 jumper_skirt（サスペンダー）
+
+front:
+
+- 左右ストラップ（黒、幅7px）
+- `strap_top_y = sy`
+- `strap_bot_y = sy + u_arm`
+
+side:
+
+- 前後2本の細帯
+- `fw = half_t * 0.12`
+- `torso_down` に沿って下端を作る
+
+## 5. 髪ロジック（高さ・向き）
+
+## 5.1 共通スケール
+
+`hr = head_r` に対して:
+
+- `hair_outer_w = hr * 1.12`
+- `hair_top_h  = hr * 1.08`
+- 下端:
+  - short: `head_center.y + hr * 1.3`
+  - long:  `head_center.y + hr * 3.5`
+
+## 5.2 front
+
+順序:
+
+1. 顔（肌色円）
+2. サイド髪ポリゴン
+3. 中間アーク（額埋め）
+4. 前髪ポリゴン
+
+前髪下端:
+
+- `bangs_bottom_y = head_center.y - hr * 0.2`
+
+## 5.3 back
+
+- `draw_hair_base_layer` のみで後ろ髪全体を見せる。
+
+## 5.4 side
+
+頭角 `head_angle` を受け、方向ベクトルを回転して使用:
+
+```gdscript
+down_dir = Vector2(0,1).rotated(head_angle)
+back_dir = Vector2(-1,0).rotated(head_angle)
+fwd_dir  = Vector2(1,0).rotated(head_angle)
+up_dir   = Vector2(0,-1).rotated(head_angle)
+```
+
+重力補正:
+
+- long: `hair_down_dir = Vector2(0,1)`（真下）
+- short: `hair_down_dir = lerp(down_dir, gravity, 0.5).normalized()`
+
+つまり、長髪は首角より重力を優先して垂れる。
+
+## 6. 帽子・バッグ
+
+## 6.1 帽子（school_hat）
+
+- front:
+  - クラウン幅 `hair_outer_w * 1.05`
+  - つば幅 `hair_outer_w * 1.35`
+- side:
+  - 頭角に追従した回転ポリゴン
+
+## 6.2 バッグ（randoseru）
+
+側面:
+
+- `bag_depth = 22.0 * p`
+- 高さ `34.0 * p`（肩から下）
+- アーチ天板あり
+
+背面:
+
+- 幅 `26.0 * p`
+- 高さ `torso_h * 0.90`
+- 蓋、ポケット、金具、ストラップを別描画
+
+正面:
+
+- 胸側ストラップのみ上描き
+- 下端は側面仕様に合わせて `sy + 34.0 * p`
+
+## 7. 高さがどう決まるか（衣装・髪）
+
+衣装・髪は身長を直接計算しない。高さはすべて `d` の座標に従う。
+
+実際には:
+
+1. `SkeletalPlayer` が `visual_height_cm` を更新
+2. `CharacterPoseCalculator` が `cx/cy/sy/hy/...` を算出
+3. 衣装・髪はその座標とベクトルでポリゴン配置
+
+このため、正面・側面・屈みすべてで「同じ骨格値」に対して整合した見た目になる。
+
+## 8. 旧仕様との差分（更新点）
+
+- 旧来の単一描画クラス前提ではなく、Body/Clothing/Hair の責務分離が現行。
+- スカートは「丈固定」ではなく、`waist_pos` 再配置 + 裾幅動的補正で屈みに対応。
+- 髪は side で重力補正があり、特に long は首角より重力優先。
+- 帽子・バッグ寸法（22cm/26cm/34cm など）がコード内定数として明確化されている。

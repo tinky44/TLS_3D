@@ -43,8 +43,8 @@ var growth_history: Array = []
 
 var active_companion_id: String = "" # 現在同行しているNPCのID
 var met_npcs: Array = [] # 面識のあるNPCのIDリスト
-var haruka_invited_this_term: bool = false # ほのかが今学期測定に誘ったか
-var haruka_following: bool = false # ほのかが追随中か
+var haruka_invited_this_term: bool = false # はるかが今学期測定に誘ったか
+var haruka_following: bool = false # はるかが追随中か
 var senior_gym_invited: bool = false # 先輩から体育館に誘われたか（1回のみ）
 
 # ─── バレー部ストーリーフラグ ──────────────────────────────────────
@@ -55,11 +55,16 @@ var vball_joined: bool = false # バレー部入部フラグ
 # ─── 感情パラメータ ────────────────────────────────────────────
 var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた選択の累積
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
+var stress: int = 0 # 今学期の生活で溜まるしんどさ
+var pending_term_choice: bool = false # 学期の過ごし方選択が必要か
+var current_term_plan: String = "" # "home" / "school" / "station"
+var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
+var term_memory_note: String = "" # 今学期の印象的な出来事メモ
 
 # コアNPCの定義
 var core_npcs: Dictionary = {
-	"honoka": {
-		"name": "ほのか",
+	"haruka": {
+		"name": "はるか",
 		"role": "friend",
 		"height_base": 155.0,
 		"height_mode": "avg", # 年齢平均に近い設定
@@ -181,8 +186,69 @@ func pop_next_event() -> String:
 	if pending_events.is_empty(): return ""
 	return pending_events.pop_front()
 
+func add_stress(amount: int) -> void:
+	stress = int(clamp(stress + amount, 0, 100))
+
+func append_term_memory_note(note: String) -> void:
+	if note == "":
+		return
+	if term_memory_note == "":
+		term_memory_note = note
+		return
+	var existing_lines: PackedStringArray = term_memory_note.split("\n", false)
+	if existing_lines.has(note):
+		return
+	term_memory_note += "\n" + note
+
+func mark_term_hotspot_done(hotspot_id: String) -> void:
+	term_hotspot_flags[hotspot_id] = true
+
+func has_term_hotspot_done(hotspot_id: String) -> bool:
+	return bool(term_hotspot_flags.get(hotspot_id, false))
+
+# 学校段階を返す: 0=小低 1=小高 2=中学 3=高校 4=卒業後
+static func _school_level_from_age(a: int) -> int:
+	if a <= 8: return 0
+	elif a <= 11: return 1
+	elif a <= 14: return 2
+	elif a <= 17: return 3
+	return 4
+
+# 学年に対応する制服パラメータを返す（該当なしなら空辞書）
+static func get_school_uniform(a: int) -> Dictionary:
+	if a >= 6 and a <= 8: # 小学校低学年（1-3年生）: サスペンダースカート
+		return {
+			"tops_type": "jumper_skirt",
+			"tops_color": "#1a2a5e",
+			"bottoms_type": "skirt",
+			"bottoms_color": "#1a2a5e"
+		}
+	elif a <= 11: # 小学校高学年（4-6年生）: リボンブラウス
+		return {
+			"tops_type": "blouse_bow",
+			"tops_color": "#f0e8e0",
+			"bottoms_type": "skirt",
+			"bottoms_color": "#1a2a5e"
+		}
+	elif a <= 14: # 中学校: セーラー服
+		return {
+			"tops_type": "sailor",
+			"tops_color": "#1a2a5e",
+			"bottoms_type": "skirt_sailor",
+			"bottoms_color": "#1a2a5e"
+		}
+	elif a <= 17: # 高校: ジャンパースカート
+		return {
+			"tops_type": "blazer",
+			"tops_color": "#212840",
+			"bottoms_type": "skirt",
+			"bottoms_color": "#212840"
+		}
+	return {}
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
+	var prev_age: int = age
 	term += 1
 	age = term_to_age(term)
 	current_params["height"] += calc_growth()
@@ -193,10 +259,20 @@ func advance_term() -> void:
 	# 身長に合わせて頭身を自動更新（最大9頭身）
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
+	# 進学時（学校段階が変わった場合）に制服を自動更新
+	if _school_level_from_age(age) != _school_level_from_age(prev_age):
+		var uniform := get_school_uniform(age)
+		for key in uniform.keys():
+			current_appearance[key] = uniform[key]
+		current_appearance["hat_type"] = "school_hat" if age < 12 else "none"
 	record_growth_history("growth")
 	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false
 	haruka_following = false
+	pending_term_choice = true
+	current_term_plan = ""
+	term_hotspot_flags = {}
+	term_memory_note = ""
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)
@@ -231,6 +307,14 @@ func load_settings():
 		term = config.get_value("Player", "term", term)
 		growth_factor = config.get_value("Player", "growth_factor", growth_factor)
 		growth_type = config.get_value("Player", "growth_type", growth_type)
+		self_confidence = int(config.get_value("Player", "self_confidence", self_confidence))
+		self_complex = int(config.get_value("Player", "self_complex", self_complex))
+		stress = int(config.get_value("Player", "stress", stress))
+		pending_term_choice = bool(config.get_value("Player", "pending_term_choice", pending_term_choice))
+		current_term_plan = String(config.get_value("Player", "current_term_plan", current_term_plan))
+		var hotspot_value: Variant = config.get_value("Player", "term_hotspot_flags", term_hotspot_flags)
+		term_hotspot_flags = hotspot_value if hotspot_value is Dictionary else {}
+		term_memory_note = String(config.get_value("Player", "term_memory_note", term_memory_note))
 		for key in current_appearance.keys():
 			current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
 		for key in system_settings.keys():
@@ -246,6 +330,13 @@ func save_settings():
 	config.set_value("Player", "term", term)
 	config.set_value("Player", "growth_factor", growth_factor)
 	config.set_value("Player", "growth_type", growth_type)
+	config.set_value("Player", "self_confidence", self_confidence)
+	config.set_value("Player", "self_complex", self_complex)
+	config.set_value("Player", "stress", stress)
+	config.set_value("Player", "pending_term_choice", pending_term_choice)
+	config.set_value("Player", "current_term_plan", current_term_plan)
+	config.set_value("Player", "term_hotspot_flags", term_hotspot_flags)
+	config.set_value("Player", "term_memory_note", term_memory_note)
 	for key in current_appearance.keys():
 		config.set_value("Appearance", key, current_appearance[key])
 	for key in system_settings.keys():
@@ -268,6 +359,13 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "growth_factor", growth_factor)
 	config.set_value(section, "growth_type", growth_type)
 	config.set_value(section, "growth_history", growth_history)
+	config.set_value(section, "self_confidence", self_confidence)
+	config.set_value(section, "self_complex", self_complex)
+	config.set_value(section, "stress", stress)
+	config.set_value(section, "pending_term_choice", pending_term_choice)
+	config.set_value(section, "current_term_plan", current_term_plan)
+	config.set_value(section, "term_hotspot_flags", term_hotspot_flags)
+	config.set_value(section, "term_memory_note", term_memory_note)
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
@@ -292,6 +390,14 @@ func load_slot(slot: int) -> bool:
 	growth_factor = config.get_value(section, "growth_factor", 1.0)
 	growth_type = config.get_value(section, "growth_type", "normal")
 	growth_history = config.get_value(section, "growth_history", [])
+	self_confidence = int(config.get_value(section, "self_confidence", 0))
+	self_complex = int(config.get_value(section, "self_complex", 0))
+	stress = int(config.get_value(section, "stress", 0))
+	pending_term_choice = bool(config.get_value(section, "pending_term_choice", false))
+	current_term_plan = String(config.get_value(section, "current_term_plan", ""))
+	var hotspot_slot_value: Variant = config.get_value(section, "term_hotspot_flags", {})
+	term_hotspot_flags = hotspot_slot_value if hotspot_slot_value is Dictionary else {}
+	term_memory_note = String(config.get_value(section, "term_memory_note", ""))
 	# 旧セーブデータのマイグレーション（age=0 or term=0 の不整合を修正）
 	if age <= 0 or term == 0:
 		age = 6

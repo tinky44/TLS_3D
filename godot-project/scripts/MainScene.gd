@@ -23,6 +23,7 @@ var pause_save_label: Label
 var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
+var _nearby_term_hotspot: String = ""
 
 # アクションヒントパネル（Q キーで切り替え）
 var action_hint_panel: PanelContainer
@@ -30,12 +31,15 @@ var action_hint_label: Label
 
 # 測定結果パネル
 var measurement_panel: Control
+var measurement_content_scroll: ScrollContainer
 var measurement_content_label: Label
 var history_panel: Control
 var history_header_label: Label
 var growth_graph: Control
 var bump_alert_label: Label
 var _bump_alert_time_left: float = 0.0
+var mood_feedback_label: Label
+var _mood_feedback_time_left: float = 0.0
 
 # ─── ダイアログシステム ──────────────────────────────────────────
 var dialogue_panel: Control
@@ -49,235 +53,166 @@ var _dialogue_lines: Array = []
 var _dialogue_index: int = 0
 var _current_dialogue_npc: String = ""
 var _current_dialogue_key: String = ""
+const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
+var _dialogues: Dictionary = DialogueDatabase.DATA
 
-const DIALOGUES: Dictionary = {
-	"honoka": {
-		"name": "ほのか",
-		"first_meet": [
-			{"speaker": "ほのか", "text": "おはよう！ …って、あれ？"},
-			{"speaker": "ほのか", "text": "ねえ、視点高くない？ また少し伸びた？"},
-			{"speaker": "ほのか", "text": "あはは、見上げすぎて首が痛くなっちゃいそう。"},
-			{"speaker": "ほのか", "text": "私、ほのか。改めてよろしくね。"},
-		],
-		"tall": [
-			{"speaker": "ほのか", "text": "あ、ほら。また私を肘置きにしようとしてるでしょ！"},
-			{"speaker": "ほのか", "text": "でも、人混みでもすぐ見つけられるから便利かも。"},
-		],
-		"huge": [
-			{"speaker": "ほのか", "text": "（見上げながら）……もう、どこまで伸びるの？"},
-			{"speaker": "ほのか", "text": "たまには屈んでよ。内緒話もできないじゃない。"},
-		],
-		"measure_invite": [
-			{"speaker": "ほのか", "text": "ねえ……また背、伸びてない？"},
-			{
-				"speaker": "ほのか",
-				"text": "保健室、行こうよ。…正直、最近どんな気持ち？",
-				"choices": [
-					{"label": "ちょっと嬉しいかも", "next": "measure_invite_proud", "emotion": "confidence"},
-					{"label": "目立つし、恥ずかしい……", "next": "measure_invite_shy", "emotion": "complex"},
-					{"label": "よくわからない", "next": "measure_invite_unsure"},
-				]
-			},
-		],
-		"measure_invite_proud": [
-			{"speaker": "（主人公）", "text": "うん……ちょっと誇らしい気がする。"},
-			{"speaker": "ほのか", "text": "そっか！ 似合ってるよ、その高さ。"},
-			{"speaker": "ほのか", "text": "じゃあ行こ！ 何センチか確かめてこよう。"},
-		],
-		"measure_invite_shy": [
-			{"speaker": "（主人公）", "text": "……正直、目立って恥ずかしくて。"},
-			{"speaker": "ほのか", "text": "気にしないって！ みんな気にしてないよ。"},
-			{"speaker": "ほのか", "text": "ほら、一緒に行けば怖くない。行こっ。"},
-		],
-		"measure_invite_unsure": [
-			{"speaker": "（主人公）", "text": "……うーん、自分でもよくわかんない。"},
-			{"speaker": "ほのか", "text": "そっか。まず測ってみようよ。"},
-			{"speaker": "ほのか", "text": "数字で見ると、なんか気持ちが整理できるかもよ？"},
-		],
-		"measure_after": [
-			{"speaker": "ほのか", "text": "……やっぱり伸びてる。"},
-			{"speaker": "ほのか", "text": "次の学期も、また測ろうね。抜け駆け禁止だよ！"},
-		],
-		# ─── バレー部ストーリー ─────────────────────────────────
-		"vball_join_cheer": [
-			{"speaker": "ほのか", "text": "バレー部！？ えっ、すごい決断だね。"},
-			{"speaker": "ほのか", "text": "絶対似合うって。思いっきり活躍してよ！"},
-		],
-		"vball_pain_consult": [
-			{"speaker": "（主人公）", "text": "……ほのか、ちょっと聞いてもいい？ 最近、脚が痛くて。"},
-			{"speaker": "ほのか", "text": "え、大丈夫？ それって練習のしすぎじゃないかな。"},
-			{
-				"speaker": "ほのか",
-				"text": "先輩に話した方がいいよ。ね、どうする？",
-				"choices": [
-					{"label": "先輩に伝えてもらう", "next": "pain_tell_senior", "action": "vball_pain_report"},
-					{"label": "しばらく自分で頑張る", "next": "pain_endure"},
-				]
-			},
-		],
-		"pain_tell_senior": [
-			{"speaker": "ほのか", "text": "わかった、私から先輩に話しておくね。"},
-			{"speaker": "ほのか", "text": "無理しないで。体が一番大事だよ。"},
-		],
-		"pain_endure": [
-			{"speaker": "ほのか", "text": "……わかった。でも限界が来たら必ず言ってね。"},
-		],
-		"haruka_after_summer": [
-			{"speaker": "ほのか", "text": "うわあ、また大きくなってる！ 夏休みどうだったの？"},
-			{"speaker": "ほのか", "text": "バレー部、また続けるの？ 応援してるよ。"},
-		],
+# ─── 学期選択 ──────────────────────────────────────────────────
+var term_choice_panel: Control
+var term_choice_header_label: Label
+var _term_choice_showing: bool = false
+
+const TERM_CHOICE_ORDER = ["home", "school", "station"]
+const TERM_CHOICES: Dictionary = {
+	"home": {
+		"title": "1. 家で過ごす",
+		"summary": "家族の近くで落ち着いて過ごす。ストレスは下がるが、外の刺激は少ない。",
+		"stage_id": "room",
+		"stress_delta": -12,
+		"feedback": "家に戻ると肩の力が少し抜ける",
+		"event_id": "term_home"
 	},
-	"senior": {
-		"first_meet": [
-			{"speaker": "バレー部先輩", "text": "君、ちょっといいかな？"},
-			{"speaker": "バレー部先輩", "text": "……すごいな、ネットより頭一つ高いじゃないか"},
-			{"speaker": "バレー部先輩", "text": "バレー部、興味ない？ 君なら無敵のアタッカーになれるよ。"},
-			{"speaker": "バレー部先輩", "text": "もし気が向いたら、体育館に顔を出してみてくれ。"},
-		],
-		"huge": [
-			{"speaker": "バレー部先輩", "text": "（驚きながら）……また大きくなったか？"},
-			{"speaker": "バレー部先輩", "text": "体育館の入り口、頭ぶつけないように気をつけろよ。"},
-		],
-		# ─── バレー部ストーリー ─────────────────────────────────
-		"join_invite": [
-			{"speaker": "バレー部先輩", "text": "体育館に来てくれたか。改めて、入部どうだ？"},
-			{
-				"speaker": "バレー部先輩",
-				"text": "身長も才能のうちだ。一緒にやってみないか？",
-				"choices": [
-					{"label": "入部する！", "next": "join_accepted", "action": "vball_join"},
-					{"label": "もう少し考えたい……", "next": "join_think"},
-					{"label": "やっぱりやめておく", "next": "join_decline"},
-				]
-			},
-		],
-		"join_accepted": [
-			{"speaker": "バレー部先輩", "text": "よし！ ようこそバレー部へ。"},
-			{"speaker": "バレー部先輩", "text": "まず基本から教えるよ。一緒に頑張ろう。"},
-		],
-		"join_think": [
-			{"speaker": "バレー部先輩", "text": "そうか。また来たときに声をかけてくれ。"},
-		],
-		"join_decline": [
-			{"speaker": "バレー部先輩", "text": "残念だけど、気が変わったらいつでも来い。"},
-		],
-		"practice_first": [
-			{"speaker": "バレー部先輩", "text": "最近の練習、だいぶ慣れてきたな。"},
-			{"speaker": "バレー部先輩", "text": "……でも、右脚、大丈夫か？ 少しかばってるように見えるけど。"},
-		],
-		"pain_concern": [
-			{"speaker": "バレー部先輩", "text": "ほのかから聞いたよ。脚が痛いんだって？"},
-			{"speaker": "バレー部先輩", "text": "今は無理するな。しばらく休部して、ちゃんと診てもらえ。"},
-			{"speaker": "バレー部先輩", "text": "治ったらいつでも戻ってこい。待ってるから。"},
-		],
-		"senior_after_summer": [
-			{"speaker": "バレー部先輩", "text": "おい……夏休みの間にまた大きくなったか！"},
-			{"speaker": "バレー部先輩", "text": "脚の具合はどうだ？ 続けられそうか？"},
-			{
-				"speaker": "バレー部先輩",
-				"text": "正直に教えてくれ。",
-				"choices": [
-					{"label": "また頑張りたい！", "next": "vball_return", "action": "vball_rejoin"},
-					{"label": "マネージャーとして関わりたい", "next": "vball_manager", "action": "vball_manager_role"},
-					{"label": "今は勉強に集中したい……", "next": "vball_retire"},
-				]
-			},
-		],
-		"vball_return": [
-			{"speaker": "バレー部先輩", "text": "よし！ 待ってたぞ。今学期も一緒に頑張ろう。"},
-		],
-		"vball_manager": [
-			{"speaker": "バレー部先輩", "text": "マネージャーか。それも大切な役割だよ。よろしく。"},
-		],
-		"vball_retire": [
-			{"speaker": "バレー部先輩", "text": "そうか……ゆっくり考えてくれ。応援してるよ。"},
-		],
+	"school": {
+		"title": "2. 学校を優先する",
+		"summary": "授業や人間関係に向き合う。少し気疲れするが、学校イベントが進みやすい。",
+		"stage_id": "school",
+		"stress_delta": 8,
+		"feedback": "視線を意識して、少し気が張る",
+		"event_id": ""
+	},
+	"station": {
+		"title": "3. 駅前に出る",
+		"summary": "人の多い場所で、自分の大きさを強く意識する。ストレスは大きく上がる。",
+		"stage_id": "station",
+		"stress_delta": 16,
+		"feedback": "人通りの多さで肩がこわばる",
+		"event_id": "term_station"
+	},
+}
+
+const TERM_HOTSPOT_ORDER = [
+	"home_mirror",
+	"home_table",
+	"school_seat",
+	"school_infirmary",
+	"station_bench",
+	"station_vending",
+]
+const TERM_HOTSPOTS: Dictionary = {
+	"home_mirror": {
+		"plan": "home",
+		"stage_id": "room",
+		"obs_id": "washstand",
+		"prompt": "鏡を見る",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_home_mirror",
+		"stress_delta": -4,
+		"feedback": "鏡の前で呼吸が少し整う",
+		"memory_note": "洗面台の鏡の前で、自分の背丈を静かに見つめた。"
+	},
+	"home_table": {
+		"plan": "home",
+		"stage_id": "room",
+		"obs_ids": ["table", "chair"],
+		"prompt": "食卓で一息つく",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_home_table"
+	},
+	"school_seat": {
+		"plan": "school",
+		"stage_id": "school",
+		"obs_ids": ["desk_1", "student_chair_1", "desk_2", "student_chair_2"],
+		"prompt": "自分の席に座る",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_school_seat",
+		"stress_delta": 2,
+		"feedback": "席に座ると少しだけ視線を意識する",
+		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。"
+	},
+	"school_infirmary": {
+		"plan": "school",
+		"stage_id": "infirmary",
+		"obs_id": "infirmary_desk",
+		"prompt": "保健室で相談する",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_school_infirmary"
+	},
+	"station_bench": {
+		"plan": "station",
+		"stage_id": "station",
+		"obs_id": "station_bench",
+		"prompt": "ベンチで一息つく",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_station_bench",
+		"stress_delta": -4,
+		"feedback": "人波から少し距離を取れた",
+		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。"
+	},
+	"station_vending": {
+		"plan": "station",
+		"stage_id": "station",
+		"obs_id": "station_vending",
+		"prompt": "自販機の前で立ち止まる",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_station_vending",
+		"stress_delta": 3,
+		"feedback": "立ち止まると視線が集まりやすい",
+		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。"
+	},
+}
+
+const STRESS_PREFIX_KEYS: Array[String] = ["default", "tall", "huge", "check"]
+const NPC_STRESS_OPENERS: Dictionary = {
+	"haruka": {
+		"low": {"speaker": "はるか", "text": "今日は少し顔つきがやわらかいね。"},
+		"mid": {"speaker": "はるか", "text": "無理してない？ ちょっと肩に力が入ってる。"},
+		"high": {"speaker": "はるか", "text": "かなりしんどそう。少し端で話そっか。"},
 	},
 	"mother": {
-		"first_meet": [
-			{"speaker": "お母さん", "text": "おかえり。ご飯もうすぐできるよ。"},
-			{"speaker": "お母さん", "text": "立って？ ……また背、伸びたんじゃない？"},
-		],
-		"check": [
-			{"speaker": "お母さん", "text": "あら、また制服の丈が短くなったわね。"},
-			{"speaker": "お母さん", "text": "もうミニスカートどころじゃないわよ。"},
-			{"speaker": "お母さん", "text": "夏休みの間に何があったの？ 急成長しすぎじゃない？"},
-		],
+		"low": {"speaker": "母", "text": "今日は少し楽そうな顔をしてるね。"},
+		"mid": {"speaker": "母", "text": "背中、少し丸くなってるわよ。無理してない？"},
+		"high": {"speaker": "母", "text": "顔がこわばってる。今日は休めるところで休みなさい。"},
 	},
 	"father": {
-		"first_meet": [
-			{"speaker": "お父さん", "text": "おかえり。"},
-			{"speaker": "お父さん", "text": "……背、伸びたな。"},
-		],
-		"check": [
-			{"speaker": "お父さん", "text": "……。"},
-			{"speaker": "お父さん", "text": "いつの間にか、お父さんより頭二つ分も大きいんだな。"},
-			{"speaker": "お父さん", "text": "天井の電球、替えてくれるかい？"},
-		],
-	},
-	"teacher": {
-		"semester_start": [
-			{"speaker": "田中先生", "text": "起立、礼。着席。"},
-			{"speaker": "田中先生", "text": "新学期が始まりましたね。今学期もよろしく。"},
-			{"speaker": "田中先生", "text": "……あなた、また背が伸びたんですか。後ろの席に座ってください"},
-		],
+		"low": {"speaker": "父", "text": "今日はいつもより落ち着いて見えるな。"},
+		"mid": {"speaker": "父", "text": "少し疲れてるか。気を張りすぎるなよ。"},
+		"high": {"speaker": "父", "text": "かなり参ってる顔だ。ひとりで抱え込むなよ。"},
 	},
 	"nurse": {
-		"default": [
-			{"speaker": "保健の先生", "text": "あら、今日も身長を測りに来たの？"},
-			{"speaker": "保健の先生", "text": "身長計の前に立って。はい、背筋をまっすぐ。"},
-		],
+		"low": {"speaker": "保健の先生", "text": "今日は呼吸が落ち着いてるね。"},
+		"mid": {"speaker": "保健の先生", "text": "少し張ってるね。話すだけでも楽になるよ。"},
+		"high": {"speaker": "保健の先生", "text": "かなりしんどそう。まずは座って、息を整えよう。"},
 	},
-	"player": {
-		"summer_growth": [
-			{"speaker": "（主人公）", "text": "……制服のボタン、止まらない。"},
-			{"speaker": "（主人公）", "text": "夏休みの間に、こんなに伸びてたの？"},
-			{"speaker": "お母さん", "text": "ちょっと待って、また背が伸びた？"},
-			{"speaker": "お母さん", "text": "夏休みだけで10センチ？ そんなことある？"},
-			{"speaker": "お母さん", "text": "制服、買い直しね。もう丈が全然足りないわ。"},
-		],
-		"new_semester": [
-			{"speaker": "（主人公）", "text": "新学期か……。"},
-			{"speaker": "（主人公）", "text": "また少し背が伸びた気がする。今学期も色々あるんだろうな。"},
-		],
-		"entrance_elementary": [
-			{"speaker": "（主人公）", "text": "今日は小学校の入学式だ。"},
-			{"speaker": "（主人公）", "text": "ランドセルが重たい……でも、楽しみだな。"},
-		],
-		"entrance_middle": [
-			{"speaker": "（主人公）", "text": "今日は中学校の入学式だ。"},
-			{"speaker": "（主人公）", "text": "制服の袖が、もうギリギリだ。"},
-		],
-		"entrance_high": [
-			{"speaker": "（主人公）", "text": "今日は高校の入学式だ。"},
-			{"speaker": "（主人公）", "text": "式場に入ったら、また一番後ろに立たされた。"},
-		],
-		# ─── バレー部ストーリー ─────────────────────────────────
-		"summer_growth_vball": [
-			{"speaker": "（主人公）", "text": "……制服のボタン、全然止まらない。"},
-			{"speaker": "（主人公）", "text": "夏休みの間に、こんなに伸びてたの？"},
-			{"speaker": "お母さん", "text": "ちょっと待って……夏休みだけで10センチ？"},
-			{"speaker": "お母さん", "text": "制服も買い直しだし、バレー部のユニフォームも作り直しね。"},
-			{"speaker": "（主人公）", "text": "……来学期、部活に戻れるかな。脚の具合も気になるし。"},
-		],
+	"senior": {
+		"low": {"speaker": "バレー部先輩", "text": "今日は動けそうな顔してるじゃん。"},
+		"mid": {"speaker": "バレー部先輩", "text": "視線が気になる日か。呼吸だけでも合わせてみる？"},
+		"high": {"speaker": "バレー部先輩", "text": "かなり張ってるね。無理する前に言ってよ。"},
 	},
 	"generic": {
-		"first_meet": [
-			{"speaker": "人", "text": "えっ……！？"},
-			{"speaker": "人", "text": "（信じられないものを見るように見上げている）"},
-		],
-		"huge": [
-			{"speaker": "人", "text": "うわっ、でかっ……！"},
-			{"speaker": "人", "text": "（あまりの大きさに言葉を失っているようだ）"},
-		],
-		"tall": [
-			{"speaker": "人", "text": "おお、背高いな……。"},
-			{"speaker": "人", "text": "（首を痛めそうな角度で見上げられている）"},
-		],
-		"default": [
-			{"speaker": "人", "text": "あ、こんにちは。"},
-			{"speaker": "人", "text": "（見上げながら挨拶を返してくれた）"},
-		]
+		"low": {"speaker": "通りすがり", "text": "背が高いね。なんだか今日は堂々として見える。"},
+		"mid": {"speaker": "通りすがり", "text": "大丈夫？ ちょっと疲れて見えるけど。"},
+		"high": {"speaker": "通りすがり", "text": "平気？ 顔色、あまりよくないみたい。"},
+	},
+}
+const STRESS_IDLE_MONOLOGUES: Dictionary = {
+	"home": {
+		"low": "家の中なら、少し肩の力を抜けそう。",
+		"mid": "今日は家で整えたい。無理に背筋を張らなくていい。",
+		"high": "今日は人の目より、自分を休ませるほうを優先しよう。",
+	},
+	"school": {
+		"low": "学校でも、少しずつ居場所を作れる気がする。",
+		"mid": "教室に入る前に、一度呼吸を整えたい。",
+		"high": "このまま抱え込むのはきつい。はるかか保健室を頼ろう。",
+	},
+	"station": {
+		"low": "外は落ち着かないけど、歩き方は自分で選べる。",
+		"mid": "視線は気になる。まずは人の流れから少し外れよう。",
+		"high": "今は人波が重い。ベンチで呼吸を整えてから動こう。",
+	},
+	"default": {
+		"low": "今日の背丈で、今日の過ごし方を選んでいこう。",
+		"mid": "少し気持ちが揺れてる。急がず整えていこう。",
+		"high": "今日は張りつめすぎてる。ひとつずつ、楽になれる方を選ぼう。",
 	},
 }
 
@@ -301,6 +236,7 @@ func _ready() -> void:
 	_setup_dialogue_panel() # ダイアログパネル（bubble_panelの上）
 	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_setup_measurement_panel()
+	_setup_term_choice_panel()
 	_load_stage()
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
@@ -516,15 +452,305 @@ func _setup_dialogue_panel() -> void:
 
 	ui_layer.add_child(dialogue_panel)
 
+func _setup_term_choice_panel() -> void:
+	term_choice_panel = ColorRect.new()
+	term_choice_panel.color = Color(0, 0, 0, 0.72)
+	term_choice_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	term_choice_panel.hide()
+	term_choice_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	term_choice_panel.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#16202c")
+	style.corner_radius_top_left = 18
+	style.corner_radius_top_right = 18
+	style.corner_radius_bottom_left = 18
+	style.corner_radius_bottom_right = 18
+	style.content_margin_left = 28
+	style.content_margin_right = 28
+	style.content_margin_top = 24
+	style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "今学期どこで過ごす？"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title)
+
+	term_choice_header_label = Label.new()
+	term_choice_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	term_choice_header_label.add_theme_font_size_override("font_size", 15)
+	term_choice_header_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.94))
+	vbox.add_child(term_choice_header_label)
+
+	for choice_id: String in TERM_CHOICE_ORDER:
+		var choice: Dictionary = TERM_CHOICES[choice_id]
+		var btn = Button.new()
+		btn.focus_mode = Control.FOCUS_NONE
+		btn.custom_minimum_size = Vector2(580, 74)
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.text = "%s\n%s  (stress %s%d)" % [
+			String(choice.get("title", choice_id)),
+			String(choice.get("summary", "")),
+			"+" if int(choice.get("stress_delta", 0)) >= 0 else "",
+			int(choice.get("stress_delta", 0))
+		]
+		btn.add_theme_font_size_override("font_size", 16)
+		btn.pressed.connect(_on_term_choice_selected.bind(choice_id))
+		vbox.add_child(btn)
+
+	var hint = Label.new()
+	hint.text = "[1][2][3] でも選択できます"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(0.72, 0.79, 0.86))
+	vbox.add_child(hint)
+
+	ui_layer.add_child(term_choice_panel)
+
+func _show_term_choice_panel() -> void:
+	if _term_choice_showing:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global or not global.pending_term_choice:
+		return
+	_term_choice_showing = true
+	term_choice_header_label.text = "%d歳 / 第%d学期 / stress %d (%s)" % [
+		int(global.age),
+		int(global.term) + 1,
+		int(global.stress),
+		_get_stress_state_text(int(global.stress))
+	]
+	term_choice_panel.show()
+	get_tree().paused = true
+
+func _hide_term_choice_panel() -> void:
+	_term_choice_showing = false
+	term_choice_panel.hide()
+	get_tree().paused = false
+
+func _on_term_choice_selected(choice_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	if not TERM_CHOICES.has(choice_id):
+		return
+
+	var choice: Dictionary = TERM_CHOICES[choice_id]
+	global.pending_term_choice = false
+	global.current_term_plan = choice_id
+	var stress_delta: int = int(choice.get("stress_delta", 0))
+	global.add_stress(stress_delta)
+	_show_stress_feedback(stress_delta, String(choice.get("feedback", "")))
+
+	var summer_front: bool = (
+		global.pending_events.size() > 0
+		and String(global.pending_events[0]) == "summer_growth"
+	)
+	if summer_front and choice_id != "home":
+		global.pending_events.pop_front()
+		global.queue_event("summer_growth")
+
+	var event_id: String = String(choice.get("event_id", ""))
+	if event_id != "" and not (choice_id == "home" and summer_front):
+		global.pending_events.push_front(event_id)
+
+	global.current_stage_id = String(choice.get("stage_id", global.current_stage_id))
+	global.save_settings()
+	_hide_term_choice_panel()
+	_load_stage()
+
+func _is_term_intro_dialogue() -> bool:
+	if _current_dialogue_npc != "player":
+		return false
+	return _current_dialogue_key in [
+		"new_semester",
+		"entrance_elementary",
+		"entrance_middle",
+		"entrance_high",
+		"summer_growth",
+		"summer_growth_vball"
+	]
+
+func _get_stress_state_text(stress_value: int) -> String:
+	if stress_value >= 75:
+		return "かなり張りつめている"
+	if stress_value >= 45:
+		return "少ししんどい"
+	if stress_value >= 20:
+		return "やや緊張している"
+	return "落ち着いている"
+
+func _get_stress_band(stress_value: int) -> String:
+	if stress_value >= 70:
+		return "high"
+	if stress_value >= 35:
+		return "mid"
+	return "low"
+
+func _build_dialogue_sequence(npc_id: String, key: String) -> Array:
+	var npc_data: Dictionary = _dialogues.get(npc_id, {})
+	var base_lines: Array = npc_data.get(key, []).duplicate(true)
+	if base_lines.is_empty():
+		return []
+	if npc_id == "player":
+		return base_lines
+	if not STRESS_PREFIX_KEYS.has(key):
+		return base_lines
+	var opener: Dictionary = _get_stress_dialogue_opener(npc_id)
+	if opener.is_empty():
+		return base_lines
+	var merged_lines: Array = [opener]
+	merged_lines.append_array(base_lines)
+	return merged_lines
+
+func _get_stress_dialogue_opener(npc_id: String) -> Dictionary:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return {}
+	var band: String = _get_stress_band(int(global.stress))
+	var opener_set: Dictionary = NPC_STRESS_OPENERS.get(npc_id, NPC_STRESS_OPENERS.get("generic", {}))
+	var opener: Variant = opener_set.get(band, {})
+	return opener.duplicate(true) if opener is Dictionary else {}
+
+func _get_idle_monologue_text(global: Node) -> String:
+	if not global:
+		return ""
+	var plan_id: String = String(global.current_term_plan)
+	if plan_id == "":
+		return ""
+	var monologue_set: Dictionary = STRESS_IDLE_MONOLOGUES.get(plan_id, STRESS_IDLE_MONOLOGUES.get("default", {}))
+	return String(monologue_set.get(_get_stress_band(int(global.stress)), ""))
+
+func _get_default_action_hint_text() -> String:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return "[Q] 設定  [G] 記録  [E] インタラクト"
+	var band: String = _get_stress_band(int(global.stress))
+	match String(global.current_term_plan):
+		"home":
+			if band == "high":
+				return "今日は休むのを優先しよう  [E] 調べる  [G] 記録"
+			if band == "mid":
+				return "無理に張らず、家で整えよう  [E] 調べる  [G] 記録"
+			return "家で呼吸を整えられそうだ  [E] 調べる  [G] 記録"
+		"school":
+			if band == "high":
+				return "しんどさを抱え込まない。はるかか保健室に寄ろう  [E] 話す"
+			if band == "mid":
+				return "教室が重いなら、はるかか保健室へ  [E] 話す  [G] 記録"
+			return "はるかや保健室を頼りながら通えそうだ  [E] 話す  [G] 記録"
+		"station":
+			if band == "high":
+				return "視線がきつい。ベンチで休んでから動こう  [E] 調べる"
+			if band == "mid":
+				return "人波から少し外れて気持ちを整えよう  [E] 調べる"
+			return "ベンチや自販機でひと息入れながら進もう  [E] 調べる"
+
+	var vball_phase: int = Global.vball_story_phase
+	if vball_phase == 0 and Global.senior_gym_invited:
+		return "廊下の部室に話しかけてみよう"
+	if vball_phase == 1:
+		return "体育館に向かってバレー部に話しかけよう"
+	if vball_phase == 2:
+		return "バレー部と教室、どちらも見て回ろう"
+	if vball_phase == 3 and Global.is_leg_pain:
+		return "脚のことを誰かに相談してみよう"
+	if band == "high":
+		return "かなり張りつめている。今日は楽になれる方を選ぼう"
+	if band == "mid":
+		return "少ししんどい。無理せず整えよう  [Q] 設定  [G] 記録"
+	return "[Q] 設定  [G] 記録  [E] インタラクト"
+
+func _get_term_reflection_text(global: Node) -> String:
+	var plan_id: String = String(global.current_term_plan)
+	var balance: int = int(global.self_confidence) - int(global.self_complex)
+	match plan_id:
+		"home":
+			if balance >= 0:
+				return "家で呼吸を整える時間が、今の体を少し受け止める助けになった。"
+			return "家にいれば落ち着く。でも外を思うと、まだ少し肩に力が入る。"
+		"school":
+			if balance >= 0:
+				return "教室にいるだけでも前進だ。視線の中で過ごした時間が、小さな自信になっている。"
+			return "学校にいるだけで気が張る日もあった。今学期は、そのしんどさもはっきり残った。"
+		"station":
+			if balance >= 0:
+				return "人の多い場所でも、見える景色が少し変わった。この高さを面白いと思えた瞬間がある。"
+			return "外の視線は想像以上に重かった。駅前に出るたび、肩が固くなるのを感じた。"
+	return "今学期の過ごし方が、少しずつ心と体の輪郭を作っていく。"
+
+func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return ""
+	for hotspot_id in TERM_HOTSPOT_ORDER:
+		var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
+		if String(hotspot_data.get("plan", "")) != String(global.current_term_plan):
+			continue
+		if String(hotspot_data.get("stage_id", "")) != String(global.current_stage_id):
+			continue
+		var matched: bool = false
+		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
+		if hotspot_obs_ids is Array:
+			for candidate in hotspot_obs_ids:
+				if String(candidate) == obs_id:
+					matched = true
+					break
+		elif String(hotspot_data.get("obs_id", "")) == obs_id:
+			matched = true
+		if not matched:
+			continue
+		if global.has_term_hotspot_done(hotspot_id):
+			return ""
+		return hotspot_id
+	return ""
+
+func _get_term_hotspot_prompt(hotspot_id: String) -> String:
+	if not TERM_HOTSPOTS.has(hotspot_id):
+		return ""
+	return String(TERM_HOTSPOTS[hotspot_id].get("prompt", "調べる"))
+
+func _trigger_term_hotspot(hotspot_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global or not TERM_HOTSPOTS.has(hotspot_id):
+		return
+	var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
+	global.mark_term_hotspot_done(hotspot_id)
+	var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
+	if stress_delta != 0:
+		global.add_stress(stress_delta)
+		_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
+	var memory_note: String = String(hotspot_data.get("memory_note", ""))
+	if memory_note != "":
+		global.append_term_memory_note(memory_note)
+	global.save_settings()
+	_nearby_term_hotspot = ""
+	_start_dialogue(
+		String(hotspot_data.get("dialogue_npc", "player")),
+		String(hotspot_data.get("dialogue_key", "default"))
+	)
+
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
-	if _in_dialogue or _measurement_showing: return
-	if not DIALOGUES.has(npc_id): return
-	var npc_data: Dictionary = DIALOGUES[npc_id]
+	if _in_dialogue or _measurement_showing or _term_choice_showing: return
+	if not _dialogues.has(npc_id): return
+	var npc_data: Dictionary = _dialogues[npc_id]
 	if not npc_data.has(key): return
 
 	_current_dialogue_npc = npc_id
 	_current_dialogue_key = key
-	_dialogue_lines = npc_data[key]
+	_dialogue_lines = _build_dialogue_sequence(npc_id, key)
 	_dialogue_index = 0
 	_in_dialogue = true
 	get_tree().paused = true
@@ -587,10 +813,12 @@ func _on_choice_selected(choice: Dictionary) -> void:
 	var action: String = choice.get("action", "")
 	if global and action != "":
 		_process_choice_action(action, global)
+	if global:
+		global.save_settings()
 	# 分岐先へ
 	var next_key: String = choice.get("next", "")
 	if next_key != "":
-		var npc_data: Dictionary = DIALOGUES.get(_current_dialogue_npc, {})
+		var npc_data: Dictionary = _dialogues.get(_current_dialogue_npc, {})
 		if npc_data.has(next_key):
 			_dialogue_lines = npc_data[next_key]
 			_dialogue_index = 0
@@ -599,21 +827,36 @@ func _on_choice_selected(choice: Dictionary) -> void:
 	_advance_dialogue()
 
 func _process_choice_action(action: String, global: Node) -> void:
-	match action:
-		"vball_join":
-			global.vball_joined = true
-			global.vball_story_phase = 2
-		"vball_pain_report":
-			global.vball_story_phase = 4
-			global.queue_event("vball_tell_senior")
-		"vball_rejoin":
-			global.vball_joined = true
-			global.is_leg_pain = false
-			global.vball_story_phase = 7
-		"vball_manager_role":
-			global.vball_joined = false
-			global.is_leg_pain = false
-			global.vball_story_phase = 7
+	var action_parts: PackedStringArray = action.split(",", false)
+	for part in action_parts:
+		var action_id: String = String(part).strip_edges()
+		if action_id == "":
+			continue
+		if action_id.begins_with("stress:"):
+			var delta_text: String = action_id.substr("stress:".length())
+			if delta_text.is_valid_int():
+				var stress_delta: int = int(delta_text)
+				global.add_stress(stress_delta)
+				_show_stress_feedback(stress_delta)
+			continue
+		if action_id.begins_with("note:"):
+			global.append_term_memory_note(action_id.substr("note:".length()))
+			continue
+		match action_id:
+			"vball_join":
+				global.vball_joined = true
+				global.vball_story_phase = 2
+			"vball_pain_report":
+				global.vball_story_phase = 4
+				global.queue_event("vball_tell_senior")
+			"vball_rejoin":
+				global.vball_joined = true
+				global.is_leg_pain = false
+				global.vball_story_phase = 7
+			"vball_manager_role":
+				global.vball_joined = false
+				global.is_leg_pain = false
+				global.vball_story_phase = 7
 
 func _advance_dialogue() -> void:
 	if _choice_pending: return
@@ -621,6 +864,11 @@ func _advance_dialogue() -> void:
 	_show_dialogue_line()
 
 func _end_dialogue() -> void:
+	var should_show_term_choice: bool = false
+	var global = get_node_or_null("/root/Global")
+	if global and global.pending_term_choice and _is_term_intro_dialogue():
+		should_show_term_choice = true
+
 	_in_dialogue = false
 	_choice_pending = false
 	choice_container.hide()
@@ -629,7 +877,6 @@ func _end_dialogue() -> void:
 	dialogue_panel.hide()
 	# measure_invite 終了 → はるかがプレイヤーに追随し始める
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
-		var global = get_node_or_null("/root/Global")
 		if global:
 			global.haruka_following = true
 		for child in get_children():
@@ -638,24 +885,27 @@ func _end_dialogue() -> void:
 				break
 	# ─── バレー部ストーリー後処理 ────────────────────────────────
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "first_meet":
-		var global = get_node_or_null("/root/Global")
 		if global and global.vball_story_phase == 0:
 			global.vball_story_phase = 1
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "practice_first":
-		var global = get_node_or_null("/root/Global")
 		if global and global.vball_joined:
 			global.is_leg_pain = true
 			global.vball_story_phase = 3
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "pain_concern":
-		var global = get_node_or_null("/root/Global")
 		if global:
 			global.is_leg_pain = false
 			global.vball_joined = false
 			global.vball_story_phase = 5
-	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "vball_join_cheer":
+	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
+		if global and global.current_term_plan == "school":
+			call_deferred("_start_dialogue", "player", "term_school")
+	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "vball_join_cheer":
 		pass # 特に後処理なし
-	elif _current_dialogue_npc == "honoka" and _current_dialogue_key == "haruka_after_summer":
+	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "haruka_after_summer":
 		pass # 特に後処理なし
+
+	if should_show_term_choice:
+		call_deferred("_show_term_choice_panel")
 
 func _get_bubble_screen_pos() -> Vector2:
 	var cam = player.get_node_or_null("Camera2D")
@@ -692,7 +942,7 @@ func _interact_with_npc(npc: Node) -> void:
 	var npc_m = npc.get("m")
 	var key = "default"
 	if player_m and npc_m:
-		var npc_data = DIALOGUES.get(npc_id, DIALOGUES.get("generic", {}))
+		var npc_data: Dictionary = _dialogues.get(npc_id, _dialogues.get("generic", {}))
 		var diff = float(player_m["height"]) - float(npc_m["height"])
 		var global = get_node_or_null("/root/Global")
 		var vball_phase = global.vball_story_phase if global else 0
@@ -732,8 +982,11 @@ func _interact_with_npc(npc: Node) -> void:
 				key = "senior_after_summer"
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
-		elif npc_id == "honoka":
-			if global and global.is_leg_pain and vball_phase == 3:
+		elif npc_id == "haruka":
+			if global and global.current_term_plan == "school" and global.current_stage_id == "school" and not global.has_term_hotspot_done("school_haruka_support"):
+				key = "term_school_haruka_support"
+				global.mark_term_hotspot_done("school_haruka_support")
+			elif global and global.is_leg_pain and vball_phase == 3:
 				key = "vball_pain_consult"
 			elif global and not global.haruka_invited_this_term:
 				key = "measure_invite"
@@ -742,9 +995,6 @@ func _interact_with_npc(npc: Node) -> void:
 				key = "huge"
 			elif diff >= 15.0 and npc_data.has("tall"):
 				key = "tall"
-		elif (npc_id == "haruka") and global and not global.haruka_invited_this_term:
-			key = "measure_invite"
-			global.haruka_invited_this_term = true
 		elif diff >= 35.0 and npc_data.has("huge"):
 			key = "huge"
 		elif diff >= 15.0 and npc_data.has("tall"):
@@ -763,6 +1013,21 @@ func _setup_bump_alert() -> void:
 	bump_alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	bump_alert_label.size = Vector2(360, 30)
 	ui_layer.add_child(bump_alert_label)
+
+func _setup_mood_feedback() -> void:
+	mood_feedback_label = Label.new()
+	mood_feedback_label.hide()
+	mood_feedback_label.anchor_left = 0.5
+	mood_feedback_label.anchor_right = 0.5
+	mood_feedback_label.offset_left = -260
+	mood_feedback_label.offset_right = 260
+	mood_feedback_label.offset_top = 36
+	mood_feedback_label.offset_bottom = 68
+	mood_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mood_feedback_label.add_theme_font_size_override("font_size", 20)
+	mood_feedback_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	mood_feedback_label.add_theme_constant_override("outline_size", 6)
+	ui_layer.add_child(mood_feedback_label)
 
 func _update_bump_alert(delta: float) -> void:
 	if not bump_alert_label:
@@ -788,6 +1053,18 @@ func _update_bump_alert(delta: float) -> void:
 	bump_alert_label.position = screen_pos + Vector2(-bump_alert_label.size.x / 2.0, -player.visual_height_cm * p - 120.0)
 	bump_alert_label.show()
 
+func _update_mood_feedback(delta: float) -> void:
+	if not mood_feedback_label:
+		return
+	if _mood_feedback_time_left <= 0.0:
+		mood_feedback_label.hide()
+		return
+	_mood_feedback_time_left = max(0.0, _mood_feedback_time_left - delta)
+	if _mood_feedback_time_left <= 0.0:
+		mood_feedback_label.hide()
+		return
+	mood_feedback_label.show()
+
 func _show_bump_alert(text: String) -> void:
 	if not bump_alert_label:
 		_setup_bump_alert()
@@ -795,12 +1072,32 @@ func _show_bump_alert(text: String) -> void:
 	_bump_alert_time_left = 0.9
 	bump_alert_label.show()
 
+func _show_mood_feedback(text: String, positive: bool) -> void:
+	if not mood_feedback_label:
+		_setup_mood_feedback()
+	mood_feedback_label.text = text
+	var font_color: Color = Color(0.95, 0.82, 0.72)
+	if positive:
+		font_color = Color(0.80, 0.94, 0.82)
+	mood_feedback_label.add_theme_color_override("font_color", font_color)
+	_mood_feedback_time_left = 1.5
+	mood_feedback_label.show()
+
+func _show_stress_feedback(delta: int, detail: String = "") -> void:
+	if delta == 0:
+		return
+	var feedback_text: String = "%+d stress" % delta
+	if detail != "":
+		feedback_text += "  " + detail
+	_show_mood_feedback(feedback_text, delta < 0)
+
 
 func _process(delta: float) -> void:
 	_update_ui()
 	_update_bubble()
 	_update_minimap()
 	_update_bump_alert(delta)
+	_update_mood_feedback(delta)
 	if action_hint_label and action_hint_panel and action_hint_panel.visible:
 		action_hint_label.text = _get_action_hint_text()
 
@@ -835,6 +1132,7 @@ func _update_bubble():
 	if _nearby_npc:
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
+		_nearby_term_hotspot = ""
 		bubble_label.text = "[Eキー] 話しかける"
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
@@ -857,28 +1155,48 @@ func _update_bubble():
 		var obs_id = closest_obs.get_meta("obs_id")
 		var oh = closest_obs.get_meta("obs_height_cm")
 		var h = m["height"]
+		var hotspot_id: String = _get_term_hotspot_id_for_obstacle(String(obs_id))
 
 		bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
 
 		# 近くのオブジェクトに応じたインタラクションヒントを追加
-		if obs_id.begins_with("door_to_"):
+		if hotspot_id != "":
+			_nearby_transition_door = ""
+			_nearby_height_scale = false
+			_nearby_term_hotspot = hotspot_id
+			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
+		elif obs_id.begins_with("door_to_"):
 			_nearby_transition_door = obs_id
 			_nearby_height_scale = false
+			_nearby_term_hotspot = ""
 			bubble_label.text += "\n[Eキーで移動]"
 		elif obs_id == "height_scale":
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
+			_nearby_term_hotspot = ""
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
+			_nearby_term_hotspot = ""
 
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
 	else:
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
-		bubble_panel.hide()
+		_nearby_term_hotspot = ""
+		if _in_dialogue or _measurement_showing or _term_choice_showing:
+			bubble_panel.hide()
+			return
+		var global = get_node_or_null("/root/Global")
+		var idle_monologue: String = _get_idle_monologue_text(global)
+		if idle_monologue == "":
+			bubble_panel.hide()
+		else:
+			bubble_label.text = idle_monologue
+			bubble_panel.show()
+			bubble_panel.position = _get_bubble_screen_pos()
 
 func _setup_ui():
 	ui_layer = CanvasLayer.new()
@@ -930,18 +1248,13 @@ func _setup_ui():
 	speed_slider.value = Global.system_settings.get("move_speed", 250.0)
 	
 	# 初期値をプレイヤーに適用
-	if player:
-		var initial_v = speed_slider.value
-		var ratio = initial_v / 250.0
-		player.set("SPEED", initial_v)
-		player.set("walk_speed", 12.0 * ratio)
+	if player and player.has_method("refresh_movement_tuning"):
+		player.call("refresh_movement_tuning")
 
 	speed_slider.value_changed.connect(func(v: float):
 		Global.system_settings["move_speed"] = v
-		if player:
-			var ratio = v / 250.0
-			player.set("SPEED", v)
-			player.set("walk_speed", 12.0 * ratio)
+		if player and player.has_method("refresh_movement_tuning"):
+			player.call("refresh_movement_tuning")
 	)
 	speed_slider.drag_ended.connect(func(_val: bool):
 		Global.save_settings()
@@ -1092,6 +1405,18 @@ func _setup_pause_menu() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
+		return
+	if _term_choice_showing and event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_1:
+				_on_term_choice_selected("home")
+			KEY_2:
+				_on_term_choice_selected("school")
+			KEY_3:
+				_on_term_choice_selected("station")
+		return
+
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
 		_toggle_pause()
 	elif event is InputEventKey and event.pressed and not event.echo:
@@ -1105,6 +1430,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_advance_dialogue()
 			elif _measurement_showing:
 				_on_next_term_pressed()
+			elif _nearby_term_hotspot != "":
+				_trigger_term_hotspot(_nearby_term_hotspot)
 			elif _nearby_transition_door != "":
 				_enter_transition_door()
 			elif _nearby_height_scale:
@@ -1134,10 +1461,14 @@ func _toggle_action_hint() -> void:
 		action_hint_panel.visible = not action_hint_panel.visible
 
 func _get_action_hint_text() -> String:
+	if _term_choice_showing:
+		return "[1][2][3] 学期の過ごし方を選ぶ"
 	if _in_dialogue:
 		return "[E] 次へ"
 	if _measurement_showing:
 		return "[E] 次の学期へ進む"
+	if _nearby_term_hotspot != "":
+		return "[E] %s" % _get_term_hotspot_prompt(_nearby_term_hotspot)
 	if _nearby_transition_door != "":
 		var dest = _nearby_transition_door.substr("door_to_".length())
 		var dest_name = StageBuilder.get_stage_name(dest, Global.age) if StageBuilder.STAGES.has(dest) else dest
@@ -1148,17 +1479,7 @@ func _get_action_hint_text() -> String:
 		var npc_id: String = _nearby_npc.get("npc_id") if _nearby_npc.get("npc_id") != null else ""
 		if npc_id != "":
 			return "[E] 話しかける"
-	# バレー部ストーリーヒント
-	var vball_phase = Global.vball_story_phase
-	if vball_phase == 0 and Global.senior_gym_invited:
-		return "廊下の先輩に話しかけてみよう"
-	if vball_phase == 1:
-		return "体育館に行って先輩に話しかけよう"
-	if vball_phase == 2:
-		return "先輩と練習してみよう"
-	if vball_phase == 3 and Global.is_leg_pain:
-		return "ほのかに脚のことを相談してみよう"
-	return "[Q] 設定  [G] 成長記録  [E] インタラクト"
+	return _get_default_action_hint_text()
 
 func _toggle_pause() -> void:
 	if pause_menu:
@@ -1194,19 +1515,28 @@ func _update_ui():
 	if not player or not status_label: return
 	
 	var global = get_node_or_null("/root/Global")
-	var stage_id = global.current_stage_id if global else "room"
-	var stage_name = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
+	var stage_id: String = global.current_stage_id if global else "room"
+	var stage_name: String = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
 	var m = player.get("m")
 	if not m: return
 	
 	var params = global.current_params if global else m
 	
-	var age_val = global.age if global else 0
-	var term_val = global.term if global else 0
-	var school_type = StageBuilder.get_stage_name("school", age_val)
+	var age_val: int = global.age if global else 0
+	var term_val: int = global.term if global else 0
+	var stress_val: int = global.stress if global else 0
+	var term_plan: String = global.current_term_plan if global else ""
+	var school_type: String = StageBuilder.get_stage_name("school", age_val)
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
 	text += "%d歳 / %d学期 (%s)\n" % [age_val, term_val + 1, school_type]
+	if term_plan != "":
+		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
+		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
+	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
+	var confidence_val: int = global.self_confidence if global else 0
+	var complex_val: int = global.self_complex if global else 0
+	text += "気持ち: 受容 %d / 戸惑い %d\n" % [confidence_val, complex_val]
 	text += "身長: %.1f cm  頭身: %.1f  股下: %.1f%%\n" % [params["height"], params["ratio"], params["legRatio"]]
 	text += "Pose: %s ([1]-[5], [S]キー)\n" % player.pose
 	
@@ -1268,6 +1598,18 @@ func _load_stage():
 				_start_dialogue("senior", "first_meet")
 			else:
 				global.pending_events.push_front(ev) # 体育館に入るまで保留
+		elif ev == "term_home":
+			if stage_id == "room":
+				await get_tree().create_timer(0.5).timeout
+				_start_dialogue("player", "term_home")
+			else:
+				global.pending_events.push_front(ev)
+		elif ev == "term_station":
+			if stage_id == "station":
+				await get_tree().create_timer(0.5).timeout
+				_start_dialogue("player", "term_station")
+			else:
+				global.pending_events.push_front(ev)
 		elif ev == "summer_growth":
 			if stage_id == "room":
 				await get_tree().create_timer(0.8).timeout
@@ -1390,23 +1732,18 @@ func _spawn_npcs(stage_id: String) -> void:
 		add_child(npc_hall)
 
 	elif stage_id == "school":
-		# 友人「ほのか」
-		var honoka = npc_scene.instantiate()
-		honoka.set_meta("is_npc", true)
-		honoka.npc_id = "honoka"
-		honoka.position = Vector2(300 * p, 0)
-		add_child(honoka)
+		# 友人「はるか」
+		var haruka = npc_scene.instantiate()
+		haruka.set_meta("is_npc", true)
+		haruka.npc_id = "haruka"
 		# コアNPC「桐島はるか」
-		var npc1 = npc_scene.instantiate()
-		npc1.set_meta("is_npc", true)
-		npc1.npc_id = "haruka"
-		npc1.custom_params = {
+		haruka.custom_params = {
 			"height": 152.0,
 			"ratio": 6.8,
 			"legRatio": 44.0,
 			"sex": "female"
 		}
-		npc1.custom_appearance = {
+		haruka.custom_appearance = {
 			"hair_style": "long",
 			"hair_color": "#885533",
 			"tops_type": "blouse",
@@ -1416,8 +1753,8 @@ func _spawn_npcs(stage_id: String) -> void:
 			"shoes_type": "sneakers",
 			"shoes_color": "#ffffff"
 		}
-		npc1.position = Vector2(500 * p, 0)
-		add_child(npc1)
+		haruka.position = Vector2(300 * p, 0)
+		add_child(haruka)
 
 		# 背の高い男性教師のようなダミー（身長175cm）
 		var npc2 = npc_scene.instantiate()
@@ -1643,12 +1980,21 @@ func _setup_measurement_panel() -> void:
 	vbox.add_child(HSeparator.new())
 
 	# 詳細テキスト（平均比較・コメント）
+	measurement_content_scroll = ScrollContainer.new()
+	measurement_content_scroll.custom_minimum_size = Vector2(380, 180)
+	measurement_content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	measurement_content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	measurement_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	vbox.add_child(measurement_content_scroll)
+
 	measurement_content_label = Label.new()
 	measurement_content_label.add_theme_font_size_override("font_size", 16)
 	measurement_content_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	measurement_content_label.custom_minimum_size = Vector2(380, 0)
+	measurement_content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	measurement_content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	measurement_content_label.modulate.a = 0.0
-	vbox.add_child(measurement_content_label)
+	measurement_content_scroll.add_child(measurement_content_label)
 
 	vbox.add_child(HSeparator.new())
 
@@ -1703,7 +2049,16 @@ func _show_measurement_result() -> void:
 	var detail = "年齢：%d歳  第%d学期\n" % [a, global.term + 1]
 	detail += "同学年平均：%.1f cm  （差：%+.1f cm）\n\n" % [avg_h, diff_avg]
 	detail += global.get_measurement_comment(diff_avg)
+	if global.current_term_plan != "":
+		var plan_data: Dictionary = TERM_CHOICES.get(String(global.current_term_plan), {})
+		detail += "\n\n【今学期の手触り】\n"
+		detail += "%s\n" % String(plan_data.get("title", global.current_term_plan))
+		detail += "stress %d / 100 (%s)\n" % [int(global.stress), _get_stress_state_text(int(global.stress))]
+		if global.term_memory_note != "":
+			detail += "%s\n" % String(global.term_memory_note)
+		detail += _get_term_reflection_text(global)
 	measurement_content_label.text = detail
+	_reset_measurement_content_scroll()
 
 	# 前回比ラベル
 	if prev_h > 0.0:
@@ -1756,6 +2111,12 @@ func _show_measurement_result() -> void:
 	tween.tween_interval(0.2)
 	tween.tween_property(measurement_content_label, "modulate:a", 1.0, 0.4)
 	tween.tween_property(_meas_btn_row, "modulate:a", 1.0, 0.3)
+
+func _reset_measurement_content_scroll() -> void:
+	if not is_instance_valid(measurement_content_scroll):
+		return
+	measurement_content_scroll.set_deferred("scroll_vertical", 0)
+	measurement_content_scroll.set_deferred("scroll_horizontal", 0)
 
 func _on_measurement_panel_closed() -> void:
 	_measurement_showing = false

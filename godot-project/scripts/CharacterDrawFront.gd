@@ -20,13 +20,14 @@ static func draw(ctx: DrawContext) -> void:
 	var body_w_half = body_w / 2.0
 	var sh_off = shoulder_w * 0.5 - arm_w * 0.5
 	var hp_off = body_w_half * 0.6
+	var stress_ratio: float = float(d.get("stress_ratio", 0.0))
 
 	var p_hip_l = Vector2(d["cx"] - hp_off, d["cy"])
 	var p_hip_r = Vector2(d["cx"] + hp_off, d["cy"])
 
 	# === 正面用の微調整（ここを書き換えて動作確認します） ===
 	var front_offset_x = -5.0 # プラスにすると腕が外側に広がる、マイナスで内側
-	var front_offset_y = 10.0 # プラスにすると腕が下に下がる、マイナスで上に上がる
+	var front_offset_y = 10.0 + stress_ratio * 8.0 # stressが高いほど肩を少し落とす
 	# Note: 腕の太さ分だけ下に下げたかった
 
 	var p_sh_l = Vector2(d["front_sx"] - sh_off - front_offset_x, d["front_sy"] + front_offset_y)
@@ -136,7 +137,7 @@ static func draw(ctx: DrawContext) -> void:
 		var hx = d["front_hx"]
 		var hy = d["front_hy"]
 
-		var look_pitch = ctx.look_pitch
+		var look_pitch = ctx.look_pitch + stress_ratio * 5.0
 
 		var eye_off_x = head_w * 0.2
 		var eye_y = hy + look_pitch

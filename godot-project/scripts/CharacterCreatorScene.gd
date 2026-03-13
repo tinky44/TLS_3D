@@ -343,28 +343,18 @@ func _on_start_age_pressed(age_val: int) -> void:
     if not global: return
     global.age = age_val
     global.term = preload("res://scripts/Global.gd").age_to_term(age_val)
-    
-    # 中学入学以上の場合、通学帽を外す
-    if age_val >= 12:
-        global.current_appearance["hat_type"] = "none"
-    else:
-        global.current_appearance["hat_type"] = "school_hat"
-        
-    # 中学入学を選んだ場合、制服をセーラー服に自動設定する
-    var trigger_reload = false
-    if age_val == 12:
-        global.current_appearance["tops_type"] = "sailor"
-        global.current_appearance["tops_color"] = "#1a2a5e"
-        global.current_appearance["bottoms_type"] = "skirt_sailor"
-        global.current_appearance["bottoms_color"] = "#1a2a5e"
-        trigger_reload = true
-        
+
+    # 通学帽: 中学以上は外す
+    global.current_appearance["hat_type"] = "school_hat" if age_val < 12 else "none"
+
+    # 制服を学校段階に合わせて自動設定
+    var uniform: Dictionary = global.get_school_uniform(age_val)
+    for key in uniform.keys():
+        global.current_appearance[key] = uniform[key]
+
     global.save_settings()
-    
-    if trigger_reload or age_val >= 12 or age_val == 6:
-        # 画面のボタン表示やキャラクターの見た目を更新するため、シーン全体を再度リロードする
-        get_tree().reload_current_scene()
-        return
+    # 画面のボタン表示やキャラクターの見た目を更新するため、シーン全体を再度リロードする
+    get_tree().reload_current_scene()
 
 func _on_growth_type_pressed(btn: BaseButton) -> void:
     var global = get_node_or_null("/root/Global")
@@ -401,6 +391,13 @@ func _on_next_pressed() -> void:
         # 新規ゲーム開始時に成長履歴をリセット
         global.growth_history = []
         global.prev_height = 0.0
+        global.self_confidence = 0
+        global.self_complex = 0
+        global.stress = 0
+        global.pending_term_choice = true
+        global.current_term_plan = ""
+        global.term_hotspot_flags = {}
+        global.term_memory_note = ""
         global.record_growth_history("start")
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"

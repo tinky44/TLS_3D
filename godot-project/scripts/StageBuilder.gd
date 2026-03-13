@@ -33,7 +33,7 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 230,
         "obstacles": [
-            {"id": "door_to_outdoor", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
+            {"id": "door_to_station", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
             {"id": "door_2", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
@@ -2678,6 +2678,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "自動改札機（%dcm）。\nあなたには腰くらいの高さ。長身だと通りにくいですね。" % oh
             else:
                 return "自動改札機（%dcm）。ICカードをタッチしましょう。" % oh
+        "table":
+            return "家の食卓（%dcm）。\nここで少し休めば、気持ちがほどけるかもしれません。" % oh
         "station_bench":
             return "ホームのベンチ（%dcm）。\n長身だと膝が高く突き出してしまいますね。" % oh
         "timetable":
@@ -2711,6 +2713,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
             return "学校の机（%dcm）。\n昔はこんなに小さかったですね。" % oh
         "student_chair_1", "student_chair_2":
             return "学校の椅子（%dcm）。\n大人には少し小さく感じますね。" % oh
+        "infirmary_desk":
+            return "保健室の机。\n座って話せば、少し気持ちが整理できるかもしれません。"
         "bed":
             return "自分のベッド（高さ%dcm）。\n背が高いと足がはみ出してしまいますね。" % oh
         "bookshelf":
@@ -2718,6 +2722,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "本棚（高さ%dcm）。\nあなた（%dcm）より低い！上の棚まで余裕で手が届きますね。" % [oh, h]
             else:
                 return "本棚（高さ%dcm）。\n上の棚に少し背伸びが必要かもしれません。" % oh
+        "washstand":
+            return "洗面台の鏡。\n立ち止まると、自分の姿がよく見える。"
         "desk_myroom":
             if h > 170:
                 return "学習机（高さ%dcm）。\n少し低く感じるかもしれません。" % oh
