@@ -151,42 +151,31 @@ static func draw_sailor_front(ctx: DrawContext, sx: float, sy: float, neck_y: fl
 # セーラー服オーバーレイ（背面）
 #
 # 描画パーツ:
-#   1. 肩から広がる背面フラップ
-#   2. フラップ内側の白ライン
+#   1. 背中の矩形フラップ
+#   2. 上部の白ライン
 #
 # バッグはこの後ろに重なってよく、背中側が隠れても自然とみなす。
 # ---------------------------------------------------------------
-static func draw_sailor_back(ctx: DrawContext, sx: float, sy: float, neck_y: float, navel_y: float,
-		half_sh: float, half_body: float, sailor_color: Color) -> void:
-	var flap_top_y = neck_y + 4.0
-	var flap_mid_y = lerp(sy, navel_y, 0.35)
-	var flap_bot_y = lerp(sy, navel_y, 0.48)
-	var flap_tip_y = flap_bot_y + half_body * 0.55
+static func draw_sailor_back(ctx: DrawContext, sx: float, sy: float, _neck_y: float, navel_y: float,
+		_half_sh: float, half_body: float, sailor_color: Color) -> void:
+	var flap_top_y = sy
+	var flap_bot_y = lerp(sy, navel_y, 0.45) # 正面のリボン始点(v_y)と同じ高さ
+	var flap_half_w = half_body
 
 	var flap_pts = PackedVector2Array([
-		Vector2(sx - half_sh * 1.05, sy),
-		Vector2(sx - half_body * 0.32, flap_top_y),
-		Vector2(sx + half_body * 0.32, flap_top_y),
-		Vector2(sx + half_sh * 1.05, sy),
-		Vector2(sx + half_body * 0.70, flap_bot_y),
-		Vector2(sx, flap_tip_y),
-		Vector2(sx - half_body * 0.70, flap_bot_y),
+		Vector2(sx - flap_half_w, flap_top_y),
+		Vector2(sx + flap_half_w, flap_top_y),
+		Vector2(sx + flap_half_w, flap_bot_y),
+		Vector2(sx - flap_half_w, flap_bot_y),
 	])
 	ctx.canvas.draw_polygon(flap_pts, PackedColorArray([sailor_color]))
 
 	var line_col = Color(1, 1, 1, 0.78)
-	ctx.canvas.draw_polyline(PackedVector2Array([
-		Vector2(sx - half_sh * 0.78, sy + 3.0),
-		Vector2(sx - half_body * 0.52, flap_mid_y),
-		Vector2(sx, flap_tip_y - 5.0),
-		Vector2(sx + half_body * 0.52, flap_mid_y),
-		Vector2(sx + half_sh * 0.78, sy + 3.0),
-	]), line_col, 2.0)
-	ctx.canvas.draw_polyline(PackedVector2Array([
-		Vector2(sx - half_body * 0.38, flap_mid_y - 7.0),
-		Vector2(sx, flap_tip_y - 11.0),
-		Vector2(sx + half_body * 0.38, flap_mid_y - 7.0),
-	]), line_col, 1.4)
+	var stripe_margin = flap_half_w * 0.16
+	var stripe_y1 = sy + 6.0
+	var stripe_y2 = sy + 12.0
+	ctx.canvas.draw_line(Vector2(sx - flap_half_w + stripe_margin, stripe_y1), Vector2(sx + flap_half_w - stripe_margin, stripe_y1), line_col, 2.0)
+	ctx.canvas.draw_line(Vector2(sx - flap_half_w + stripe_margin, stripe_y2), Vector2(sx + flap_half_w - stripe_margin, stripe_y2), line_col, 1.6)
 
 # ---------------------------------------------------------------
 # ジャンパースカートオーバーレイ（正面）
