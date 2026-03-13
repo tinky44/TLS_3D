@@ -1,54 +1,201 @@
-# 屈んだ時（しゃがみ・前屈み）の服装の描画ロジック
+# 屈み時の衣装描画ロジック仕様（現行実装準拠）
 
-本ドキュメントでは、キャラクターがしゃがんだり前かがみになった際の、服装（トップス・スカート）の変形・追従描画ロジックについて詳細を定義する。
-実装は主に `CharacterBodyDrawer.gd` および `CharacterClothingDrawer.gd` に基づく。
+本書は、屈み・前傾時に衣装がどう追従するかを、実装式ベースで整理した仕様です。
 
-## 1. 姿勢変化に応じた基準ベクトルの計算
+## 0. 対象ファイル
 
-屈んだ時の服装の描画は、プロポーション計算（`CharacterPoseCalculator.gd`）から渡される `waist_angle`（腰の曲がり角度）と、股関節から計算される脚の座標・角度に強く依存している。
+- `godot-project/scripts/CharacterBodyDrawer.gd`
+- `godot-project/scripts/CharacterClothingDrawer.gd`
+- `godot-project/scripts/CharacterDrawFront.gd`
+- `godot-project/scripts/CharacterDrawSide.gd`
+- `godot-project/scripts/CharacterPoseCalculator.gd`
 
-側面描画時（`CharacterClothingDrawer.draw_tops_detail_side` 等）では、以下のベクトルが毎フレーム動的に計算される。
-- **前方ベクトル（`fwd`）**: `Vector2(cos(waist_angle), sin(waist_angle))`
-- **上方ベクトル（`up_v`）**: `Vector2(-sin(waist_angle), cos(waist_angle))`
-- **胴体の下方ベクトル（`torso_down`）**: 肩（`sx, sy`）からへそ（`navel_x, navel_y`）へ向かうベクトル。腰曲げによる曲線を反映。
+## 1. 屈み情報の入力元
 
-すべての服のディテールやスカートの基準起点は、キャラクターの「屈み具合」により回転するこれらのベクトルを利用して配置される。
+衣装側が直接参照する屈み関連値（`ctx.d`）:
 
-## 2. 服装ごとの描画詳細
+- `waist_angle`
+- `leg_l_angle`, `leg_r_angle`
+- `knee_l`, `knee_r`
+- `cx`, `cy`（股）
+- `sx`, `sy`（肩）
+- `navel_x`, `navel_y`（へそ）
+- `hip_x`, `hip_y` / `front_hip_x`, `front_hip_y`
+- `thigh_l`, `shin_l`
 
-### 2.1 トップスのディテールの追従（セーラー服、サスペンダースカート、リボンブラウスなど）
+これらは `CharacterPoseCalculator` が `visual_height_cm` から更新した結果。
 
-- **セーラー服の襟とスカーフ**
-  - セーラーカラー（背中側のフラップや胸元のV字）は、すべて `p_sh_front` (前方) や `p_sh_back` (背後)、およびそこからの `torso_down` ベクトルを基点に描画用ポリゴンを形成する。
-  - 前屈みになった際、`torso_down` ベクトルが前方下方向へ大きく傾くため、胸元のスカーフの先（`scarf_end`）なども自動的にそれに追従して垂れ下がる位置が計算される。
+## 2. トップスの屈み追従（側面）
 
-- **リボン（蝶ネクタイ等）**
-  - リボンは `up_v` と `fwd` を基準にして側面への突出を計算している。
-  - キャラクターが屈むと `up_v` が傾くため、リボンも重力に逆らわず胴体の前面角度に合わせて自然に傾斜する。垂れ（テール）の部分は別途下方向へラインを引くことで重力による垂れ下がりを表現している（`Vector2(0, bow_h * 3.0)` などを加算）。
+`CharacterClothingDrawer.draw_tops_detail_side()` の基準ベクトル:
 
-- **ブルゾンやサスペンダースカートの上着・胴体部分**
-  - 胴体の塗りつぶし（`jacket_cover` など）は `p_sh`（肩）からベルト位置（`torso_dir * u_arm`）までのポリゴンとして描画される。
-  - 腰が曲がってへそのX座標（`navel_x`）が前にズレた場合、`torso_dir` も連動して傾くため、上着全体が「くの字」の胴体に沿って前方に傾く。
+```gdscript
+fwd  = Vector2(cos(waist_angle), sin(waist_angle))      # 胴体前方
+up_v = Vector2(-sin(waist_angle), cos(waist_angle))     # 胴体上方
+```
 
-### 2.2 スカートの変形と広がり補正
+`sailor` / `blazer` / `blouse_bow` / `jumper_skirt` のディテールはこの `fwd` と `up_v` で回転追従する。
 
-スカート表現は `CharacterBodyDrawer.draw_skirt` にて、しゃがみや前屈みに対応するための特殊機能が組み込まれている。
+### 2.1 胴体方向ベクトルの使い方
 
-#### 側面ビューにおけるスカートの傾き追従
-- スカートの基本となる傾き（`skirt_ang`）は、両脚の平均角度（`avg_leg_ang`）に連動する。
-- ただし、布が重力で垂れ下がる性質を再現するため、脚の角度に完全に追随するのではなく **「平均脚角度の 0.7 倍」** に緩和されて描画される。
-- **補正:** サスペンダースカートやブレザーなど、胸元から繋がっている構造の服（`is_jumper`, `is_blouse_bow`, `is_jumper_skirt`）の場合は、上半身の倒れ込みもスカートに影響を与える。
-  - `skirt_ang += d["waist_angle"] * 0.5`
-  - つまり、前かがみ（`waist_angle` が増加）になると、スカートも前方へ半分ほど持ち上がる（連動して傾く）挙動となる。
+多くの関数で肩→へそベクトルを使う:
 
-#### しゃがみ時の「裾幅縮小」の防止ロジック
-- スカートの裾の広がり（`side_hem_w`）は基本的に、前足と後ろ足のX座標の最大幅（`spread_x = abs(max_x - min_x)`）にマージンを掛けた値として計算される。
-- **問題点:** 深くしゃがみ込んだ時（両膝が全く同じ前方へ向いた時など）、前後の脚のX座標差 `spread_x` がほぼ `0` になってしまい、裾幅が極端に狭まる破綻が生じる。
-- **解決策:** 裾の中心点（`p_bottom.x`）から、最も遠い位置にある脚のX座標までの距離（`reach_from_hem`）を計測する。
-- 最終的な裾幅は `side_hem_w = max(hem_w, spread_x * spread_margin, reach_from_hem * 2.0)` として決定され、しゃがみ込んで足が前方に突き出た状態でも、裾が脚を確実に覆い隠す最低限の十分な広がりが保証される。
+```gdscript
+torso_down = Vector2(navel_x - sx, navel_y - sy)
+torso_dir  = torso_down.normalized()
+```
 
-## 3. 正面・背面ビューからのしゃがみ対応
+用途:
 
-- 正面・背面ビューでは `waist_angle` や前方への脚の突出はZ深度としては直接表れないが、`leg_l_angle`, `leg_r_angle` に応じた足の横への広がりが膝等のY座標変化と共に反映される。
-- `draw_skirt` では、左右の足首のおおよその広がり（`legs_spread`）を計算し、`actual_hem_w = max(hem_w, legs_spread * 0.9)` とすることで、足を開いてしゃがんだ場合でも、スカートが左右の足の広がりに合わせて横広に描画されるよう制御されている。
-- また、裾のラインは完全な直線ではなく、`curve_drop = skirt_length * 0.05` を持たせて下向きに緩やかなカーブを描くことで、しゃがんだ際の布のたわみや立体感を疑似的に表現している。
+- V字襟の先端位置
+- スカーフ垂れ
+- ジャンパースカートのベルト位置
+- サスペンダー帯の終端
+
+つまり、腰を曲げると装飾ポリゴンの基準軸そのものが回る。
+
+## 3. 袖（腕）の屈み対応
+
+`draw_sleeve_arm()` 自体は屈み角を計算しないが、呼び出し側が屈み反映済みの肩/肘/手座標を渡すため結果的に追従する。
+
+側面時の追加補正:
+
+```gdscript
+sleeve_top_w = arm_w * 1.15          # 元は1.5、側面時は上すぼみ
+p_top_center = p_shoulder + n * (shaved / 2.0)
+```
+
+- 背中側を基準に、胸側だけ細くする補正。
+- 前傾時に袖が前へ膨らみすぎるのを抑える。
+
+## 4. スカートの基準点（waist_pos）と丈
+
+`draw_skirt()` ではまずスカート上端 `waist_pos` を決める。
+
+## 4.1 ジャンパー系の上端引き上げ
+
+対象: `tops_type in {"blazer", "blouse_bow", "jumper_skirt"}`
+
+```gdscript
+u_arm = m["armLength"] * p * 0.5 + 10.0
+```
+
+- 側面: `waist_pos = shoulder + torso_dir * u_arm`
+- 正面/背面: `waist_pos.y = front_sy + u_arm`
+
+## 4.2 スカート丈
+
+`waist_to_crotch = d["cy"] - waist_pos.y`
+
+条件別:
+
+- `skirt_long`:
+  - `skirt_length = waist_to_crotch + thigh_l + shin_l * 0.3`
+  - `hem_w = base_width * 1.3`
+- `blouse_bow`:
+  - `skirt_length = waist_to_crotch + thigh_l * 0.8`
+  - `hem_w = base_width * 1.45`
+- `jumper_skirt`:
+  - `skirt_length = waist_to_crotch + thigh_l * 0.4`
+  - `hem_w = base_width * 1.5`
+- `skirt_sailor` または `blazer`:
+  - `skirt_length = waist_to_crotch + thigh_l + shin_l * 0.1`
+  - `hem_w = base_width * (1.6 if blazer else 1.4)`
+- それ以外（`skirt`, `skirt_short`）:
+  - `skirt_length = waist_to_crotch + thigh_l * 0.4`
+  - `hem_w = base_width * 1.5`
+
+## 5. 側面スカートの屈み追従
+
+## 5.1 角度
+
+```gdscript
+avg_leg_ang = (leg_l_angle + leg_r_angle) / 2.0
+skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
+
+waist_lean = 0.5 if (is_jumper or is_blouse_bow or is_jumper_skirt) else 0.3
+skirt_ang += waist_angle * waist_lean
+```
+
+ポイント:
+
+- 脚角は 0.7 倍で追従（布の遅れを表現）。
+- ジャンパー系は腰前傾を 50% 反映、通常系は30%。
+
+## 5.2 側面裾幅（屈み破綻回避）
+
+脚の実X広がりを算出:
+
+```gdscript
+knee_x, ankle_x(条件付き), hem_x(条件付き) から min_x/max_x
+spread_x = abs(max_x - min_x)
+```
+
+補正係数:
+
+- `spread_margin = 1.5`（long）
+- `spread_margin = 1.6`（プリーツ系）
+- `spread_margin = 1.2`（通常）
+
+さらに、深屈みで `spread_x ≈ 0` になるケース対策:
+
+```gdscript
+reach_from_hem = max(abs(max_x - p_bottom.x), abs(min_x - p_bottom.x))
+side_hem_w = max(hem_w, spread_x * spread_margin, reach_from_hem * 2.0) + 15.0
+```
+
+- `+15.0` は膝隠し用マージン。
+- これで「膝が同方向に揃ったとき裾が極端に細くなる」問題を防ぐ。
+
+## 5.3 側面プリーツとベルト
+
+- プリーツ対象: `skirt_sailor`, `blazer`, `blouse_bow`, `jumper_skirt`
+- 縦線本数: 6本（`for i in 1..6`）
+- `jumper_skirt` は上端にダークベルトを追加描画
+
+## 6. 正面・背面スカートの屈み追従
+
+正面は脚角を弱投影した足首位置から裾幅を広げる。
+
+```gdscript
+f_leg_ang = (leg_angle * 0.2) * PI/180 + PI/2
+ankle_x = hip_x + (thigh_l + shin_l) * cos(f_leg_ang)
+legs_spread = abs(ankle_r_x - ankle_l_x)
+
+actual_hem_w = max(hem_w, legs_spread * 0.9)
+curve_drop = skirt_length * 0.05
+```
+
+- 裾中央を `curve_drop` だけ下げた5頂点ポリゴンで描画。
+- プリーツ線もこのカーブに合わせて下端を補正している。
+
+## 7. 屈み時の実際の高さ感との対応
+
+衣装ロジックは `d` の骨格高さに完全追従する。特に重要なのは:
+
+- `waist_pos` が `cy` と `sy/navel` から再計算される
+- 裾先 `p_bottom` が `skirt_length` と `skirt_ang` で決まる
+
+例（180cm, `p=2` の実装値目安）:
+
+- 直立: `cy=-172.8`
+- 深め屈み（`t≈1.0`）: `cy≈-149.3`, `waist_angle=1.3rad`
+- さらに深屈み（`t≈2.0`）: `cy≈-53.4`
+
+`cy` が上がるほどスカート上端も上がり、同時に `waist_angle` によって前方へ倒れる。
+
+## 8. 服種別ごとの屈み時見え方まとめ
+
+- `pants`: 脚台形のみ。屈み時は脚角と膝角で自然追従。
+- `skirt/skirt_short`: 短め丈、腰追従は弱め（waist 30%）。
+- `skirt_long`: 足首寄りまで長い。側面裾幅は広め補正。
+- `skirt_sailor`: プリーツ + やや長め丈（膝下少し）。
+- `blazer`: ジャンパー系。高い腰位置、プリーツ、腰追従強め（50%）。
+- `blouse_bow`: ジャンパー系寄りの追従。膝上寄り丈。
+- `jumper_skirt`: 高い腰位置 + ベルト + プリーツ + 強追従。
+
+## 9. 旧仕様との差分（更新点）
+
+- スカート追従は単純角度追従ではなく、`脚角0.7倍 + 腰角追従` の合成。
+- 側面裾幅は `spread_x` だけでなく `reach_from_hem` を使って屈み破綻を防止。
+- ジャンパー系の上端位置は「肩から胴体方向へ `u_arm`」で統一され、トップス装飾と同じ基準になっている。
