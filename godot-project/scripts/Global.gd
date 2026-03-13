@@ -189,6 +189,17 @@ func pop_next_event() -> String:
 func add_stress(amount: int) -> void:
 	stress = int(clamp(stress + amount, 0, 100))
 
+func append_term_memory_note(note: String) -> void:
+	if note == "":
+		return
+	if term_memory_note == "":
+		term_memory_note = note
+		return
+	var existing_lines: PackedStringArray = term_memory_note.split("\n", false)
+	if existing_lines.has(note):
+		return
+	term_memory_note += "\n" + note
+
 func mark_term_hotspot_done(hotspot_id: String) -> void:
 	term_hotspot_flags[hotspot_id] = true
 

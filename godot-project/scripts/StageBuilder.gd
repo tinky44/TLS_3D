@@ -2678,6 +2678,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "自動改札機（%dcm）。\nあなたには腰くらいの高さ。長身だと通りにくいですね。" % oh
             else:
                 return "自動改札機（%dcm）。ICカードをタッチしましょう。" % oh
+        "table":
+            return "家の食卓（%dcm）。\nここで少し休めば、気持ちがほどけるかもしれません。" % oh
         "station_bench":
             return "ホームのベンチ（%dcm）。\n長身だと膝が高く突き出してしまいますね。" % oh
         "timetable":

@@ -212,6 +212,25 @@ const DATA: Dictionary = {
 			{"speaker": "（主人公）", "text": "洗面台の鏡に、自分の姿がすっぽり映る。"},
 			{"speaker": "（主人公）", "text": "こうして見ると、やっぱり大きい。でも今日は、少しだけ落ち着いて見られた。"},
 		],
+		"term_home_table": [
+			{"speaker": "お母さん", "text": "ちょうどお茶を入れたところ。少し座っていく？"},
+			{
+				"speaker": "（主人公）",
+				"text": "食卓の前で立ち止まる。どうしよう。",
+				"choices": [
+					{"label": "そのまま一緒に座る", "next": "term_home_table_stay", "emotion": "confidence", "action": "stress:-4,note:食卓で家族と一緒に座る時間を取れた。"},
+					{"label": "やっぱり部屋に戻る", "next": "term_home_table_leave", "emotion": "complex", "action": "stress:+2,note:食卓の前で少しためらってから部屋に戻った。"},
+				]
+			},
+		],
+		"term_home_table_stay": [
+			{"speaker": "（主人公）", "text": "椅子に座って、お茶をひと口飲む。"},
+			{"speaker": "お母さん", "text": "そのくらいゆっくりしていきなさい。家では、気を張らなくていいんだから。"},
+		],
+		"term_home_table_leave": [
+			{"speaker": "（主人公）", "text": "……今日は、まだうまく座れそうにない。"},
+			{"speaker": "お母さん", "text": "そっか。また気が向いたら来て。お茶、いつでも入れるから。"},
+		],
 		"term_school": [
 			{"speaker": "（主人公）", "text": "また後ろの席だ。みんなの視線が、少しだけ気になる。"},
 			{
@@ -230,6 +249,10 @@ const DATA: Dictionary = {
 		"term_school_tired": [
 			{"speaker": "（主人公）", "text": "……ちょっと、息が詰まる。"},
 			{"speaker": "ほのか", "text": "無理しすぎないでね。しんどい時は、ちゃんと休もう。"},
+		],
+		"term_school_seat": [
+			{"speaker": "（主人公）", "text": "自分の席に座る。机の高さは昔のままなのに、見える景色だけが少し変わっている。"},
+			{"speaker": "（主人公）", "text": "落ち着かない。でも、ここで過ごすしかないんだ。"},
 		],
 		"term_school_infirmary": [
 			{"speaker": "保健の先生", "text": "顔色、少し固いわね。座って、ゆっくり話してみる？"},
@@ -268,6 +291,14 @@ const DATA: Dictionary = {
 		"term_station_shy": [
 			{"speaker": "（主人公）", "text": "視線が集まるたびに、肩がぎゅっと固くなる。"},
 			{"speaker": "（主人公）", "text": "今日はもう、早く帰ってしまいたい。"},
+		],
+		"term_station_bench": [
+			{"speaker": "（主人公）", "text": "ベンチに腰を下ろす。人の流れを見ていると、自分だけ少し別の速さで立っていた気がした。"},
+			{"speaker": "（主人公）", "text": "少し休むだけで、肩の力がほんの少し抜けていく。"},
+		],
+		"term_station_vending": [
+			{"speaker": "（主人公）", "text": "自販機の前で立ち止まる。ボタンは低いのに、なぜか視線だけは高いところまで届く気がした。"},
+			{"speaker": "（主人公）", "text": "ただ立っているだけで目立つ。そんな感覚が、駅前ではいちばん強い。"},
 		],
 		"entrance_elementary": [
 			{"speaker": "（主人公）", "text": "今日は小学校の入学式だ。"},

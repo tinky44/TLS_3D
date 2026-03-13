@@ -31,6 +31,7 @@ var action_hint_label: Label
 
 # 測定結果パネル
 var measurement_panel: Control
+var measurement_content_scroll: ScrollContainer
 var measurement_content_label: Label
 var history_panel: Control
 var history_header_label: Label
@@ -88,7 +89,14 @@ const TERM_CHOICES: Dictionary = {
 	},
 }
 
-const TERM_HOTSPOT_ORDER = ["home_mirror", "school_infirmary"]
+const TERM_HOTSPOT_ORDER = [
+	"home_mirror",
+	"home_table",
+	"school_seat",
+	"school_infirmary",
+	"station_bench",
+	"station_vending",
+]
 const TERM_HOTSPOTS: Dictionary = {
 	"home_mirror": {
 		"plan": "home",
@@ -101,6 +109,25 @@ const TERM_HOTSPOTS: Dictionary = {
 		"feedback": "鏡の前で呼吸が少し整う",
 		"memory_note": "洗面台の鏡の前で、自分の背丈を静かに見つめた。"
 	},
+	"home_table": {
+		"plan": "home",
+		"stage_id": "room",
+		"obs_ids": ["table", "chair"],
+		"prompt": "食卓で一息つく",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_home_table"
+	},
+	"school_seat": {
+		"plan": "school",
+		"stage_id": "school",
+		"obs_ids": ["desk_1", "student_chair_1", "desk_2", "student_chair_2"],
+		"prompt": "自分の席に座る",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_school_seat",
+		"stress_delta": 2,
+		"feedback": "席に座ると少しだけ視線を意識する",
+		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。"
+	},
 	"school_infirmary": {
 		"plan": "school",
 		"stage_id": "infirmary",
@@ -108,6 +135,28 @@ const TERM_HOTSPOTS: Dictionary = {
 		"prompt": "保健室で相談する",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_school_infirmary"
+	},
+	"station_bench": {
+		"plan": "station",
+		"stage_id": "station",
+		"obs_id": "station_bench",
+		"prompt": "ベンチで一息つく",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_station_bench",
+		"stress_delta": -4,
+		"feedback": "人波から少し距離を取れた",
+		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。"
+	},
+	"station_vending": {
+		"plan": "station",
+		"stage_id": "station",
+		"obs_id": "station_vending",
+		"prompt": "自販機の前で立ち止まる",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_station_vending",
+		"stress_delta": 3,
+		"feedback": "立ち止まると視線が集まりやすい",
+		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。"
 	},
 }
 
@@ -515,7 +564,16 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 			continue
 		if String(hotspot_data.get("stage_id", "")) != String(global.current_stage_id):
 			continue
-		if String(hotspot_data.get("obs_id", "")) != obs_id:
+		var matched: bool = false
+		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
+		if hotspot_obs_ids is Array:
+			for candidate in hotspot_obs_ids:
+				if String(candidate) == obs_id:
+					matched = true
+					break
+		elif String(hotspot_data.get("obs_id", "")) == obs_id:
+			matched = true
+		if not matched:
 			continue
 		if global.has_term_hotspot_done(hotspot_id):
 			return ""
@@ -539,7 +597,7 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 		_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
 	var memory_note: String = String(hotspot_data.get("memory_note", ""))
 	if memory_note != "":
-		global.term_memory_note = memory_note
+		global.append_term_memory_note(memory_note)
 	global.save_settings()
 	_nearby_term_hotspot = ""
 	_start_dialogue(
@@ -645,7 +703,7 @@ func _process_choice_action(action: String, global: Node) -> void:
 				_show_stress_feedback(stress_delta)
 			continue
 		if action_id.begins_with("note:"):
-			global.term_memory_note = action_id.substr("note:".length())
+			global.append_term_memory_note(action_id.substr("note:".length()))
 			continue
 		match action_id:
 			"vball_join":
@@ -1794,12 +1852,21 @@ func _setup_measurement_panel() -> void:
 	vbox.add_child(HSeparator.new())
 
 	# 詳細テキスト（平均比較・コメント）
+	measurement_content_scroll = ScrollContainer.new()
+	measurement_content_scroll.custom_minimum_size = Vector2(380, 180)
+	measurement_content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	measurement_content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	measurement_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	vbox.add_child(measurement_content_scroll)
+
 	measurement_content_label = Label.new()
 	measurement_content_label.add_theme_font_size_override("font_size", 16)
 	measurement_content_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	measurement_content_label.custom_minimum_size = Vector2(380, 0)
+	measurement_content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	measurement_content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	measurement_content_label.modulate.a = 0.0
-	vbox.add_child(measurement_content_label)
+	measurement_content_scroll.add_child(measurement_content_label)
 
 	vbox.add_child(HSeparator.new())
 
@@ -1863,6 +1930,7 @@ func _show_measurement_result() -> void:
 			detail += "%s\n" % String(global.term_memory_note)
 		detail += _get_term_reflection_text(global)
 	measurement_content_label.text = detail
+	_reset_measurement_content_scroll()
 
 	# 前回比ラベル
 	if prev_h > 0.0:
@@ -1915,6 +1983,12 @@ func _show_measurement_result() -> void:
 	tween.tween_interval(0.2)
 	tween.tween_property(measurement_content_label, "modulate:a", 1.0, 0.4)
 	tween.tween_property(_meas_btn_row, "modulate:a", 1.0, 0.3)
+
+func _reset_measurement_content_scroll() -> void:
+	if not is_instance_valid(measurement_content_scroll):
+		return
+	measurement_content_scroll.set_deferred("scroll_vertical", 0)
+	measurement_content_scroll.set_deferred("scroll_horizontal", 0)
 
 func _on_measurement_panel_closed() -> void:
 	_measurement_showing = false
