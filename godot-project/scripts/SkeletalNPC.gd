@@ -13,6 +13,7 @@ var is_walking: bool = false
 var walk_phase: float = 0.0
 var walk_speed: float = 8.0
 var pose: String = "normal"
+var receives_global_stress: bool = false
 
 var auto_crouch: bool = false
 var target_crouch_cm: float = -1.0

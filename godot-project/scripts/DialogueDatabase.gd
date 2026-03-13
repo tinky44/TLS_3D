@@ -208,6 +208,10 @@ const DATA: Dictionary = {
 			{"speaker": "（主人公）", "text": "家の中でなら、少しだけ背筋を伸ばせる。"},
 			{"speaker": "（主人公）", "text": "この大きさを、少しずつ自分の形にしていけるかもしれない。"},
 		],
+		"term_home_mirror": [
+			{"speaker": "（主人公）", "text": "洗面台の鏡に、自分の姿がすっぽり映る。"},
+			{"speaker": "（主人公）", "text": "こうして見ると、やっぱり大きい。でも今日は、少しだけ落ち着いて見られた。"},
+		],
 		"term_school": [
 			{"speaker": "（主人公）", "text": "また後ろの席だ。みんなの視線が、少しだけ気になる。"},
 			{
@@ -226,6 +230,25 @@ const DATA: Dictionary = {
 		"term_school_tired": [
 			{"speaker": "（主人公）", "text": "……ちょっと、息が詰まる。"},
 			{"speaker": "ほのか", "text": "無理しすぎないでね。しんどい時は、ちゃんと休もう。"},
+		],
+		"term_school_infirmary": [
+			{"speaker": "保健の先生", "text": "顔色、少し固いわね。座って、ゆっくり話してみる？"},
+			{
+				"speaker": "（主人公）",
+				"text": "……どうしよう。正直に話した方がいいのかな。",
+				"choices": [
+					{"label": "しんどさを正直に話す", "next": "term_school_infirmary_open", "emotion": "confidence", "action": "stress:-6,note:保健室でしんどさを正直に話せた。"},
+					{"label": "平気だと言って戻る", "next": "term_school_infirmary_hold", "emotion": "complex", "action": "stress:+3,note:保健室でも平気なふりをしてしまった。"},
+				]
+			},
+		],
+		"term_school_infirmary_open": [
+			{"speaker": "（主人公）", "text": "……最近、視線が気になって、ずっと肩に力が入ってるんです。"},
+			{"speaker": "保健の先生", "text": "言えてえらいわ。無理を続けるより、ちゃんと気づける方がずっと大事よ。"},
+		],
+		"term_school_infirmary_hold": [
+			{"speaker": "（主人公）", "text": "……大丈夫です。ちょっと疲れてるだけ。"},
+			{"speaker": "保健の先生", "text": "そう。でも、つらくなったらまた来ていいからね。"},
 		],
 		"term_station": [
 			{"speaker": "（主人公）", "text": "今学期は、少し外に出てみよう。"},

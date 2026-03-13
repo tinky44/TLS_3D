@@ -2711,6 +2711,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
             return "学校の机（%dcm）。\n昔はこんなに小さかったですね。" % oh
         "student_chair_1", "student_chair_2":
             return "学校の椅子（%dcm）。\n大人には少し小さく感じますね。" % oh
+        "infirmary_desk":
+            return "保健室の机。\n座って話せば、少し気持ちが整理できるかもしれません。"
         "bed":
             return "自分のベッド（高さ%dcm）。\n背が高いと足がはみ出してしまいますね。" % oh
         "bookshelf":
@@ -2718,6 +2720,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "本棚（高さ%dcm）。\nあなた（%dcm）より低い！上の棚まで余裕で手が届きますね。" % [oh, h]
             else:
                 return "本棚（高さ%dcm）。\n上の棚に少し背伸びが必要かもしれません。" % oh
+        "washstand":
+            return "洗面台の鏡。\n立ち止まると、自分の姿がよく見える。"
         "desk_myroom":
             if h > 170:
                 return "学習机（高さ%dcm）。\n少し低く感じるかもしれません。" % oh

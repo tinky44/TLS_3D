@@ -23,6 +23,7 @@ var pause_save_label: Label
 var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
+var _nearby_term_hotspot: String = ""
 
 # アクションヒントパネル（Q キーで切り替え）
 var action_hint_panel: PanelContainer
@@ -84,6 +85,29 @@ const TERM_CHOICES: Dictionary = {
 		"stress_delta": 16,
 		"feedback": "人通りの多さで肩がこわばる",
 		"event_id": "term_station"
+	},
+}
+
+const TERM_HOTSPOT_ORDER = ["home_mirror", "school_infirmary"]
+const TERM_HOTSPOTS: Dictionary = {
+	"home_mirror": {
+		"plan": "home",
+		"stage_id": "room",
+		"obs_id": "washstand",
+		"prompt": "鏡を見る",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_home_mirror",
+		"stress_delta": -4,
+		"feedback": "鏡の前で呼吸が少し整う",
+		"memory_note": "洗面台の鏡の前で、自分の背丈を静かに見つめた。"
+	},
+	"school_infirmary": {
+		"plan": "school",
+		"stage_id": "infirmary",
+		"obs_id": "infirmary_desk",
+		"prompt": "保健室で相談する",
+		"dialogue_npc": "player",
+		"dialogue_key": "term_school_infirmary"
 	},
 }
 
@@ -481,6 +505,48 @@ func _get_term_reflection_text(global: Node) -> String:
 			return "外の視線は想像以上に重かった。駅前に出るたび、肩が固くなるのを感じた。"
 	return "今学期の過ごし方が、少しずつ心と体の輪郭を作っていく。"
 
+func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return ""
+	for hotspot_id in TERM_HOTSPOT_ORDER:
+		var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
+		if String(hotspot_data.get("plan", "")) != String(global.current_term_plan):
+			continue
+		if String(hotspot_data.get("stage_id", "")) != String(global.current_stage_id):
+			continue
+		if String(hotspot_data.get("obs_id", "")) != obs_id:
+			continue
+		if global.has_term_hotspot_done(hotspot_id):
+			return ""
+		return hotspot_id
+	return ""
+
+func _get_term_hotspot_prompt(hotspot_id: String) -> String:
+	if not TERM_HOTSPOTS.has(hotspot_id):
+		return ""
+	return String(TERM_HOTSPOTS[hotspot_id].get("prompt", "調べる"))
+
+func _trigger_term_hotspot(hotspot_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global or not TERM_HOTSPOTS.has(hotspot_id):
+		return
+	var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
+	global.mark_term_hotspot_done(hotspot_id)
+	var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
+	if stress_delta != 0:
+		global.add_stress(stress_delta)
+		_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
+	var memory_note: String = String(hotspot_data.get("memory_note", ""))
+	if memory_note != "":
+		global.term_memory_note = memory_note
+	global.save_settings()
+	_nearby_term_hotspot = ""
+	_start_dialogue(
+		String(hotspot_data.get("dialogue_npc", "player")),
+		String(hotspot_data.get("dialogue_key", "default"))
+	)
+
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	if _in_dialogue or _measurement_showing or _term_choice_showing: return
 	if not _dialogues.has(npc_id): return
@@ -577,6 +643,9 @@ func _process_choice_action(action: String, global: Node) -> void:
 				var stress_delta: int = int(delta_text)
 				global.add_stress(stress_delta)
 				_show_stress_feedback(stress_delta)
+			continue
+		if action_id.begins_with("note:"):
+			global.term_memory_note = action_id.substr("note:".length())
 			continue
 		match action_id:
 			"vball_join":
@@ -868,6 +937,7 @@ func _update_bubble():
 	if _nearby_npc:
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
+		_nearby_term_hotspot = ""
 		bubble_label.text = "[Eキー] 話しかける"
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
@@ -890,27 +960,37 @@ func _update_bubble():
 		var obs_id = closest_obs.get_meta("obs_id")
 		var oh = closest_obs.get_meta("obs_height_cm")
 		var h = m["height"]
+		var hotspot_id: String = _get_term_hotspot_id_for_obstacle(String(obs_id))
 
 		bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
 
 		# 近くのオブジェクトに応じたインタラクションヒントを追加
-		if obs_id.begins_with("door_to_"):
+		if hotspot_id != "":
+			_nearby_transition_door = ""
+			_nearby_height_scale = false
+			_nearby_term_hotspot = hotspot_id
+			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
+		elif obs_id.begins_with("door_to_"):
 			_nearby_transition_door = obs_id
 			_nearby_height_scale = false
+			_nearby_term_hotspot = ""
 			bubble_label.text += "\n[Eキーで移動]"
 		elif obs_id == "height_scale":
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
+			_nearby_term_hotspot = ""
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
+			_nearby_term_hotspot = ""
 
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
 	else:
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
+		_nearby_term_hotspot = ""
 		bubble_panel.hide()
 
 func _setup_ui():
@@ -1145,6 +1225,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_advance_dialogue()
 			elif _measurement_showing:
 				_on_next_term_pressed()
+			elif _nearby_term_hotspot != "":
+				_trigger_term_hotspot(_nearby_term_hotspot)
 			elif _nearby_transition_door != "":
 				_enter_transition_door()
 			elif _nearby_height_scale:
@@ -1180,6 +1262,8 @@ func _get_action_hint_text() -> String:
 		return "[E] 次へ"
 	if _measurement_showing:
 		return "[E] 次の学期へ進む"
+	if _nearby_term_hotspot != "":
+		return "[E] %s" % _get_term_hotspot_prompt(_nearby_term_hotspot)
 	if _nearby_transition_door != "":
 		var dest = _nearby_transition_door.substr("door_to_".length())
 		var dest_name = StageBuilder.get_stage_name(dest, Global.age) if StageBuilder.STAGES.has(dest) else dest
@@ -1775,6 +1859,8 @@ func _show_measurement_result() -> void:
 		detail += "\n\n【今学期の手触り】\n"
 		detail += "%s\n" % String(plan_data.get("title", global.current_term_plan))
 		detail += "stress %d / 100 (%s)\n" % [int(global.stress), _get_stress_state_text(int(global.stress))]
+		if global.term_memory_note != "":
+			detail += "%s\n" % String(global.term_memory_note)
 		detail += _get_term_reflection_text(global)
 	measurement_content_label.text = detail
 

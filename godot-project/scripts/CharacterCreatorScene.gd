@@ -406,6 +406,8 @@ func _on_next_pressed() -> void:
         global.stress = 0
         global.pending_term_choice = true
         global.current_term_plan = ""
+        global.term_hotspot_flags = {}
+        global.term_memory_note = ""
         global.record_growth_history("start")
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"

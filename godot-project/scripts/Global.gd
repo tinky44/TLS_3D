@@ -58,6 +58,8 @@ var self_complex: int = 0 # コンプレックス：高身長を否定的に感�
 var stress: int = 0 # 今学期の生活で溜まるしんどさ
 var pending_term_choice: bool = false # 学期の過ごし方選択が必要か
 var current_term_plan: String = "" # "home" / "school" / "station"
+var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
+var term_memory_note: String = "" # 今学期の印象的な出来事メモ
 
 # コアNPCの定義
 var core_npcs: Dictionary = {
@@ -187,6 +189,12 @@ func pop_next_event() -> String:
 func add_stress(amount: int) -> void:
 	stress = int(clamp(stress + amount, 0, 100))
 
+func mark_term_hotspot_done(hotspot_id: String) -> void:
+	term_hotspot_flags[hotspot_id] = true
+
+func has_term_hotspot_done(hotspot_id: String) -> bool:
+	return bool(term_hotspot_flags.get(hotspot_id, false))
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
 	term += 1
@@ -205,6 +213,8 @@ func advance_term() -> void:
 	haruka_following = false
 	pending_term_choice = true
 	current_term_plan = ""
+	term_hotspot_flags = {}
+	term_memory_note = ""
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)
@@ -244,6 +254,9 @@ func load_settings():
 		stress = int(config.get_value("Player", "stress", stress))
 		pending_term_choice = bool(config.get_value("Player", "pending_term_choice", pending_term_choice))
 		current_term_plan = String(config.get_value("Player", "current_term_plan", current_term_plan))
+		var hotspot_value: Variant = config.get_value("Player", "term_hotspot_flags", term_hotspot_flags)
+		term_hotspot_flags = hotspot_value if hotspot_value is Dictionary else {}
+		term_memory_note = String(config.get_value("Player", "term_memory_note", term_memory_note))
 		for key in current_appearance.keys():
 			current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
 		for key in system_settings.keys():
@@ -264,6 +277,8 @@ func save_settings():
 	config.set_value("Player", "stress", stress)
 	config.set_value("Player", "pending_term_choice", pending_term_choice)
 	config.set_value("Player", "current_term_plan", current_term_plan)
+	config.set_value("Player", "term_hotspot_flags", term_hotspot_flags)
+	config.set_value("Player", "term_memory_note", term_memory_note)
 	for key in current_appearance.keys():
 		config.set_value("Appearance", key, current_appearance[key])
 	for key in system_settings.keys():
@@ -291,6 +306,8 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "stress", stress)
 	config.set_value(section, "pending_term_choice", pending_term_choice)
 	config.set_value(section, "current_term_plan", current_term_plan)
+	config.set_value(section, "term_hotspot_flags", term_hotspot_flags)
+	config.set_value(section, "term_memory_note", term_memory_note)
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
@@ -320,6 +337,9 @@ func load_slot(slot: int) -> bool:
 	stress = int(config.get_value(section, "stress", 0))
 	pending_term_choice = bool(config.get_value(section, "pending_term_choice", false))
 	current_term_plan = String(config.get_value(section, "current_term_plan", ""))
+	var hotspot_slot_value: Variant = config.get_value(section, "term_hotspot_flags", {})
+	term_hotspot_flags = hotspot_slot_value if hotspot_slot_value is Dictionary else {}
+	term_memory_note = String(config.get_value(section, "term_memory_note", ""))
 	# 旧セーブデータのマイグレーション（age=0 or term=0 の不整合を修正）
 	if age <= 0 or term == 0:
 		age = 6

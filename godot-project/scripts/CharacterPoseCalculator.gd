@@ -9,13 +9,16 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var walk_phase = player.walk_phase
     var visual_height_cm = player.visual_height_cm
 
-    # 脚の痛みフラグを Global から取得
+    # プレイヤー系ノードだけが stress 姿勢を受ける
     var is_leg_pain: bool = false
     var stress_ratio: float = 0.0
     var _g: Node = player.get_node_or_null("/root/Global")
+    var receives_global_stress: bool = false
+    if player.get("receives_global_stress") != null:
+        receives_global_stress = bool(player.get("receives_global_stress"))
     if _g and _g.get("is_leg_pain"):
         is_leg_pain = _g.is_leg_pain
-    if _g and _g.get("stress") != null:
+    if receives_global_stress and _g and _g.get("stress") != null:
         stress_ratio = clampf(float(_g.stress) / 100.0, 0.0, 1.0)
 
     var leg_l_angle = 0.0
