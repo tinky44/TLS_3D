@@ -42,6 +42,29 @@ function Add-OptionalArgument {
     }
 }
 
+function Resolve-ExeCandidate {
+    param(
+        [string]$CandidatePath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($CandidatePath)) {
+        return $null
+    }
+
+    try {
+        $item = Get-Item -LiteralPath $CandidatePath -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
+
+    if ($item -is [System.IO.FileInfo] -and $item.Extension -ieq ".exe") {
+        return $item.FullName
+    }
+
+    return $null
+}
+
 function Resolve-GodotExe {
     param(
         [string]$PreferredPath
@@ -69,13 +92,13 @@ function Resolve-GodotExe {
             continue
         }
 
-        $consoleMatches = Get-ChildItem -Path $root -Filter "Godot*_console.exe" -Recurse -ErrorAction SilentlyContinue |
+        $consoleMatches = Get-ChildItem -Path $root -Filter "Godot*_console.exe" -File -Recurse -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty FullName
         if ($consoleMatches) {
             $candidates += $consoleMatches
         }
 
-        $guiMatches = Get-ChildItem -Path $root -Filter "Godot*.exe" -Recurse -ErrorAction SilentlyContinue |
+        $guiMatches = Get-ChildItem -Path $root -Filter "Godot*.exe" -File -Recurse -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notlike "*_console.exe" } |
             Select-Object -ExpandProperty FullName
         if ($guiMatches) {
@@ -84,8 +107,9 @@ function Resolve-GodotExe {
     }
 
     foreach ($candidate in $candidates | Select-Object -Unique) {
-        if (Test-Path $candidate) {
-            return (Resolve-Path $candidate).Path
+        $resolvedCandidate = Resolve-ExeCandidate -CandidatePath $candidate
+        if (-not [string]::IsNullOrWhiteSpace($resolvedCandidate)) {
+            return $resolvedCandidate
         }
     }
 
@@ -104,6 +128,7 @@ if ([string]::IsNullOrWhiteSpace($Prefix)) {
 }
 
 $resolvedGodotExe = Resolve-GodotExe -PreferredPath $GodotExe
+Write-Host "USING_GODOT_EXE=$resolvedGodotExe"
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $arguments = [System.Collections.Generic.List[string]]::new()
