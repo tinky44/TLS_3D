@@ -108,12 +108,15 @@ var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 
 ### 3.5. `outer` は「膝帯まで」の中間制約点として選ぶ
 
-6点ポリゴンの `front_outer/back_outer` は、中間の折れ点であって裾点ではない。
-そのため、足首側の深い候補まで含めると、体育座りでは `front_outer` が下へ落ちすぎて
+9点ポリゴンの `front_peak`, `front_outer/back_outer`, `front_lower/back_lower` は、
+それぞれ「膝山」「中間折れ点」「下側折れ点」の役割を持つ。
+足首側の深い候補まで上側折れ点に含めると、体育座りでは `front_outer` が下へ落ちすぎて
 膝の張り出しを拾えなくなる。
 
-- `outer` 候補: 臀部、太腿、膝帯、すね上部のごく近傍
-- `hem`: `outer` 通過後に `extend_u` 方向へ残り丈を延長して決める
+- `peak` 候補: 太腿終端、膝、すね上端
+- `outer` 候補: 臀部、太腿、膝帯上部、すね上部のごく近傍
+- `lower` 候補: 膝下からすね中部まで
+- `hem`: `lower` 通過後に `extend_u` 方向へ残り丈を延長して決める
 
 ### 4. 不正な6点ポリゴンは台形へフォールバックする
 
@@ -136,7 +139,7 @@ var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 | ① | `CharacterBodyDrawer.gd` | `front_side/back_side` を `Vector2(1,0)` / `Vector2(-1,0)` に固定 |
 | ② | `CharacterBodyDrawer.gd` | `_pick_side_outer_candidate()` の `axis_dir` を `torso_u` に変更 |
 | ③ | `CharacterBodyDrawer.gd` | 残り丈延長用に `extend_u = Vector2(0, 1)` を導入 |
-| ④ | `CharacterBodyDrawer.gd` | 6点ポリゴン破綻時の fallback ガードを追加 |
+| ④ | `CharacterBodyDrawer.gd` | 9点ポリゴン破綻時の fallback ガードを追加 |
 
 ---
 
@@ -144,7 +147,7 @@ var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 
 ### 今回の実装に含む
 
-- 側面スカートの前後非対称ポリゴン化
+- 側面スカートの前後非対称9点ポリゴン化
 - 前後制約点を「膝固定」ではなく「下半身シルエット最外点」にする
 - 現行の `skirt_ang` と `side_hem_w` の補正を維持する
 - プリーツ線と `jumper_skirt` 上端帯を、新ポリゴンに整合する形へ保つ
@@ -154,7 +157,7 @@ var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 - 短スカート時の4点ポリゴン最適化
 - 正面・背面スカートの形状見直し
 
-短丈や候補点不足で 6 点ポリゴンが安定しないケースは、
+短丈や候補点不足で 9 点ポリゴンが安定しないケースは、
 初版では従来の側面台形ロジックへフォールバックしてよい。
 
 ---
@@ -163,9 +166,11 @@ var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 
 1. `draw_skirt()` の側面分岐で、現行の `skirt_ang` / `p_bottom` / `side_hem_w` 計算を残す
 2. `skirt_u`, `torso_u`, `top_n`, `extend_u`, `front_side/back_side` の役割を分離する
-3. 臀部・太腿・膝帯寄り候補から、中間制約点 `front_outer/back_outer` を選ぶ
-4. 制約点通過後は `extend_u` 方向へ残り丈を延長し、前後裾を決める
-5. 不正ポリゴン判定を通ったときだけ 6 点ポリゴンで本体を描画する
-6. フォールバック時は従来の側面台形と既存プリーツ処理を使う
-7. `jumper_skirt` の上端帯は `torso_u * belt_h` を維持する
-8. 立ち / 歩き / 屈み / 体育座りで、膝・脛・足首の貫通と臀部露出を確認する
+3. 太腿終端・膝・すね上端候補から、前面膝山 `front_peak` を選ぶ
+4. 臀部・太腿・膝帯寄り候補から、中間制約点 `front_outer/back_outer` を選ぶ
+5. 膝下〜すね中部候補から、下側折れ点 `front_lower/back_lower` を選ぶ
+6. 制約点通過後は `extend_u` 方向へ残り丈を延長し、前後裾を決める
+7. 不正ポリゴン判定を通ったときだけ 9 点ポリゴンで本体を描画する
+8. フォールバック時は従来の側面台形と既存プリーツ処理を使う
+9. `jumper_skirt` の上端帯は `torso_u * belt_h` を維持する
+10. 立ち / 歩き / 屈み / 体育座りで、膝・脛・足首の貫通と臀部露出を確認する

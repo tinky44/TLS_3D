@@ -172,7 +172,7 @@ static func _append_segment_edge_candidates(candidates: Array, p_start: Vector2,
 		candidates.append(center - side_n)
 
 static func _pick_side_outer_candidate(candidates: Array, waist_pos: Vector2, belt_pos: Vector2,
-		side_dir: Vector2, axis_dir: Vector2, skirt_length: float) -> Dictionary:
+		side_dir: Vector2, axis_dir: Vector2, skirt_length: float, min_axis: float = -12.0) -> Dictionary:
 	var best_score := -1000000000.0
 	var best_axis := 0.0
 	var best_pos := belt_pos
@@ -180,15 +180,42 @@ static func _pick_side_outer_candidate(candidates: Array, waist_pos: Vector2, be
 	for candidate in candidates:
 		var point: Vector2 = candidate
 		var axis_pos = (point - waist_pos).dot(axis_dir)
-		# 膝付近の候補は torso_u 投影でわずかに負になることがあるため、
-		# 少しだけ前方マージンを持たせて拾う。
-		if axis_pos < -12.0 or axis_pos > skirt_length + 12.0:
+		if axis_pos < min_axis or axis_pos > skirt_length + 12.0:
 			continue
 		var first_seg = belt_pos.distance_to(point)
 		if first_seg >= skirt_length - 0.5:
 			continue
 		var score = _side_proj(point, waist_pos, side_dir)
 		if (not found) or score > best_score + 0.01 or (abs(score - best_score) <= 0.01 and axis_pos > best_axis):
+			best_score = score
+			best_axis = axis_pos
+			best_pos = point
+			found = true
+	return {
+		"found": found,
+		"pos": best_pos,
+		"score": best_score,
+		"axis_pos": best_axis,
+	}
+
+static func _pick_side_peak_candidate(candidates: Array, waist_pos: Vector2, belt_pos: Vector2,
+		side_dir: Vector2, axis_dir: Vector2, skirt_length: float, min_axis: float = -24.0) -> Dictionary:
+	var best_score := -1000000000.0
+	var best_axis := 0.0
+	var best_pos := belt_pos
+	var found := false
+	for candidate in candidates:
+		var point: Vector2 = candidate
+		var axis_pos = (point - waist_pos).dot(axis_dir)
+		if axis_pos < min_axis or axis_pos > skirt_length * 0.7:
+			continue
+		var first_seg = belt_pos.distance_to(point)
+		if first_seg >= skirt_length - 0.5:
+			continue
+		var frontness = _side_proj(point, waist_pos, side_dir)
+		var height_bonus = max(belt_pos.y - point.y, 0.0) * 2.0
+		var score = frontness + height_bonus
+		if (not found) or score > best_score + 0.01 or (abs(score - best_score) <= 0.01 and point.y < best_pos.y):
 			best_score = score
 			best_axis = axis_pos
 			best_pos = point
@@ -234,15 +261,26 @@ static func _segments_intersect(a: Vector2, b: Vector2, c: Vector2, d: Vector2, 
 		return true
 	return false
 
-static func _side_skirt_polygon_is_valid(points: PackedVector2Array, back_outer: Vector2, back_hem: Vector2,
-		front_hem: Vector2, front_outer: Vector2) -> bool:
+static func _side_skirt_polygon_is_valid(points: PackedVector2Array, back_outer: Vector2, back_lower: Vector2,
+		back_hem: Vector2, front_hem: Vector2, front_lower: Vector2, front_outer: Vector2,
+		front_peak: Vector2, belt_front: Vector2) -> bool:
 	if back_outer.x > front_outer.x + 0.01:
+		return false
+	if back_lower.x > front_lower.x + 0.01:
 		return false
 	if back_hem.x > front_hem.x + 0.01:
 		return false
-	if back_hem.y < back_outer.y - 0.01:
+	if back_lower.y < back_outer.y - 0.01:
 		return false
-	if front_hem.y < front_outer.y - 0.01:
+	if back_hem.y < back_lower.y - 0.01:
+		return false
+	if front_lower.y < front_outer.y - 0.01:
+		return false
+	if front_hem.y < front_lower.y - 0.01:
+		return false
+	if front_peak.y > front_outer.y + 0.01:
+		return false
+	if front_peak.x < belt_front.x - 0.01:
 		return false
 
 	var edge_count := points.size()
@@ -383,6 +421,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var ankle_r = knee_r + Vector2(cos(ang_r + d["knee_r"]), sin(ang_r + d["knee_r"])) * shin_draw
 
 		var outer_candidates: Array = []
+		var lower_candidates: Array = []
+		var peak_candidates: Array = []
 		var pelvis_half = max(half_top, ctx.thigh_w * 0.5)
 		outer_candidates.append(crotch_pos + top_n * pelvis_half)
 		outer_candidates.append(crotch_pos - top_n * pelvis_half)
@@ -390,6 +430,14 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		_append_segment_edge_candidates(outer_candidates, crotch_pos, knee_r, ctx.thigh_w, [0.35, 0.7, 1.0])
 		_append_segment_edge_candidates(outer_candidates, knee_l, ankle_l, ctx.shin_w, [0.2])
 		_append_segment_edge_candidates(outer_candidates, knee_r, ankle_r, ctx.shin_w, [0.2])
+		_append_segment_edge_candidates(lower_candidates, knee_l, ankle_l, ctx.shin_w, [0.45, 0.75])
+		_append_segment_edge_candidates(lower_candidates, knee_r, ankle_r, ctx.shin_w, [0.45, 0.75])
+		_append_segment_edge_candidates(peak_candidates, crotch_pos, knee_l, ctx.thigh_w, [0.7, 0.85, 1.0])
+		_append_segment_edge_candidates(peak_candidates, crotch_pos, knee_r, ctx.thigh_w, [0.7, 0.85, 1.0])
+		_append_segment_edge_candidates(peak_candidates, knee_l, ankle_l, ctx.shin_w, [0.0, 0.1])
+		_append_segment_edge_candidates(peak_candidates, knee_r, ankle_r, ctx.shin_w, [0.0, 0.1])
+		peak_candidates.append(knee_l)
+		peak_candidates.append(knee_r)
 
 		var front_pick = _pick_side_outer_candidate(outer_candidates, waist_pos, belt_front, front_side, torso_u, skirt_length)
 		var back_pick = _pick_side_outer_candidate(outer_candidates, waist_pos, belt_back, back_side, torso_u, skirt_length)
@@ -397,6 +445,9 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var use_legacy_side = (not bool(front_pick["found"])) or (not bool(back_pick["found"]))
 		var front_outer = belt_front.lerp(hem_front_base, 0.5)
 		var back_outer = belt_back.lerp(hem_back_base, 0.5)
+		var front_lower = front_outer.lerp(hem_front_base, 0.45)
+		var back_lower = back_outer.lerp(hem_back_base, 0.45)
+		var front_peak = belt_front.lerp(front_outer, 0.35)
 		var front_hem = hem_front_base
 		var back_hem = hem_back_base
 
@@ -405,11 +456,18 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 			var back_axis_ratio = clamp(float(back_pick["axis_pos"]) / skirt_length, 0.0, 1.0)
 			var front_base_at_pick = belt_front.lerp(hem_front_base, front_axis_ratio)
 			var back_base_at_pick = belt_back.lerp(hem_back_base, back_axis_ratio)
+			var peak_min_axis = -max(18.0, skirt_length * 0.18)
+			var front_peak_pick = _pick_side_peak_candidate(peak_candidates, waist_pos, belt_front, front_side, torso_u, skirt_length, peak_min_axis)
 			var front_candidate: Vector2 = front_pick["pos"]
 			var back_candidate: Vector2 = back_pick["pos"]
 
 			front_outer = front_candidate if _side_proj(front_candidate, waist_pos, front_side) > _side_proj(front_base_at_pick, waist_pos, front_side) else front_base_at_pick
 			back_outer = back_candidate if _side_proj(back_candidate, waist_pos, back_side) > _side_proj(back_base_at_pick, waist_pos, back_side) else back_base_at_pick
+			front_peak = belt_front.lerp(front_outer, 0.35)
+			if bool(front_peak_pick["found"]):
+				var front_peak_candidate: Vector2 = front_peak_pick["pos"]
+				front_peak.x = clamp(front_peak_candidate.x, belt_front.x + 2.0, front_outer.x + ctx.shin_w * 0.35)
+				front_peak.y = min(front_peak_candidate.y, front_outer.y - 2.0)
 
 			var front_seg1 = belt_front.distance_to(front_outer)
 			var back_seg1 = belt_back.distance_to(back_outer)
@@ -422,15 +480,32 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 				# 候補点を通過した後は純粋に重力方向へ残り丈を延長する。
 				front_hem = front_hem_ext
 				back_hem = back_hem_ext
+				front_lower = front_outer.lerp(front_hem, 0.45)
+				back_lower = back_outer.lerp(back_hem, 0.45)
+
+				var front_lower_pick = _pick_side_outer_candidate(lower_candidates, waist_pos, front_outer, front_side, torso_u, skirt_length)
+				var back_lower_pick = _pick_side_outer_candidate(lower_candidates, waist_pos, back_outer, back_side, torso_u, skirt_length)
+				if bool(front_lower_pick["found"]):
+					var front_lower_candidate: Vector2 = front_lower_pick["pos"]
+					front_lower.x = max(front_lower.x, front_lower_candidate.x)
+					front_lower.y = clamp(front_lower_candidate.y, front_outer.y + 4.0, front_hem.y - 4.0)
+				if bool(back_lower_pick["found"]):
+					var back_lower_candidate: Vector2 = back_lower_pick["pos"]
+					back_lower.x = min(back_lower.x, back_lower_candidate.x)
+					back_lower.y = clamp(back_lower_candidate.y, back_outer.y + 4.0, back_hem.y - 4.0)
+
 				var pts = PackedVector2Array([
 					belt_back,
 					back_outer,
+					back_lower,
 					back_hem,
 					front_hem,
+					front_lower,
 					front_outer,
+					front_peak,
 					belt_front,
 				])
-				if not _side_skirt_polygon_is_valid(pts, back_outer, back_hem, front_hem, front_outer):
+				if not _side_skirt_polygon_is_valid(pts, back_outer, back_lower, back_hem, front_hem, front_lower, front_outer, front_peak, belt_front):
 					use_legacy_side = true
 
 		if use_legacy_side:
@@ -439,9 +514,12 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 			var pts = PackedVector2Array([
 				belt_back,
 				back_outer,
+				back_lower,
 				back_hem,
 				front_hem,
+				front_lower,
 				front_outer,
+				front_peak,
 				belt_front,
 			])
 			ctx.canvas.draw_polygon(pts, PackedColorArray([bottoms_color]))
@@ -464,9 +542,11 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 				for i in range(1, 7): # 6本の線を入れる
 					var t = float(i) / 7.0
 					var top_p = belt_back.lerp(belt_front, t)
-					var mid_p = back_outer.lerp(front_outer, t)
+					var peak_p = back_outer.lerp(front_peak, pow(t, 1.8))
+					var upper_p = back_outer.lerp(front_outer, t)
+					var lower_p = back_lower.lerp(front_lower, t)
 					var bot_p = back_hem.lerp(front_hem, t)
-					ctx.canvas.draw_polyline(PackedVector2Array([top_p, mid_p, bot_p]), pleat_col, 1.5)
+					ctx.canvas.draw_polyline(PackedVector2Array([top_p, peak_p, upper_p, lower_p, bot_p]), pleat_col, 1.5)
 
 		# サスペンダースカート用：スカート上端にダークネイビーの帯
 		if is_jumper_skirt:
