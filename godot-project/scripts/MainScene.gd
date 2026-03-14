@@ -56,10 +56,23 @@ var _current_dialogue_key: String = ""
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
-# ─── 学期選択 ──────────────────────────────────────────────────
+# ─── 進級選択 ──────────────────────────────────────────────────
 var term_choice_panel: Control
 var term_choice_header_label: Label
 var _term_choice_showing: bool = false
+var _ending_overlay_showing: bool = false
+
+const GRADE_CHOICE_ORDER = ["continue", "ending"]
+const GRADE_CHOICES: Dictionary = {
+	"continue": {
+		"title": "1. 続ける",
+		"summary": "新しい学年で、このまま物語を続ける。"
+	},
+	"ending": {
+		"title": "2. エンディングへ",
+		"summary": "ここで物語を区切り、仮エンディングのあとタイトルへ戻る。"
+	},
+}
 
 const TERM_CHOICE_ORDER = ["home", "school", "station"]
 const TERM_CHOICES: Dictionary = {
@@ -490,7 +503,7 @@ func _setup_term_choice_panel() -> void:
 	panel.add_child(vbox)
 
 	var title = Label.new()
-	title.text = "今学期どこで過ごす？"
+	title.text = "進級の節目"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color.WHITE)
@@ -498,28 +511,28 @@ func _setup_term_choice_panel() -> void:
 
 	term_choice_header_label = Label.new()
 	term_choice_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	term_choice_header_label.add_theme_font_size_override("font_size", 15)
+	term_choice_header_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	term_choice_header_label.custom_minimum_size = Vector2(580, 0)
+	term_choice_header_label.add_theme_font_size_override("font_size", 17)
 	term_choice_header_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.94))
 	vbox.add_child(term_choice_header_label)
 
-	for choice_id: String in TERM_CHOICE_ORDER:
-		var choice: Dictionary = TERM_CHOICES[choice_id]
+	for choice_id: String in GRADE_CHOICE_ORDER:
+		var choice: Dictionary = GRADE_CHOICES[choice_id]
 		var btn = Button.new()
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.custom_minimum_size = Vector2(580, 74)
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.text = "%s\n%s  (stress %s%d)" % [
+		btn.text = "%s\n%s" % [
 			String(choice.get("title", choice_id)),
-			String(choice.get("summary", "")),
-			"+" if int(choice.get("stress_delta", 0)) >= 0 else "",
-			int(choice.get("stress_delta", 0))
+			String(choice.get("summary", ""))
 		]
 		btn.add_theme_font_size_override("font_size", 16)
-		btn.pressed.connect(_on_term_choice_selected.bind(choice_id))
+		btn.pressed.connect(_on_grade_choice_selected.bind(choice_id))
 		vbox.add_child(btn)
 
 	var hint = Label.new()
-	hint.text = "[1][2][3] でも選択できます"
+	hint.text = "[1][2] でも選択できます"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color(0.72, 0.79, 0.86))
@@ -534,11 +547,11 @@ func _show_term_choice_panel() -> void:
 	if not global or not global.pending_term_choice:
 		return
 	_term_choice_showing = true
-	term_choice_header_label.text = "%d歳 / 第%d学期 / stress %d (%s)" % [
+	term_choice_header_label.text = "%s\n%d歳 / 第%d学期\n%s" % [
+		_get_grade_transition_title(int(global.age)),
 		int(global.age),
 		int(global.term) + 1,
-		int(global.stress),
-		_get_stress_state_text(int(global.stress))
+		_get_grade_transition_summary(int(global.age))
 	]
 	term_choice_panel.show()
 	get_tree().paused = true
@@ -611,11 +624,31 @@ func _get_stage_lock_message(stage_id: String) -> String:
 		"school_hallway_elementary", "school_elementary":
 			if age_value > 11:
 				return "懐かしいな……。今はもう、このままは入れない。"
+		"school_hallway_middle":
+			if age_value < 12:
+				return "まだこの廊下に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この廊下には入れない。"
 		"school_middle":
 			if age_value < 12:
 				return "まだこの教室に入る時期じゃない。"
 			if age_value > 14:
 				return "今はもう、この教室じゃない。"
+		"infirmary_middle":
+			if age_value < 12:
+				return "まだこの保健室に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この保健室には入れない。"
+		"gymnasium_middle":
+			if age_value < 12:
+				return "まだこの体育館に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この体育館には入れない。"
+		"schoolyard_middle":
+			if age_value < 12:
+				return "まだここには入れない。"
+			if age_value > 14:
+				return "今はもう、この校庭には入れない。"
 		"school_high":
 			if age_value < 15:
 				return "まだこの教室に入るには早い。"
@@ -630,36 +663,94 @@ func _get_transition_lock_message(door_id: String) -> String:
 	var destination: String = door_id.substr("door_to_".length())
 	return _get_stage_lock_message(destination)
 
-func _on_term_choice_selected(choice_id: String) -> void:
+func _on_grade_choice_selected(choice_id: String) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return
-	if not TERM_CHOICES.has(choice_id):
+	if not GRADE_CHOICES.has(choice_id):
 		return
 
-	var choice: Dictionary = TERM_CHOICES[choice_id]
 	global.pending_term_choice = false
-	global.current_term_plan = choice_id
-	var stress_delta: int = int(choice.get("stress_delta", 0))
-	global.add_stress(stress_delta)
-	_show_stress_feedback(stress_delta, String(choice.get("feedback", "")))
-
-	var summer_front: bool = (
-		global.pending_events.size() > 0
-		and String(global.pending_events[0]) == "summer_growth"
-	)
-	if summer_front and choice_id != "home":
-		global.pending_events.pop_front()
-		global.queue_event("summer_growth")
-
-	var event_id: String = String(choice.get("event_id", ""))
-	if event_id != "" and not (choice_id == "home" and summer_front):
-		global.pending_events.push_front(event_id)
-
-	global.current_stage_id = _resolve_stage_id(String(choice.get("stage_id", global.current_stage_id)))
-	global.save_settings()
+	global.current_term_plan = ""
 	_hide_term_choice_panel()
-	_load_stage()
+	global.save_settings()
+
+	if choice_id == "continue":
+		return
+
+	await _show_temp_ending_and_return_to_title()
+
+func _get_grade_transition_title(age_value: int) -> String:
+	match age_value:
+		9:
+			return "小学4年生になりました"
+		12:
+			return "中学生になりました"
+		15:
+			return "高校生になりました"
+		_:
+			return "新しい学年になりました"
+
+func _get_grade_transition_summary(age_value: int) -> String:
+	if age_value == 12 or age_value == 15:
+		return "制服も通う場所も変わる節目です。ここから先の物語を続けるか選んでください。"
+	if age_value == 9:
+		return "学校生活の景色が少しずつ変わっていきます。ここで物語を区切ることもできます。"
+	return "ここから先の物語を続けるか、いったん区切るか選んでください。"
+
+func _show_temp_ending_and_return_to_title() -> void:
+	_ending_overlay_showing = true
+	get_tree().paused = true
+
+	var overlay = ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 220
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	ui_layer.add_child(overlay)
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.content_margin_left = 32
+	style.content_margin_right = 32
+	style.content_margin_top = 24
+	style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "ここで物語はいったん一区切り"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(0.96, 0.97, 1.0))
+	vbox.add_child(title)
+
+	var body = Label.new()
+	body.text = "エンディング本編は後日実装予定です。\n今回は仮エンディングとして、タイトルへ戻ります。"
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(520, 0)
+	body.add_theme_font_size_override("font_size", 18)
+	body.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92))
+	vbox.add_child(body)
+
+	var tw = overlay.create_tween()
+	tw.tween_property(overlay, "color:a", 1.0, 0.35)
+	await tw.finished
+	await get_tree().create_timer(1.35, true).timeout
+	_ending_overlay_showing = false
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/TitleScene.tscn")
 
 func _is_term_intro_dialogue() -> bool:
 	if _current_dialogue_npc != "player":
@@ -1508,16 +1599,16 @@ func _setup_pause_menu() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _ending_overlay_showing:
+		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return
 	if _term_choice_showing and event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_1:
-				_on_term_choice_selected("home")
+				_on_grade_choice_selected("continue")
 			KEY_2:
-				_on_term_choice_selected("school")
-			KEY_3:
-				_on_term_choice_selected("station")
+				_on_grade_choice_selected("ending")
 		return
 
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
@@ -1565,7 +1656,7 @@ func _toggle_action_hint() -> void:
 
 func _get_action_hint_text() -> String:
 	if _term_choice_showing:
-		return "[1][2][3] 学期の過ごし方を選ぶ"
+		return "[1][2] 進級後の進み方を選ぶ"
 	if _in_dialogue:
 		return "[E] 次へ"
 	if _measurement_showing:

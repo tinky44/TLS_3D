@@ -60,7 +60,7 @@ var vball_joined: bool = false # バレー部入部フラグ
 var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた選択の累積
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
 var stress: int = 0 # 今学期の生活で溜まるしんどさ
-var pending_term_choice: bool = false # 学期の過ごし方選択が必要か
+var pending_term_choice: bool = false # 進級時の続行/終了選択が必要か
 var current_term_plan: String = "" # "home" / "school" / "station"
 var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
 var term_memory_note: String = "" # 今学期の印象的な出来事メモ
@@ -290,8 +290,10 @@ static func get_shoes_for_stage(stage_id: String) -> String:
 func advance_term() -> void:
 	prev_height = current_params["height"]
 	var prev_age: int = age
+	var prev_school_level: int = _school_level_from_age(prev_age)
 	term += 1
 	age = term_to_age(term)
+	var school_level: int = _school_level_from_age(age)
 	current_params["height"] += calc_growth()
 	# 夏休み（1学期→2学期）急成長: term>=6 かつ (term-6)%3==1
 	if term >= 6 and (term - 6) % 3 == 1:
@@ -301,7 +303,7 @@ func advance_term() -> void:
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
 	# 進学時（学校段階が変わった場合）に制服を自動更新
-	if _school_level_from_age(age) != _school_level_from_age(prev_age):
+	if school_level != prev_school_level:
 		var uniform := get_school_uniform(age)
 		for key in uniform.keys():
 			current_appearance[key] = uniform[key]
@@ -310,7 +312,7 @@ func advance_term() -> void:
 	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false
 	haruka_following = false
-	pending_term_choice = true
+	pending_term_choice = school_level != prev_school_level and school_level >= 1 and school_level <= 3
 	current_term_plan = ""
 	term_hotspot_flags = {}
 	term_memory_note = ""

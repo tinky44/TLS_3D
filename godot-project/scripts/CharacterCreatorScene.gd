@@ -394,7 +394,7 @@ func _on_next_pressed() -> void:
         global.self_confidence = 0
         global.self_complex = 0
         global.stress = 0
-        global.pending_term_choice = true
+        global.pending_term_choice = false
         global.current_term_plan = ""
         global.term_hotspot_flags = {}
         global.term_memory_note = ""
