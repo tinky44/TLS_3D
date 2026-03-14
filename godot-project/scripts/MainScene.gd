@@ -547,10 +547,10 @@ func _show_term_choice_panel() -> void:
 	if not global or not global.pending_term_choice:
 		return
 	_term_choice_showing = true
-	term_choice_header_label.text = "%s\n%d歳 / 第%d学期\n%s" % [
+	term_choice_header_label.text = "%s\n%d歳 / %s\n%s" % [
 		_get_grade_transition_title(int(global.age)),
 		int(global.age),
-		int(global.term) + 1,
+		Global.get_school_term_label(int(global.age), int(global.term)),
 		_get_grade_transition_summary(int(global.age))
 	]
 	term_choice_panel.show()
@@ -1720,10 +1720,9 @@ func _update_ui():
 	var term_val: int = global.term if global else 0
 	var stress_val: int = global.stress if global else 0
 	var term_plan: String = global.current_term_plan if global else ""
-	var school_type: String = StageBuilder.get_stage_name("school", age_val)
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
-	text += "%d歳 / %d学期 (%s)\n" % [age_val, term_val + 1, school_type]
+	text += "%d歳 / %s\n" % [age_val, Global.get_school_term_label(age_val, term_val)]
 	if term_plan != "":
 		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
 		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
@@ -2181,7 +2180,7 @@ func _show_measurement_result() -> void:
 	var diff_prev: float = h - prev_h if prev_h > 0.0 else 0.0
 
 	# 詳細テキスト（後でフェードイン）
-	var detail = "年齢：%d歳  第%d学期\n" % [a, global.term + 1]
+	var detail = "年齢：%d歳  %s\n" % [a, Global.get_school_term_label(a, global.term)]
 	detail += "同学年平均：%.1f cm  （差：%+.1f cm）\n\n" % [avg_h, diff_avg]
 	detail += global.get_measurement_comment(diff_avg)
 	if global.current_term_plan != "":
@@ -2295,7 +2294,7 @@ func _on_next_term_pressed() -> void:
 	# 黒画面中に学期テキストを表示
 	if global:
 		var lbl = Label.new()
-		lbl.text = "第 %d 学期" % (global.term + 1)
+		lbl.text = Global.get_school_term_label(int(global.age), int(global.term))
 		lbl.add_theme_font_size_override("font_size", 36)
 		lbl.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
 		lbl.modulate.a = 0.0
@@ -2394,10 +2393,10 @@ func _toggle_history_panel() -> void:
 	if not global:
 		return
 
-	history_header_label.text = "現在 %.1fcm  /  %d歳  /  第%d学期" % [
+	history_header_label.text = "現在 %.1fcm  /  %d歳  /  %s" % [
 		float(global.current_params["height"]),
 		int(global.age),
-		int(global.term) + 1
+		Global.get_school_term_label(int(global.age), int(global.term))
 	]
 	growth_graph.set_data(global.growth_history)
 

@@ -159,6 +159,27 @@ static func term_to_age(t: int) -> int:
 	elif t < 36: return 13 + floori((t - 27) / 3.0)
 	else: return 16 + min(floori((t - 36) / 3.0), 2)
 
+static func get_school_grade_name(a: int) -> String:
+	if a >= 6 and a <= 11:
+		return "小学%d年生" % (a - 5)
+	if a >= 12 and a <= 14:
+		return "中学%d年生" % (a - 11)
+	if a >= 15 and a <= 17:
+		return "高校%d年生" % (a - 14)
+	if a >= 18:
+		return "卒業後"
+	return "%d歳" % a
+
+static func get_term_in_school_year(a: int, t: int) -> int:
+	var max_terms: int = 3 if a >= 6 else 2
+	var base_term: int = age_to_term(a)
+	return clampi(t - base_term + 1, 1, max_terms)
+
+static func get_school_term_label(a: int, t: int) -> String:
+	if a >= 6:
+		return "%s、%d学期" % [get_school_grade_name(a), get_term_in_school_year(a, t)]
+	return "%d歳、%d学期" % [a, get_term_in_school_year(a, t)]
+
 static func get_base_growth(current_age: int) -> float:
 	if current_age <= 5: return 2.0
 	elif current_age <= 9: return 1.8
@@ -588,6 +609,7 @@ func get_slot_info(slot: int) -> Dictionary:
 		"stage_id": config.get_value(section, "stage_id", "room"),
 		"timestamp": config.get_value(section, "timestamp", ""),
 		"age": config.get_value(section, "age", 6),
+		"term": config.get_value(section, "term", 6),
 	}
 
 func get_growth_history_lines(limit: int = 12) -> PackedStringArray:
@@ -596,10 +618,12 @@ func get_growth_history_lines(limit: int = 12) -> PackedStringArray:
 	var start := maxi(0, growth_history.size() - limit)
 	for i in range(growth_history.size() - 1, start - 1, -1):
 		var entry: Dictionary = growth_history[i]
+		var entry_age: int = int(entry.get("age", age))
+		var entry_term: int = int(entry.get("term", 0))
 		lines.append(
-			"%02d学期 | %d歳 | %.1fcm | 前回 %+0.1f | 平均差 %+0.1f" % [
-				int(entry.get("term", 0)) + 1,
-				int(entry.get("age", age)),
+			"%s | %d歳 | %.1fcm | 前回 %+0.1f | 平均差 %+0.1f" % [
+				get_school_term_label(entry_age, entry_term),
+				entry_age,
 				float(entry.get("height", current_params["height"])),
 				float(entry.get("diff_prev", 0.0)),
 				float(entry.get("diff_avg", 0.0))

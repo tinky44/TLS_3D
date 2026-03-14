@@ -2,7 +2,7 @@ extends Control
 
 const COLS = 4
 const SLOT_W = 220
-const SLOT_H = 100
+const SLOT_H = 116
 const GAP = 12
 
 var global: Node
@@ -93,11 +93,18 @@ func _build_ui() -> void:
             inner.add_child(empty_lbl)
         else:
             var stage_name = StageBuilder.STAGES.get(info["stage_id"], {}).get("name", info["stage_id"])
+            var term_label = Global.get_school_term_label(int(info.get("age", 6)), int(info.get("term", 6)))
             var data_lbl = Label.new()
-            data_lbl.text = "%.0fcm  %s" % [info["height"], stage_name]
+            data_lbl.text = "%.0fcm  %s" % [info["height"], term_label]
             data_lbl.add_theme_font_size_override("font_size", 16)
             data_lbl.add_theme_color_override("font_color", Color("#ffffff"))
             inner.add_child(data_lbl)
+
+            var stage_lbl = Label.new()
+            stage_lbl.text = stage_name
+            stage_lbl.add_theme_font_size_override("font_size", 12)
+            stage_lbl.add_theme_color_override("font_color", Color("#d7e5f5"))
+            inner.add_child(stage_lbl)
 
             var ts = info.get("timestamp", "")
             if ts != "":
