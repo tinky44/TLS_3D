@@ -28,8 +28,8 @@ func _ready() -> void:
 	var gnd  := vp.y - 60.0  # 地面 Y 座標（キャラの足元）
 
 	# 初期パラメータが空の場合は growth_history[0] から復元（旧セーブ互換）
-	var init_p  := global.initial_params  if not global.initial_params.is_empty()  else _fallback_params(global)
-	var init_ap := global.initial_appearance if not global.initial_appearance.is_empty() else global.current_appearance
+	var init_p:  Dictionary = global.initial_params  if not global.initial_params.is_empty()  else _fallback_params(global)
+	var init_ap: Dictionary = global.initial_appearance if not global.initial_appearance.is_empty() else global.current_appearance
 
 	# [ 左: 初期シルエット(α0.3) ] [ 中: はるか ] [ 右: 現在のキャラ ]
 	var slots := [
@@ -39,8 +39,8 @@ func _ready() -> void:
 	]
 
 	# Global の current_params を一時的に各キャラ用に差し替えて update_measurements() を実行
-	var saved_params     := global.current_params.duplicate(true)
-	var saved_appearance := global.current_appearance.duplicate(true)
+	var saved_params:     Dictionary = global.current_params.duplicate(true)
+	var saved_appearance: Dictionary = global.current_appearance.duplicate(true)
 
 	for slot in slots:
 		_spawn_player(slot, gnd, global)
@@ -95,7 +95,7 @@ func _build_growth_text(global: Node) -> void:
 		return
 	var h0  := float(global.growth_history[0].get("height", 0.0))
 	var h1  := float(global.current_params.get("height", 0.0))
-	var avg := global.get_avg_height(global.age)
+	var avg: float = global.get_avg_height(global.age)
 	var lines := PackedStringArray()
 	lines.append("%.0fcm → %.0fcm  (+ %.0fcm)" % [h0, h1, h1 - h0])
 	lines.append("平均身長より %+.0fcm" % (h1 - avg))
