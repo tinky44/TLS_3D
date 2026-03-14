@@ -226,6 +226,12 @@ func _ready() -> void:
 	var global = get_node_or_null("/root/Global")
 	if global:
 		p = global.CM_TO_PX
+		var saved_handler := Callable(self, "_on_screenshot_saved")
+		if not global.is_connected("screenshot_saved", saved_handler):
+			global.connect("screenshot_saved", saved_handler)
+		var failed_handler := Callable(self, "_on_screenshot_failed")
+		if not global.is_connected("screenshot_failed", failed_handler):
+			global.connect("screenshot_failed", failed_handler)
 		
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if player:
@@ -1091,6 +1097,14 @@ func _show_stress_feedback(delta: int, detail: String = "") -> void:
 		feedback_text += "  " + detail
 	_show_mood_feedback(feedback_text, delta < 0)
 
+func _on_screenshot_saved(result: Dictionary) -> void:
+	var file_name := String(result.get("file_name", "capture.png"))
+	_show_mood_feedback("Screenshot saved: %s" % file_name, true)
+
+func _on_screenshot_failed(result: Dictionary) -> void:
+	var error_text := String(result.get("error", "unknown error"))
+	_show_mood_feedback("Screenshot failed: %s" % error_text, false)
+
 
 func _process(delta: float) -> void:
 	_update_ui()
@@ -1546,6 +1560,7 @@ func _update_ui():
 	text += "矢印キー上: 後ろ向き\n"
 	text += "Eキー: ドアを通る\n"
 	
+	text += "F12: Screenshot save\n"
 	status_label.text = text
 
 func _load_stage():
