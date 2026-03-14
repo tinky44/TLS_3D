@@ -1,6 +1,9 @@
 extends Control
 
 func _ready() -> void:
+    if _maybe_start_codex_smoke():
+        return
+
     var bg = ColorRect.new()
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
     bg.color = Color("#2b2b2b")
@@ -62,3 +65,13 @@ func _on_exit_pressed() -> void:
         JavaScriptBridge.eval("window.location.href = 'index.html';")
     else:
         get_tree().quit()
+
+func _maybe_start_codex_smoke() -> bool:
+    for arg in OS.get_cmdline_user_args():
+        if arg == "--codex-smoke":
+            call_deferred("_start_codex_smoke")
+            return true
+    return false
+
+func _start_codex_smoke() -> void:
+    get_tree().change_scene_to_file("res://scenes/CodexSmokeRunner.tscn")

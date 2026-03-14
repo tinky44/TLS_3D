@@ -12,6 +12,7 @@
 bin/
 build/
 dist/
+artifacts/godot-captures/
 *.pck
 *.exe
 *.zip
@@ -20,3 +21,5 @@ dist/
 .DS_Store
 node_modules/
 
+godot-project/artifacts/godot-captures/*.png
+artifacts/godot-runtime/*

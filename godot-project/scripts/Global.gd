@@ -1,5 +1,8 @@
 extends Node
 
+signal screenshot_saved(result: Dictionary)
+signal screenshot_failed(result: Dictionary)
+
 const CM_TO_PX: float = 2.0
 
 # プレイヤーの身体パラメータ (初期値として「高身長女性」を設定)
@@ -32,6 +35,7 @@ var system_settings: Dictionary = {
 var current_stage_id: String = "room"
 var current_slot: int = -1 # 現在使用中のスロット番号 (-1 = 未選択)
 var slot_select_mode: String = "save" # "save" or "load"
+var _screenshot_in_progress: bool = false
 
 # 成長パラメータ（term=6 が小学1年・6歳のスタート）
 var age: int = 6
@@ -137,13 +141,11 @@ static func age_to_term(a: int) -> int:
 	elif a <= 15: return 27 + (a - 13) * 3
 	else: return 36 + (a - 16) * 3
 
-# TODO flooriを使う
-@warning_ignore("integer_division")
 static func term_to_age(t: int) -> int:
-	if t < 6: return 3 + t / 2
-	elif t < 27: return 6 + (t - 6) / 3
-	elif t < 36: return 13 + (t - 27) / 3
-	else: return 16 + min((t - 36) / 3, 2)
+	if t < 6: return 3 + floori(t / 2.0)
+	elif t < 27: return 6 + floori((t - 6) / 3.0)
+	elif t < 36: return 13 + floori((t - 27) / 3.0)
+	else: return 16 + min(floori((t - 36) / 3.0), 2)
 
 static func get_base_growth(current_age: int) -> float:
 	if current_age <= 5: return 2.0
@@ -287,13 +289,138 @@ func get_measurement_comment(diff_avg: float) -> String:
 	else:
 		return "標準的な身長ですね"
 
+const SCREENSHOT_DIR = "user://screenshots"
 const SAVE_PATH = "user://settings.cfg"
 const SLOTS_PATH = "user://save_slots.cfg"
 const SLOT_COUNT: int = 20
 
 func _ready():
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_process_input(true)
 	load_settings()
 	_ensure_growth_history()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F12:
+		request_current_viewport_screenshot()
+		get_viewport().set_input_as_handled()
+
+func request_current_viewport_screenshot(prefix: String = "", output_dir: String = SCREENSHOT_DIR) -> void:
+	if _screenshot_in_progress:
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		var missing_viewport_result := {
+			"ok": false,
+			"error": "Viewport is not available."
+		}
+		screenshot_failed.emit(missing_viewport_result)
+		push_warning("Screenshot save failed: viewport is not available.")
+		return
+	_screenshot_in_progress = true
+	call_deferred("_complete_viewport_screenshot", viewport, prefix, output_dir)
+
+func _complete_viewport_screenshot(viewport: Viewport, prefix: String, output_dir: String) -> void:
+	var effective_prefix := prefix
+	if effective_prefix.strip_edges() == "":
+		effective_prefix = _get_default_screenshot_prefix()
+	var result: Dictionary = await save_viewport_screenshot(viewport, effective_prefix, output_dir)
+	_screenshot_in_progress = false
+	if bool(result.get("ok", false)):
+		screenshot_saved.emit(result)
+		print("SCREENSHOT_SAVED=%s" % String(result.get("save_path", "")))
+	else:
+		screenshot_failed.emit(result)
+		push_warning("Screenshot save failed: %s" % String(result.get("error", "unknown error")))
+
+func save_viewport_screenshot(viewport: Viewport, prefix: String = "capture", output_dir: String = SCREENSHOT_DIR) -> Dictionary:
+	if viewport == null:
+		return {
+			"ok": false,
+			"error": "Viewport is not available."
+		}
+	await RenderingServer.frame_post_draw
+	var image: Image = viewport.get_texture().get_image()
+	if image == null or image.is_empty():
+		return {
+			"ok": false,
+			"error": "Viewport image is empty."
+		}
+	var file_info := _build_screenshot_file_info(prefix, output_dir)
+	if not bool(file_info.get("ok", false)):
+		return file_info
+	var save_path := String(file_info.get("save_path", ""))
+	var err := image.save_png(save_path)
+	if err != OK:
+		return {
+			"ok": false,
+			"error": "save_png failed with code %d." % err,
+			"save_path": save_path,
+			"file_name": String(file_info.get("file_name", ""))
+		}
+	return {
+		"ok": true,
+		"save_path": save_path,
+		"file_name": String(file_info.get("file_name", "")),
+		"output_dir": String(file_info.get("output_dir", ""))
+	}
+
+func _build_screenshot_file_info(prefix: String, output_dir: String) -> Dictionary:
+	var effective_prefix := prefix.validate_filename().strip_edges()
+	if effective_prefix == "":
+		effective_prefix = "capture"
+	var absolute_output_dir := _resolve_output_dir(output_dir)
+	if absolute_output_dir == "":
+		return {
+			"ok": false,
+			"error": "Output directory is empty."
+		}
+	var dir_err := _ensure_absolute_dir(absolute_output_dir)
+	if dir_err != OK:
+		return {
+			"ok": false,
+			"error": "Could not create output directory (%d)." % dir_err,
+			"output_dir": absolute_output_dir
+		}
+	var file_name := "%s_%s.png" % [effective_prefix, _get_screenshot_timestamp()]
+	return {
+		"ok": true,
+		"save_path": absolute_output_dir.path_join(file_name),
+		"file_name": file_name,
+		"output_dir": absolute_output_dir
+	}
+
+func _resolve_output_dir(output_dir: String) -> String:
+	var trimmed := output_dir.strip_edges()
+	if trimmed == "":
+		trimmed = SCREENSHOT_DIR
+	if trimmed.begins_with("user://") or trimmed.begins_with("res://"):
+		return ProjectSettings.globalize_path(trimmed)
+	return trimmed
+
+func _ensure_absolute_dir(abs_dir: String) -> int:
+	if DirAccess.dir_exists_absolute(abs_dir):
+		return OK
+	return DirAccess.make_dir_recursive_absolute(abs_dir)
+
+func _get_default_screenshot_prefix() -> String:
+	var current_scene := get_tree().current_scene
+	if current_scene:
+		var scene_name := String(current_scene.name).validate_filename().strip_edges()
+		if scene_name != "":
+			return scene_name
+	return "capture"
+
+func _get_screenshot_timestamp() -> String:
+	var dt: Dictionary = Time.get_datetime_dict_from_system()
+	return "%04d-%02d-%02d_%02d-%02d-%02d" % [
+		int(dt.get("year", 0)),
+		int(dt.get("month", 0)),
+		int(dt.get("day", 0)),
+		int(dt.get("hour", 0)),
+		int(dt.get("minute", 0)),
+		int(dt.get("second", 0))
+	]
 
 func load_settings():
 	var config = ConfigFile.new()

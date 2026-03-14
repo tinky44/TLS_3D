@@ -86,8 +86,13 @@ pants_ankle_w = shin_w * 1.15
 u_arm = m["armLength"] * p * 0.5 + 10.0
 ```
 
-- 側面: `waist_pos = (sx,sy) + torso_dir * u_arm`
+- 側面: `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` を共有利用
 - 正面/背面: `waist_pos.y = front_sy + u_arm`
+
+セーラースカートの側面のみ:
+
+- `CharacterBodyDrawer.get_side_sailor_waist_pos(ctx)` を使う
+- へそ〜股の中心線上の中点に合わせ、屈み時のトップス下端とのずれを抑える
 
 ## 3.2 丈計算
 
@@ -136,7 +141,9 @@ curve_drop   = skirt_length * 0.05
 
 ## 4. トップス詳細ロジック
 
-## 4.1 セーラー（front）
+## 4.1 セーラー（front/back）
+
+front:
 
 - V開口（肌色）
 - 襟ポリゴン
@@ -148,6 +155,12 @@ curve_drop   = skirt_length * 0.05
 
 - `v_y = lerp(sy, navel_y, 0.45)`
 - `scarf_tip_y = lerp(v_y, navel_y, 0.72)`
+
+back:
+
+- 背面では装飾オーバーレイを描かない
+- ベースの胴体色をそのまま見せる
+- 背面バッグはその上に重なる
 
 ## 4.2 セーラー（side）
 
@@ -163,14 +176,21 @@ front:
 - 必要なら `draw_skirt()` を再呼び出しして同色で接続
 - 内側白シャツ矩形 + リボン
 
+back:
+
+- 装飾オーバーレイを描かない
+- 胴体はベース色のまま見せる
+- スカートは同色で補って前後の一体感を保つ
+
 side:
 
-- 胴体方向ベクトル `torso_dir_b` に沿ってベルト位置を決定
+- `CharacterBodyDrawer.get_side_garment_waist_pos(ctx)` をベルト中心として共有
 - 暗色胴体 + ベルト + 前面白シャツ帯 + リボン
 
 ## 4.4 blouse_bow
 
 - front: 前立て2本線 + 黒リボン
+- back: 装飾オーバーレイなし。ベースの胴体色をそのまま見せる
 - side: 側面リボンのみ（`draw_bow_side`）
 
 ## 4.5 jumper_skirt（サスペンダー）
@@ -185,7 +205,7 @@ side:
 
 - 前後2本の細帯
 - `fw = half_t * 0.12`
-- `torso_down` に沿って下端を作る
+- 下端は `get_side_garment_waist_pos(ctx)` を基準に前後へ展開
 
 ## 5. 髪ロジック（高さ・向き）
 
