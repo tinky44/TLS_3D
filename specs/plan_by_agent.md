@@ -23,9 +23,21 @@
 - キャラ描画は `CharacterDrawer.gd` を再利用（シルエット化は `modulate.a = 0.3` で対応可）
 - 比較相手（ほのかなど）を出す場合は `Global.gd` にNPC身長テーブルを追加
 
-**`#49 エンディング実装` と紐づく。設計確定後に着手。**
+**データ不足の問題**
 
-**ブランチ候補:** `feat/ending-report`
+`growth_history` が持つのは身長推移のみ。「訪問ステージ」「体験イベント」の通算ログが存在しない。
+`term_memory_note` は学期ごとにリセット（`advance_term()` で `""`）されるため累積されない。
+
+エンディングで「思い出レポート」を出すには以下の追加が必要：
+
+| 追加データ | 型 | 記録タイミング |
+|---|---|---|
+| `visited_stages: Dictionary` | `{stage_id: true}` のセット | ステージ入場時に `Global.gd` へ記録 |
+| `experienced_events: Array` | `[event_id, ...]` | ダイアログ発火時に `Global.gd` へ追記 |
+
+これらは `save_slot()` / `load_slot()` への追加も必要。
+
+**`#49 エンディング実装` と紐づく。設計確定後に着手。**
 
 ---
 
@@ -60,13 +72,9 @@
 
 **現状の問題**
 - 保健室で身長を測る（能動的アクション）でしか学期が進まない
-- `Global.gd` の `advance_term()` は実装済みだが **どこからも呼ばれていない** ← 重大な未接続バグ
+- `advance_term()` は `MainScene.gd:2286` で呼ばれており接続済み
 
 **設計方針**
-
-### A. advance_term() の接続
-`advance_term()` を保健室での「身長計測」確定時に呼び出す。
-これにより学期進行・成長・制服変更・進級選択UIが正常に機能するようになる。
 
 ### B. 授業イベント（教室での時間スキップ）
 - 教室ステージに入る → 既存の `semester_start` ダイアログ
@@ -139,7 +147,7 @@
 | 優先 | タスク | 規模 | ブランチ |
 |---|---|---|---|
 | ★★★ | B-3 吹き出しが顔に被る | 小 | `fix/bubble-position` |
-| ★★★ | advance_term() 未接続バグ | 小 | `fix/advance-term-hookup` |
+| ★★☆ | エンディング用ログ追加（visited_stages / experienced_events） | 小 | `feat/ending-report` の前提 |
 | ★★☆ | B-1 駅→電車の遷移が不自然 | 小〜中 | `fix/stage-transition` |
 | ★★☆ | B-2 屋外に家のドアが出る | 小 | `fix/stage-door` |
 | ★★☆ | #47 進級選択ダイアログ | 中 | `feat/grade-select-dialog` |
