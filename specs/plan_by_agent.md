@@ -1,169 +1,311 @@
-# 側面スカート：膝貫通防止ポリゴン実装計画
+# 側面スカート：下半身シルエット追従ポリゴン実装計画
 
-## 現状と課題
+## 目的
 
-- 現在の側面スカートは **台形（`draw_trapezoid`）** で描画
-- 屈んだとき、膝がスカートを突き抜けて見える
-- 台形は中心軸を基準に対称に広がるため、前方（膝側）・後方（臀部側）を個別制御できない
+- 現在の側面スカートは **台形（`draw_trapezoid`）** で描画している
+- 屈みや歩行で、膝・脛・足首が前に出たときにスカートを突き抜けて見える
+- ただし、現行の「脚角 0.7 倍 + 腰角追従」による**スカート全体の傾き**は残したい
+
+今回の方針は、**既存のスカート軸と裾幅補正は維持したまま**、
+前後輪郭だけを非対称ポリゴン化して、下半身シルエットの最外点を包むようにする。
 
 ---
 
-## 新方式：6点ポリゴン（前後非対称）
+## 基本方針
 
-### コンセプト
+### 残すもの
 
-スカートの前後それぞれの輪郭線を物理的に正しい形状で計算する。
+- `waist_pos`
+- `skirt_length`
+- `skirt_ang`
+- `waist_lean`
+- `p_bottom`
+- `side_hem_w`
 
-| 輪郭 | 制約点 | その後 |
-|---|---|---|
-| 背面（後ろ側） | ベルト後端 → 臀部（股関節後端） | 鉛直下方向に落下 |
-| 前面（前側） | ベルト前端 → 前側の膝位置 | 鉛直下方向に落下 |
+つまり、現行の側面スカートが持っている
+「全体としてどちらに傾くか」「どれくらい裾を広げるか」はそのまま使う。
 
-**等長制約**: 前面の全長 = 背面の全長 = `skirt_length`
+### 置き換えるもの
+
+- `draw_trapezoid()` による左右対称な側面シルエット
+- 「前側制約点 = 膝固定」という前提
+
+前側は**膝ではなく、下半身人体の一番外側の点**を使う。
+足首が最前面なら足首、脛途中が最前面なら脛途中、膝が最前面なら膝を採用する。
+
+背面側も同様に、臀部固定ではなく**後方シルエットの最外点**を使う。
+ただし、立位で後方シルエットが臀部になるケースが多いため、臀部候補は必ず含める。
 
 ---
 
 ## 変更対象ファイル
 
 - **`godot-project/scripts/CharacterBodyDrawer.gd`**
-  - `draw_skirt()` 内 `if facing == "side":` ブロック（行 203〜274）
+  - `draw_skirt()` 内 `if facing == "side":` ブロック
 
 ---
 
-## 座標計算
+## 既存の傾きロジックは維持する
 
-### ①　胴体の前後方向ベクトル
+以下は現行のまま使う。
+
+```gdscript
+var avg_leg_ang = (d["leg_l_angle"] + d["leg_r_angle"]) / 2.0
+var skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
+
+var waist_lean = 0.5 if (is_jumper or is_blouse_bow or is_jumper_skirt) else 0.3
+skirt_ang += d["waist_angle"] * waist_lean
+
+var p_bottom = Vector2(
+    waist_pos.x + skirt_length * cos(skirt_ang),
+    waist_pos.y + skirt_length * sin(skirt_ang)
+)
+```
+
+この `waist_pos -> p_bottom` を **スカート中心軸** として使い続ける。
+
+---
+
+## 軸ベースの基準点
+
+```gdscript
+var axis = p_bottom - waist_pos
+var u = axis.normalized() if axis.length() > 0.01 else Vector2(0, 1)
+var n = Vector2(-u.y, u.x).normalized() # +n = 背面側, -n = 前面側
+
+var half_top = base_width / 2.0
+var half_hem = side_hem_w / 2.0
+
+var belt_back = waist_pos + n * half_top
+var belt_front = waist_pos - n * half_top
+var hem_back_base = p_bottom + n * half_hem
+var hem_front_base = p_bottom - n * half_hem
+```
+
+ここでの `n` は、現行 `draw_trapezoid()` と同じく
+スカート軸に直交する方向を表す。
+
+---
+
+## 下半身シルエット候補点
+
+「前側制約点」「背面側制約点」は、固定の膝ではなく
+**下半身の外形候補群から最外点を選ぶ**。
+
+### 候補に含める点
 
 ```gdscript
 var crotch_pos = Vector2(d["cx"], d["cy"])
-var torso_vec = crotch_pos - waist_pos
-# CCW回転（左向き = キャラ背面方向）
-var n = Vector2(-torso_vec.y, torso_vec.x).normalized()
-var half_w = base_width / 2.0
-```
 
-> `n` は左方向（＝背面方向）。既存の `draw_trapezoid` と同じ符号規約。
-
-### ②　ベルト前後端
-
-```gdscript
-var belt_front = waist_pos - n * half_w  # 右（前面）
-var belt_back  = waist_pos + n * half_w  # 左（背面）
-```
-
-### ③　臀部座標（背面制約点）
-
-```gdscript
-# 股関節の背面端 = crotch_pos を背面方向にオフセット
-var butt_pos = crotch_pos + n * half_w
-```
-
-### ④　前側膝座標（前面制約点）
-
-```gdscript
 var ang_l = d["leg_l_angle"] * PI / 180.0 + PI / 2.0
 var ang_r = d["leg_r_angle"] * PI / 180.0 + PI / 2.0
+
 var knee_l = Vector2(d["cx"] + d["thigh_l"] * cos(ang_l),
                      d["cy"] + d["thigh_l"] * sin(ang_l))
 var knee_r = Vector2(d["cx"] + d["thigh_l"] * cos(ang_r),
                      d["cy"] + d["thigh_l"] * sin(ang_r))
-# 前方（x が大きい方）の膝を使う（キャラが右向きの場合）
-var knee_pos = knee_l if knee_l.x > knee_r.x else knee_r
 ```
+
+基本候補:
+
+- `knee_l`, `knee_r`
+- `crotch_pos + n * half_top`（臀部寄り候補）
+- `crotch_pos - n * half_top`（骨盤前面寄り候補）
+
+追加候補:
+
+- `skirt_long`:
+  - `ankle_l`, `ankle_r`
+- プリーツ系:
+  - 既存で裾幅補正に使っている `shin_l * 0.4` 相当の前後点
+
+要点:
+
+- **足首が最前面なら足首が勝つ**
+- **脛途中が最前面なら脛途中が勝つ**
+- **臀部より後ろに脚が出ていれば、その脚側が背面候補として勝つ**
 
 ---
 
-## ポリゴン頂点の計算
+## 最外点の選び方
 
-### 背面側（belt_back → butt_pos → back_hem）
-
-```gdscript
-var back_seg1 = belt_back.distance_to(butt_pos)
-var back_drop = skirt_length - back_seg1
-
-var back_constraint: Vector2
-var back_hem: Vector2
-if back_drop > 0.0:
-    back_constraint = butt_pos
-    back_hem = Vector2(butt_pos.x, butt_pos.y + back_drop)
-else:
-    # スカートが臀部に届かない（ごく短いスカート）
-    var dir = (butt_pos - belt_back).normalized()
-    back_constraint = belt_back + dir * skirt_length
-    back_hem = back_constraint  # 頂点を省略（4点ポリゴンになる）
-```
-
-### 前面側（belt_front → knee_pos → front_hem）
+候補点を「スカート軸から見てどちら側にどれだけ張り出しているか」で評価する。
 
 ```gdscript
-var front_seg1 = belt_front.distance_to(knee_pos)
-var front_drop = skirt_length - front_seg1
+func side_proj(p: Vector2, origin: Vector2, side_dir: Vector2) -> float:
+    return (p - origin).dot(side_dir)
 
-var front_constraint: Vector2
-var front_hem: Vector2
-if front_drop > 0.0:
-    front_constraint = knee_pos
-    front_hem = Vector2(knee_pos.x, knee_pos.y + front_drop)
-else:
-    # スカートが膝に届かない
-    var dir = (knee_pos - belt_front).normalized()
-    front_constraint = belt_front + dir * skirt_length
-    front_hem = front_constraint
+var front_side = -n
+var back_side = n
 ```
+
+前面候補:
+
+- `side_proj(candidate, waist_pos, front_side)` が最大の点
+
+背面候補:
+
+- `side_proj(candidate, waist_pos, back_side)` が最大の点
+
+これにより、「膝」ではなく
+**その姿勢で実際にシルエットを作っている最前面/最後面の点**を採れる。
+
+---
+
+## 輪郭線の作り方
+
+### 方針
+
+既存の傾きは消さず、制約点を通過した後も
+**鉛直落下ではなく、現在のスカート軸 `u` に沿って残り丈を延長**する。
+
+これで、
+
+- 現行の傾き追従は維持
+- そのうえで前後の張り出しだけ非対称化
+
+が両立できる。
+
+### 前面側
+
+```gdscript
+var front_outer = ... # 前面最外点
+var front_seg1 = belt_front.distance_to(front_outer)
+var front_remain = skirt_length - front_seg1
+
+var front_hem_ext = front_outer + u * front_remain
+```
+
+### 背面側
+
+```gdscript
+var back_outer = ... # 背面最外点
+var back_seg1 = belt_back.distance_to(back_outer)
+var back_remain = skirt_length - back_seg1
+
+var back_hem_ext = back_outer + u * back_remain
+```
+
+### 既存裾幅との統合
+
+新方式でも、現行の `side_hem_w` による裾幅確保は残したい。
+そのため最終的な裾端は、基準裾と拡張裾のうち「より外側」を使う。
+
+```gdscript
+var front_hem = front_hem_ext
+if side_proj(hem_front_base, waist_pos, front_side) > side_proj(front_hem, waist_pos, front_side):
+    front_hem = hem_front_base
+
+var back_hem = back_hem_ext
+if side_proj(hem_back_base, waist_pos, back_side) > side_proj(back_hem, waist_pos, back_side):
+    back_hem = hem_back_base
+```
+
+これで、
+
+- 現行補正で確保していた最低限の裾幅は維持
+- さらに必要な姿勢では、前後どちらかだけを追加で外へ張り出せる
 
 ---
 
 ## ポリゴン構築
 
-### 通常ケース（スカートが臀部・膝を超える長さ）
+通常ケースでは 6 点ポリゴンとする。
 
 ```gdscript
-# 時計回りに並べる
 var pts = PackedVector2Array([
-    belt_back,        # 1: ベルト後端
-    butt_pos,         # 2: 臀部（背面制約点）
-    back_hem,         # 3: 背面裾
-    front_hem,        # 4: 前面裾
-    knee_pos,         # 5: 膝（前面制約点）
-    belt_front,       # 6: ベルト前端
+    belt_back,
+    back_outer,
+    back_hem,
+    front_hem,
+    front_outer,
+    belt_front,
 ])
 ctx.canvas.draw_polygon(pts, PackedColorArray([bottoms_color]))
 ```
 
-頂点 6 → 1 の辺でベルト上端が自動的に閉じる。
+時計回りで並べる。
 
 ---
 
-## プリーツ・ベルト描画の対応
+## プリーツ描画
 
-既存のプリーツ（行 247〜259）とベルト（行 261〜273）は
-`waist_pos` と `p_bottom` を基準にしているため、`p_bottom` を廃止後は
-プリーツ中心軸の代替として以下を使う：
+ここは `p_bottom_new` を単純導入するのではなく、
+**ポリゴンの内側に確実に収まるコア四辺形**を使う。
 
 ```gdscript
-# プリーツ用: 前後裾の中点を新しい p_bottom として使用
-var p_bottom_new = (front_hem + back_hem) / 2.0
+var pleat_top_l = belt_back
+var pleat_top_r = belt_front
+var pleat_bot_l = back_hem
+var pleat_bot_r = front_hem
 ```
 
-ベルト描画は `waist_pos` と `n` をそのまま流用できる。
+```gdscript
+for i in range(1, 7):
+    var t = float(i) / 7.0
+    var top_p = pleat_top_l.lerp(pleat_top_r, t)
+    var bot_p = pleat_bot_l.lerp(pleat_bot_r, t)
+    ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
+```
+
+これで、
+
+- プリーツ線の始点/終点が常に上端・裾端の内側に乗る
+- `front_outer` / `back_outer` の張り出しに引きずられて線が外へ飛び出しにくい
 
 ---
 
-## エッジケース
+## `jumper_skirt` の上端帯
 
-| ケース | 対処 |
-|---|---|
-| `back_drop <= 0`（短スカートが臀部未到達） | `butt_pos` 省略、4点ポリゴン |
-| `front_drop <= 0`（短スカートが膝未到達） | `knee_pos` 省略、4点ポリゴン |
-| 膝が後方に引いている（knee_pos.x < belt_back.x） | 自然に後方に延びるためそのまま計算（スカートが後ろになびく表現） |
-| `torso_vec` が零ベクトル | `n = Vector2(-1, 0)` にフォールバック |
+ここで重要なのは「新しいポリゴンでも**スカート上端が正しい角度と位置を保つこと**」。
+そのため、上端帯は `p_bottom_new` のような中心点ではなく、
+**上端辺そのもの**から作る。
+
+```gdscript
+var belt_color = bottoms_color.darkened(0.35)
+var belt_h = 7.0
+var belt_pts = PackedVector2Array([
+    belt_back,
+    belt_front,
+    belt_front + u * belt_h,
+    belt_back + u * belt_h,
+])
+ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
+```
+
+これなら、
+
+- 直立時の上端ラインがそのまま正しく出る
+- 屈み時も現行のスカート軸に沿って帯が傾く
+- 上衣側の共有アンカーとも整合しやすい
+
+---
+
+## スコープ
+
+### 今回の実装に含む
+
+- 側面スカートの前後非対称ポリゴン化
+- 前後制約点を「膝固定」ではなく「下半身シルエット最外点」に変更
+- 現行の傾き追従と裾幅補正の維持
+- プリーツ線と上端帯を、新ポリゴンに整合する形へ変更
+
+### 今回はスコープ外
+
+- 短スカート時の 4 点ポリゴン最適化
+
+初版では、`front_seg1` または `back_seg1` が `skirt_length` を超えるような短丈ケースは
+**従来の側面台形ロジックへフォールバック**してよい。
 
 ---
 
 ## 実装ステップ
 
-1. `draw_skirt()` の `if facing == "side":` ブロック全体を上記コードに置き換え
-2. `skirt_length` の計算は既存のままを使用（行 180〜198 は変更不要）
-3. プリーツ描画の `p_bottom` を `p_bottom_new` に置き換え
-4. ベルト描画（is_jumper_skirt）の `p_bottom` を `p_bottom_new` に置き換え
-5. 動作確認：立ち / 歩き / 屈み各ポーズでスカートが膝を突き抜けないことを確認
+1. `draw_skirt()` の側面分岐で、現行の `skirt_ang` / `p_bottom` / `side_hem_w` 計算を残す
+2. `u`, `n`, `belt_front/back`, `hem_front/back_base` を導入する
+3. 膝・脛・足首・臀部寄り候補から、前後シルエット最外点を選ぶ
+4. 制約点通過後は `u` 方向へ残り丈を延長し、前後裾を決める
+5. 6 点ポリゴンで側面スカート本体を描画する
+6. プリーツ線は `belt_back/front` と `back_hem/front_hem` の間で引き直す
+7. `jumper_skirt` の上端帯は上端辺 + `u * belt_h` で描き直す
+8. 立ち / 歩き / 屈みで、膝・脛・足首の貫通が減っているか確認する
