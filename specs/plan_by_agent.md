@@ -11,13 +11,13 @@
 | ★★★ | セーブ/ロード非保存フラグ修正 | 小〜中 |
 | ★★☆ | `current_term_plan` 削除 → 全ホットスポット常時解放 | 中 |
 | ★★☆ | ホットスポットにポーズ変更を追加（椅子・バスケゴール等） | 中 |
-| ★★☆ | NPC自動声かけ → ダイアログパネル発火＋ステータス影響 | 中 |
+| ★★☆ | NPC自動声かけ → 身長マイルストーンのみダイアログ格上げ | 中 |
 | ★★☆ | 会話トーン改善（ポジティブ台詞追加） | 小 |
 
 > **既実装メモ**
 > - `"chair_sit"` / `"taiiku_suwari"` ポーズ → `CharacterPoseCalculator.gd` に実装済み。`player.pose` に文字列を代入するだけで切り替わる。
 > - NPC 頭上テキスト受動発話 → `SkeletalNPC.gd` 実装済み。未実装はダイアログパネルへの格上げ。
-> - 授業暗転 → `school_hallway` 遷移 → `_run_school_day_transition()`（MainScene.gd:1147）実装済み。
+> - `visited_stages` / `experienced_events` → `Global.gd` に実装済み。
 
 ---
 
@@ -25,7 +25,16 @@
 
 `dialogue_trigger_spec.md:§11` 確認済み。再起動でフラグがリセットされ会話進行が壊れる。
 
-### 保存対象に追加する変数（`Global.gd` の `save_slot()` / `load_slot()`）
+### 前提確認（実装前に要確認）
+
+問題が「スロットロード時」に起きているか「アプリ再起動時（タイトルから再起動）」に起きているかで修正箇所が変わる。
+
+- **スロットロード時** → `save_slot()` / `load_slot()` に追加すれば解決
+- **アプリ再起動時** → 起動パスは `Global._ready() → load_settings()`。`settings.cfg` 側の保存対象も整理が必要
+
+両方対応するのが安全。
+
+### 保存対象に追加する変数
 
 | 変数 | 型 | 影響 |
 |---|---|---|
@@ -37,7 +46,7 @@
 | `vball_joined` | bool | 入部状態リセット |
 | `is_leg_pain` | bool | 脚痛フラグリセット |
 | `pending_events` | Array | キュー済みイベント消失 |
-| `visited_stages` | Dictionary | 初訪問判定リセット（NPC自動声かけ実装後） |
+| `visited_stages` | Dictionary | 初訪問判定リセット |
 
 ### 実装（save_slot / load_slot に追記）
 
@@ -71,46 +80,57 @@ visited_stages           = data.get("visited_stages", {})
 
 ### 背景
 
-ルート選択（学校・家・駅）は「今学期の過ごし方」を選ぶ UI だったが、ゲームとしてルーティーン化するため廃止。
+ルート選択（学校・家・駅）はゲームとしてルーティーン化するため廃止。
 どのステージにいても全ホットスポットがインタラクション可能になる。
 
-### 削除・変更箇所
+### 削除方針
+
+- `term_home` / `term_station` イベント → 発火元がないためデッドコード、削除
+- `TERM_CHOICES` / `TERM_CHOICE_ORDER` → 丸ごと削除
+- ホットスポット会話（`term_home_mirror`, `term_home_table`, `term_station_bench`, `term_station_vending` 等）→ **再利用対象として残す**（`"plan"` キーを外すだけ）
+- `current_term_plan` にぶら下がる表示文言・保存処理・スモーク初期化・キャラメイク初期化 → まとめて削除
+
+### 削除・変更箇所（全ファイル）
 
 **Global.gd:**
 - `var current_term_plan: String` を削除
 - `var DEFAULT_TERM_PLAN: String` を削除
 - `save_slot()` / `load_slot()` の `current_term_plan` 保存処理を削除
+- `save_settings()` / `load_settings()` の `current_term_plan` 保存処理を削除
 
-**MainScene.gd（`current_term_plan` の参照は11箇所）:**
+**MainScene.gd（参照11箇所）:**
 
 | 行 | 処理 | 対応 |
 |---|---|---|
 | 675 | 初期化 `current_term_plan = DEFAULT_TERM_PLAN` | 削除 |
-| 812,859 | `plan_id` でモノローグ・反省文取得 | `plan_id` 参照を削除 or `stress` 帯で代替 |
-| 823 | ステータステキスト中の `match current_term_plan` | 削除 |
+| 812,859 | `plan_id` でモノローグ・反省文取得 | 削除（`stress` 帯で代替） |
+| 823 | `match current_term_plan` | 削除 |
 | 882 | `TERM_HOTSPOTS` の `plan` フィルター | **この行を削除**（フィルターをなくす） |
-| 1085,1102 | 授業遷移・はるか会話の `plan == "school"` 判定 | 削除（常に実行 or ステージ判定に変更） |
-| 1270 | はるかキー選択での `plan == "school"` 条件 | ステージIDが教室かどうかで代替 |
+| 1085,1102 | `plan == "school"` 判定 | ステージIDが教室かどうかで代替 |
+| 1270 | はるかキー選択での `plan == "school"` 条件 | 同上 |
 | 1827 | デバッグテキスト | 削除 |
 | 2292,2293 | `TERM_CHOICES.get(plan)` | `TERM_CHOICES` ごと削除 |
 
+**CharacterCreatorScene.gd:**
+- `current_term_plan` の初期化処理を削除
+
+**CodexSmokeRunner.gd:**
+- `current_term_plan` のスモーク初期化処理を削除
+
 **TERM_HOTSPOTS の `"plan"` キー:**
-各ホットスポット定義から `"plan": "..."` を削除するだけで、全プランで有効になる。
+各ホットスポット定義から `"plan": "..."` を削除するだけで全プランで有効になる。
 
-### ホットスポットの条件代替案
+### ホットスポットの条件代替（任意）
 
-プラン削除後、「このホットスポットはいつ出るか」の差別化として `stress` 帯を使う。
+プラン削除後、`stress` 帯を使って差別化できる（複雑化を避けるなら条件なしでも十分）。
 
 ```gdscript
-# TERM_HOTSPOTS に "stress_min" / "stress_max" を追加（任意）
 "home_mirror": {
     "stage_id": "room",
     "stress_min": 30,    # ストレスがある程度溜まっている時だけ出る
     ...
 }
 ```
-
-ただし複雑化を避けるなら、条件なしで常時表示でも十分。
 
 ---
 
@@ -122,19 +142,7 @@ visited_stages           = data.get("visited_stages", {})
 
 ### 設計
 
-`TERM_HOTSPOTS` に `"pose"` フィールドを追加。ダイアログ前後でポーズを切り替える。
-
-```gdscript
-# TERM_HOTSPOTS 定義に "pose" を追加する例
-"school_seat": {
-    "stage_id": "school",
-    "obs_ids": ["desk_1", "student_chair_1", ...],
-    "pose": "chair_sit",    # ← 追加
-    ...
-}
-```
-
-`_trigger_term_hotspot()` への変更：
+`TERM_HOTSPOTS` に `"pose"` フィールドを追加し、`_trigger_term_hotspot()` でダイアログ前後にポーズを切り替える。
 
 ```gdscript
 func _trigger_term_hotspot(hotspot_id: String) -> void:
@@ -166,32 +174,19 @@ func _end_dialogue() -> void:
 
 ### 新規ポーズの追加（CharacterPoseCalculator.gd）
 
+現行実装は `calculate_pose_data()` 内でローカル変数（`arm_r_angle` 等）を直接更新して最後に Dictionary を返す構造。
+`d["arm_r_angle"] = ...` のような直接代入ではなく、**既存の他ポーズ分岐（`chair_sit` 等）と同じ書き方**に合わせること。
+
 **`"reach_low"`（自販機・低いボタンに手を伸ばす）**
-- 体は直立
+- 体は直立、わずかに前傾
 - 利き腕を斜め前下方（約-45度）に伸ばす
 - 「大きい体で低いボタンに手を伸ばす」違和感を表現
 
-```gdscript
-# CharacterPoseCalculator.gd の calculate_pose_data() に追加
-elif pose == "reach_low":
-    d["arm_r_angle"] = -45.0   # 右腕を斜め前下に
-    d["arm_l_angle"] = 10.0    # 左腕は自然に
-    d["waist_angle"] = deg_to_rad(5.0)   # わずかに前傾
-```
-
 **`"reach_up"`（バスケゴールに手を伸ばす）**
 - 体は直立〜わずかに爪先立ち
-- 利き腕を真上に伸ばす（約+90度）
-
-```gdscript
-elif pose == "reach_up":
-    d["arm_r_angle"] = 90.0    # 右腕を真上に
-    d["arm_l_angle"] = 20.0    # 左腕は少し上
-```
+- 利き腕を真上（約+90度）に伸ばす
 
 ### 新規干渉ホットスポット候補
-
-既存の `TERM_HOTSPOTS` に追加する定義：
 
 ```gdscript
 "station_vending": {
@@ -208,7 +203,7 @@ elif pose == "reach_up":
     "stage_id": "gymnasium",
     "obs_id": "basket_goal",
     "pose": "reach_up",
-    "height_min": 185,   # ← 新フィールド：身長条件（MainSceneで判定）
+    "height_min": 185,
     "prompt": "バスケゴールに手を伸ばす",
     "dialogue_npc": "player",
     "dialogue_key": "gymnasium_basket_reach",
@@ -227,7 +222,7 @@ if height_min > 0.0 and Global.current_params["height"] < height_min:
 
 ---
 
-## ★★☆ NPC自動声かけ → 一部をダイアログパネルへ格上げ
+## ★★☆ NPC自動声かけ → 身長マイルストーンのみダイアログ格上げ
 
 ### 声かけの2種類を使い分ける
 
@@ -242,35 +237,58 @@ if height_min > 0.0 and Global.current_params["height"] < height_min:
 | 意味 | 環境リアクション（背景音的） | 記憶に残る出来事（節目） |
 
 **ダイアログ化するのは「身長マイルストーン初回突破」のみ。**
-170cm・180cm・190cm を初めて超えた際の特別感を演出する1回限りのイベント。
+170cm・180cm・190cm を初めて超えた際の1回限りのイベント。
 通常の近接リアクション（「背高いね」等）は頭上テキストのまま。
 
 ### 設計方針
 
-`pending_events` キュー方式（既存の `semester_start` と同じ仕組み）で「NPC が話しかけてくる」を実現。
+`pending_events` キュー方式（既存の `semester_start` と同じ仕組み）で実現。
 
-#### トリガー条件（`_load_stage()` で身長チェック、ゲーム全体で1回）
+#### トリガー条件（ゲーム全体で各1回）
 
 | イベントID | 条件 | ステージ |
 |---|---|---|
 | `"npc_talk_tall"` | 身長が初めて ≥ 170cm に達した学期 | 学校系ステージ |
 | `"npc_talk_huge"` | 身長が初めて ≥ 180cm に達した学期 | 駅・ショッピングモール等 |
 | `"npc_talk_veryhuge"` | 身長が初めて ≥ 190cm に達した学期 | どのステージでも |
-| `"npc_firstvisit_<stage_id>"` | ステージ初訪問（`visited_stages` 利用） | ステージ固有 |
+| `"npc_firstvisit_<stage_id>"` | ステージ初訪問 | ステージ固有 |
+
+#### 実装上の注意点
+
+**① `queue_event()` の位置（重要）**
+
+`_load_stage()` は先に `pop_next_event()` でキューを消化してからステージを構築する。
+末尾で `queue_event()` しても**その場では発火せず、次回ステージ遷移まで眠る**。
+
+対応案: 身長チェックと `queue_event()` を `pop_next_event()` の処理より**前に**行うか、投入後に即処理する導線を作る。
+
+**② `is_first_visit()` の判定順（重要）**
+
+`_load_stage()` の冒頭ですでに `record_stage_visit()` が呼ばれている場合、
+その後に `is_first_visit()` を呼ぶと常に `false` になる。
+
+対応: `is_first_visit()` の結果を先に変数へ退避してから `record_stage_visit()` を呼ぶ。
 
 ```gdscript
-# _load_stage() 末尾に追加
-func _check_height_npc_events(stage_id: String) -> void:
-    var h := Global.current_params["height"] as float
-    if h >= 170 and StageBuilder.is_school_stage(stage_id) \
-            and not Global.has_term_hotspot_done("npc_talk_tall"):
-        Global.queue_event("npc_talk_tall")
-    if h >= 180 and stage_id == "station" \
-            and not Global.has_term_hotspot_done("npc_talk_huge"):
-        Global.queue_event("npc_talk_huge")
-    if Global.is_first_visit(stage_id):
-        Global.record_stage_visit(stage_id)
-        Global.queue_event("npc_firstvisit_" + stage_id)
+# 正しい実装
+var was_first_visit := Global.is_first_visit(stage_id)
+Global.record_stage_visit(stage_id)   # ← ここで記録
+if was_first_visit:
+    Global.queue_event("npc_firstvisit_" + stage_id)
+```
+
+**③ `StageBuilder.is_school_stage()` は存在しない**
+
+既存の helper を使うか、新しく追加する。
+
+```
+既存:
+  StageBuilder.is_school_classroom_stage(id)
+  StageBuilder.is_school_hallway_stage(id)
+  StageBuilder.is_schoolyard_stage(id)
+
+対応案A: 上記3つの OR で判定する
+対応案B: StageBuilder に is_school_stage() を新規追加する
 ```
 
 #### `_load_stage()` のイベント処理に追加（既存の `semester_start` パターン流用）
@@ -334,21 +352,3 @@ func _check_height_npc_events(stage_id: String) -> void:
 "school/tall":  ["一番後ろの席、ぴったりだね。", "掲示物、上まで見えていいな。"],
 "station/huge": ["人波から頭ひとつ抜けてる！", "電車、立っても大丈夫？"],
 ```
-
----
-
-## 補足：`visited_stages` 追加（NPC自動声かけと同時実装推奨）
-
-`Global.gd` に追加：
-
-```gdscript
-var visited_stages: Dictionary = {}
-
-func record_stage_visit(stage_id: String) -> void:
-    visited_stages[stage_id] = true
-
-func is_first_visit(stage_id: String) -> bool:
-    return not visited_stages.has(stage_id)
-```
-
-セーブ/ロード対象にも追加（セーブ修正タスクと同時実施推奨）。
