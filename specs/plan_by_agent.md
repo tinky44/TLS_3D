@@ -1,194 +1,169 @@
-﻿# plan_by_agent.md 改訂案
+# 側面スカート：膝貫通防止ポリゴン実装計画
 
-> 最終更新: 2026-03-13
+## 現状と課題
 
----
-
-## 今回のスコープ
-
-**屈み描画まわりの安全な修正と、背面セーラー服の見た目修正**
-
-今回の目的は、既存実装との整合を崩さずに、見た目の破綻が明確な箇所から順に直すこと。
-特に「高身長の身体と衣装がどう見えるか」を丁寧に扱うため、既存ロジックを壊しやすい大きな再設計は避ける。
-
-対象:
-- 側面サスペンダースカートのストラップ終端ずれ
-- 背面セーラー服が正面と同じ見た目になっている問題
-- 側面スカートの屈み時破綻の整理と、今後の改善方針の明文化
-
-今回のスコープ外:
-- Bug-1: 正面ビューのスカート上端とベルト位置の再設計
-- Verlet などの物理ベース布シミュレーション
-- 感情連動の新しい猫背パラメータ追加
+- 現在の側面スカートは **台形（`draw_trapezoid`）** で描画
+- 屈んだとき、膝がスカートを突き抜けて見える
+- 台形は中心軸を基準に対称に広がるため、前方（膝側）・後方（臀部側）を個別制御できない
 
 ---
 
-## 優先順位
+## 新方式：6点ポリゴン（前後非対称）
 
-| 優先度 | 課題 | issue / 出典 | 種別 |
-|--------|------|--------------|------|
-| 🔴 高 | 側面サスペンダーが屈んだときベルト位置とずれる | spec.local.md | bug |
-| 🟡 中 | 背面セーラー服が正面と同じ見た目になっている | spec.local.md | bug |
-| 🟡 中 | 側面スカートの屈み時破綻を、現行実装準拠で再整理する | #36 / spec | 改善 |
-| 🟢 低 | Bug-1 の成功条件と根因を別途整理する | #36 / spec | 調査 |
-| 🟢 低 | 猫背表現の拡張は、既存 stress 姿勢との関係を整理してから再検討する | #35 | 保留 |
+### コンセプト
 
----
+スカートの前後それぞれの輪郭線を物理的に正しい形状で計算する。
 
-## バグ詳細と実装方針
+| 輪郭 | 制約点 | その後 |
+|---|---|---|
+| 背面（後ろ側） | ベルト後端 → 臀部（股関節後端） | 鉛直下方向に落下 |
+| 前面（前側） | ベルト前端 → 前側の膝位置 | 鉛直下方向に落下 |
 
-### Bug-2: 側面サスペンダーが屈んだときベルト位置とずれる
-
-**現状**
-
-`CharacterBodyDrawer.draw_skirt()` では、サスペンダースカート系の側面ウエスト位置を
-「肩から胴体方向へ `u_arm` だけ進んだ位置」として計算している。
-
-一方、`CharacterClothingDrawer.draw_suspenderSkirt_side()` では
-ストラップ下端を別ロジックで計算しており、深い屈みでベルト終端と一致しなくなる。
-
-**方針**
-
-スカート上端とストラップ終端が、同じアンカー計算を共有する形に寄せる。
-
-**実装方針**
-
-- 側面ジャンパー系衣装の「ベルト位置 / スカート上端」の基準点を helper 化する
-- `draw_skirt()` と `draw_suspenderSkirt_side()` の両方がその helper を使う
-- 将来的な再利用を考え、必要なら `blazer` 側のベルト計算ともそろえる
-
-**注意点**
-
-- plan 中の仮コードで使っていた `d["shoulder_x"]`, `d["shoulder_y"]` は現行実装には存在しない
-- 現行キーは `sx`, `sy`, `navel_x`, `navel_y`
-- helper は「side 専用の garment waist anchor」を返す責務に絞る
-
-**成功条件**
-
-- 側面 `jumper_skirt` で、屈み量に関わらずストラップ下端がスカート上端と一致する
-- 歩行中・静止中・深屈みのいずれでも目視で分離しない
-- 既存の通常スカートやブレザーの見た目を壊さない
+**等長制約**: 前面の全長 = 背面の全長 = `skirt_length`
 
 ---
 
-### Bug-3: 背面セーラー服が正面と同じ見た目になっている
+## 変更対象ファイル
 
-**現状**
-
-正面・背面のトップス詳細は同じ `draw_tops_detail_front()` 系に流れており、
-セーラー服は背面専用描画を持っていない。
-そのため、`facing == "back"` でも正面の V 字衿表現がそのまま出ている。
-
-**方針**
-
-背面セーラー服は、正面とは別の見た目として明示的に描き分ける。
-
-**実装方針**
-
-- `draw_sailor_back()` を新設する
-- `draw_tops_detail_front()` から `ctx.facing` を見て `front/back` を分岐する
-- 背面では以下を描画する
-  - 前面の V 字衿は描画しない
-  - 背中に矩形フラップを追加する
-  - フラップ下端は正面のリボン始点と同じ高さにそろえる
-- バッグがある場合は、バッグが手前に来て背中側フラップを隠してよい
-
-**描画順の前提**
-
-- フラップは「背中の服の一部」として扱う
-- 背面バッグはその上に重なってよい
-- つまり、バッグ非装備時はフラップ全体が見え、バッグ装備時は隠れる部分があってよい
-
-**成功条件**
-
-- `facing == "back"` のセーラー服が、正面と明確に異なる見た目になる
-- バッグなしでは背面フラップが確認できる
-- バッグありでは、フラップがバッグの後ろに自然に隠れる
-- 正面・側面セーラーの既存見た目は維持する
+- **`godot-project/scripts/CharacterBodyDrawer.gd`**
+  - `draw_skirt()` 内 `if facing == "side":` ブロック（行 203〜274）
 
 ---
 
-## 改善方針
+## 座標計算
 
-### 改善-1: 側面スカート屈み破綻の整理
+### ①　胴体の前後方向ベクトル
 
-**前提**
+```gdscript
+var crotch_pos = Vector2(d["cx"], d["cy"])
+var torso_vec = crotch_pos - waist_pos
+# CCW回転（左向き = キャラ背面方向）
+var n = Vector2(-torso_vec.y, torso_vec.x).normalized()
+var half_w = base_width / 2.0
+```
 
-現行コードにはすでに、膝・すね方向を考慮した裾幅補正が入っている。
-そのため、「まず膝前方量を新規導入する」こと自体は優先度が低い。
+> `n` は左方向（＝背面方向）。既存の `draw_trapezoid` と同じ符号規約。
 
-**今回やること**
+### ②　ベルト前後端
 
-- 現行の `spread_x` / `reach_from_hem` ベース補正を正として扱う
-- 破綻が残るケースを観察対象として整理する
-- どの姿勢でまだ不十分かを、再現条件ベースでメモ化する
+```gdscript
+var belt_front = waist_pos - n * half_w  # 右（前面）
+var belt_back  = waist_pos + n * half_w  # 左（背面）
+```
 
-**観察したいケース**
+### ③　臀部座標（背面制約点）
 
-- 深い屈みで両膝が同方向へ揃うケース
-- `jumper_skirt` / `skirt_sailor` のようなプリーツ系
-- ロングではないが膝近くまで届く丈
-- 歩行と屈みが重なった中間姿勢
+```gdscript
+# 股関節の背面端 = crotch_pos を背面方向にオフセット
+var butt_pos = crotch_pos + n * half_w
+```
 
-**今回はやらないこと**
+### ④　前側膝座標（前面制約点）
 
-- 台形スカートそのものの全面刷新
-- Verlet などの物理シミュレーション導入
-- スカート形状の大規模な多頂点化
-
-**成果物**
-
-- 現行補正で足りている点 / 足りない点の整理
-- 将来「布として再設計する」場合の検討材料の明文化
-
----
-
-## 保留項目
-
-### 保留-1: Bug-1（正面スカート上端）
-
-Bug-1 はデグレリスクが高いため、今回の実装対象から外す。
-先に以下を整理してから別タスク化する。
-
-- 何と何が一致すれば成功とみなすか
-  - ベルトポリゴン
-  - ストラップ終端
-  - 腕の見た目上のひじ位置
-  - 骨格上の正面腰位置
-- 根因が `waist_angle` 未反映なのか、前面肩オフセットとの差なのか
-- 正面ビューで X 固定モデルを維持するかどうか
-
-### 保留-2: 猫背機能
-
-現行では `stress_ratio` による軽い猫背表現がすでにある。
-新しい `cat_back_factor` を追加するなら、既存 stress 姿勢との責務分離を先に決める必要があるため、今回は見送る。
+```gdscript
+var ang_l = d["leg_l_angle"] * PI / 180.0 + PI / 2.0
+var ang_r = d["leg_r_angle"] * PI / 180.0 + PI / 2.0
+var knee_l = Vector2(d["cx"] + d["thigh_l"] * cos(ang_l),
+                     d["cy"] + d["thigh_l"] * sin(ang_l))
+var knee_r = Vector2(d["cx"] + d["thigh_l"] * cos(ang_r),
+                     d["cy"] + d["thigh_l"] * sin(ang_r))
+# 前方（x が大きい方）の膝を使う（キャラが右向きの場合）
+var knee_pos = knee_l if knee_l.x > knee_r.x else knee_r
+```
 
 ---
 
-## 実装順序
+## ポリゴン頂点の計算
 
-1. Bug-2: 側面サスペンダーのアンカー共有化
-2. Bug-3: 背面セーラー専用描画の追加
-3. 改善-1: 現行スカート補正の観察ポイント整理
-4. 保留-1: Bug-1 の成功条件と根因整理
-5. 保留-2: 猫背拡張の再検討
+### 背面側（belt_back → butt_pos → back_hem）
+
+```gdscript
+var back_seg1 = belt_back.distance_to(butt_pos)
+var back_drop = skirt_length - back_seg1
+
+var back_constraint: Vector2
+var back_hem: Vector2
+if back_drop > 0.0:
+    back_constraint = butt_pos
+    back_hem = Vector2(butt_pos.x, butt_pos.y + back_drop)
+else:
+    # スカートが臀部に届かない（ごく短いスカート）
+    var dir = (butt_pos - belt_back).normalized()
+    back_constraint = belt_back + dir * skirt_length
+    back_hem = back_constraint  # 頂点を省略（4点ポリゴンになる）
+```
+
+### 前面側（belt_front → knee_pos → front_hem）
+
+```gdscript
+var front_seg1 = belt_front.distance_to(knee_pos)
+var front_drop = skirt_length - front_seg1
+
+var front_constraint: Vector2
+var front_hem: Vector2
+if front_drop > 0.0:
+    front_constraint = knee_pos
+    front_hem = Vector2(knee_pos.x, knee_pos.y + front_drop)
+else:
+    # スカートが膝に届かない
+    var dir = (knee_pos - belt_front).normalized()
+    front_constraint = belt_front + dir * skirt_length
+    front_hem = front_constraint
+```
 
 ---
 
-## テスト観点
+## ポリゴン構築
 
-- `jumper_skirt` 側面で、通常立ち / 軽い屈み / 深い屈み / 歩行中にストラップ下端とスカート上端が一致する
-- `blazer` 側面のベルト位置が巻き添えで崩れていない
-- `sailor` 背面で、V 字衿が消え、背面フラップが見える
-- `sailor` 背面 + バッグありで、フラップがバッグの後ろに隠れて不自然でない
-- `front` / `side` の既存見た目に不要な変化が出ていない
+### 通常ケース（スカートが臀部・膝を超える長さ）
+
+```gdscript
+# 時計回りに並べる
+var pts = PackedVector2Array([
+    belt_back,        # 1: ベルト後端
+    butt_pos,         # 2: 臀部（背面制約点）
+    back_hem,         # 3: 背面裾
+    front_hem,        # 4: 前面裾
+    knee_pos,         # 5: 膝（前面制約点）
+    belt_front,       # 6: ベルト前端
+])
+ctx.canvas.draw_polygon(pts, PackedColorArray([bottoms_color]))
+```
+
+頂点 6 → 1 の辺でベルト上端が自動的に閉じる。
 
 ---
 
-## 作業ログ
+## プリーツ・ベルト描画の対応
 
-- 2026-03-13: 現行コードと plan の差分をレビュー
-- 2026-03-13: Bug-1 をスコープ外へ退避
-- 2026-03-13: 背面セーラーの描画前提を「バッグが手前、背中は隠れてよい」で確定
-- 2026-03-13: 側面サスペンダーと側面スカート上端の共有アンカーを実装
-- 2026-03-13: 背面セーラーの矩形フラップ描画を実装
+既存のプリーツ（行 247〜259）とベルト（行 261〜273）は
+`waist_pos` と `p_bottom` を基準にしているため、`p_bottom` を廃止後は
+プリーツ中心軸の代替として以下を使う：
+
+```gdscript
+# プリーツ用: 前後裾の中点を新しい p_bottom として使用
+var p_bottom_new = (front_hem + back_hem) / 2.0
+```
+
+ベルト描画は `waist_pos` と `n` をそのまま流用できる。
+
+---
+
+## エッジケース
+
+| ケース | 対処 |
+|---|---|
+| `back_drop <= 0`（短スカートが臀部未到達） | `butt_pos` 省略、4点ポリゴン |
+| `front_drop <= 0`（短スカートが膝未到達） | `knee_pos` 省略、4点ポリゴン |
+| 膝が後方に引いている（knee_pos.x < belt_back.x） | 自然に後方に延びるためそのまま計算（スカートが後ろになびく表現） |
+| `torso_vec` が零ベクトル | `n = Vector2(-1, 0)` にフォールバック |
+
+---
+
+## 実装ステップ
+
+1. `draw_skirt()` の `if facing == "side":` ブロック全体を上記コードに置き換え
+2. `skirt_length` の計算は既存のままを使用（行 180〜198 は変更不要）
+3. プリーツ描画の `p_bottom` を `p_bottom_new` に置き換え
+4. ベルト描画（is_jumper_skirt）の `p_bottom` を `p_bottom_new` に置き換え
+5. 動作確認：立ち / 歩き / 屈み各ポーズでスカートが膝を突き抜けないことを確認
