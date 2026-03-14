@@ -197,7 +197,7 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 			# ポニテ・サイドテール: 頭の円弧に沿った後ろ髪（弓形ポリゴン）
 			# 角度系: 0=真上, PI/2=後頭部（真後ろ）, PI=真下
 			# 【調整用】弧の終端角。PI/2 = 後頭部。より下に伸ばすには値を大きくする（例: PI*0.6）
-			var arc_end_ang = PI 
+			var arc_end_ang = PI *(1.0)
 			var arc_full_steps = 20
 			for i in range(arc_full_steps + 1):
 				var t = float(i) / arc_full_steps
@@ -269,13 +269,14 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 
 		# 5. 耳（前髪より手前に描画することで、中間髪・後ろ髪に隠れずに見える）
 		# 【調整用】耳の中心位置。fwd_dir で前後、down_dir で上下を調整
-		var ear_center = head_center + fwd_dir * hr * 0.45 + down_dir * hr * 0.10
+		# 楕円の前端(fwd側の端)が head_center に来るよう ear_rx 分だけ後ろにオフセット
+		var ear_center = head_center - fwd_dir * hr * 0.18 + down_dir * hr * 0.10
 		# 【調整用】耳の横幅（前後方向）と縦幅（上下方向）
 		var ear_rx = hr * 0.18
 		var ear_ry = hr * 0.32
 		# TODO: 位置確認用の赤色。確認後 skin_color に戻す
-		CharacterDrawUtils.draw_ellipse(ctx.canvas, ear_center, ear_rx, ear_ry, Color(0.9, 0.1, 0.1))
-		ctx.canvas.draw_circle(ear_center + fwd_dir * hr * 0.03, hr * 0.12, Color(0.7, 0.05, 0.05))
+		CharacterDrawUtils.draw_ellipse(ctx.canvas, ear_center, ear_rx, ear_ry, skin_color)
+		ctx.canvas.draw_circle(ear_center + fwd_dir * hr * 0.03, hr * 0.12, Color("#ccb79d"))
 
 		# 6. 耳の前に垂れる髪（ポニテ・サイドテールのみ）
 		# 上端が目のあたり、下端が顎より少し上
