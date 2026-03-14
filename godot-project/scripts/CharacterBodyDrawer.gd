@@ -138,6 +138,54 @@ static func get_side_sailor_waist_pos(ctx: DrawContext) -> Vector2:
 	var p_crotch = Vector2(d["cx"], d["cy"])
 	return p_waist.lerp(p_crotch, 0.5)
 
+static func _normalized_or(v: Vector2, fallback: Vector2) -> Vector2:
+	if v.length() > 0.01:
+		return v.normalized()
+	if fallback.length() > 0.01:
+		return fallback.normalized()
+	return Vector2(0, 1)
+
+static func _side_proj(point: Vector2, origin: Vector2, side_dir: Vector2) -> float:
+	return (point - origin).dot(side_dir)
+
+static func _append_segment_edge_candidates(candidates: Array, p_start: Vector2, p_end: Vector2, width: float, samples: Array) -> void:
+	var seg = p_end - p_start
+	if seg.length() <= 0.01:
+		return
+	var side_n = Vector2(-seg.y, seg.x).normalized() * (width / 2.0)
+	for sample in samples:
+		var t := float(sample)
+		var center = p_start.lerp(p_end, t)
+		candidates.append(center + side_n)
+		candidates.append(center - side_n)
+
+static func _pick_side_outer_candidate(candidates: Array, waist_pos: Vector2, belt_pos: Vector2,
+		side_dir: Vector2, axis_dir: Vector2, skirt_length: float) -> Dictionary:
+	var best_score := -1000000000.0
+	var best_axis := 0.0
+	var best_pos := belt_pos
+	var found := false
+	for candidate in candidates:
+		var point: Vector2 = candidate
+		var axis_pos = (point - waist_pos).dot(axis_dir)
+		if axis_pos < 0.0 or axis_pos > skirt_length + 12.0:
+			continue
+		var first_seg = belt_pos.distance_to(point)
+		if first_seg >= skirt_length - 0.5:
+			continue
+		var score = _side_proj(point, waist_pos, side_dir)
+		if (not found) or score > best_score + 0.01 or (abs(score - best_score) <= 0.01 and axis_pos > best_axis):
+			best_score = score
+			best_axis = axis_pos
+			best_pos = point
+			found = true
+	return {
+		"found": found,
+		"pos": best_pos,
+		"score": best_score,
+		"axis_pos": best_axis,
+	}
+
 # ---------------------------------------------------------------
 # スカート描画ヘルパー
 #
@@ -242,35 +290,121 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var reach_from_hem = max(abs(max_x - p_bottom.x), abs(min_x - p_bottom.x))
 		var side_hem_w = max(hem_w, spread_x * spread_margin, reach_from_hem * 2.0) + 15.0 # +15.0は調整用。膝を隠すため
 
-		CharacterDrawUtils.draw_trapezoid(ctx.canvas, waist_pos, p_bottom, base_width, side_hem_w, bottoms_color)
+		var axis = p_bottom - waist_pos
+		var skirt_u = _normalized_or(axis, Vector2(0, 1))
+		var skirt_n = Vector2(-skirt_u.y, skirt_u.x).normalized()
+		var half_top = base_width / 2.0
+		var half_hem = side_hem_w / 2.0
+		var belt_back = waist_pos + skirt_n * half_top
+		var belt_front = waist_pos - skirt_n * half_top
+		var hem_back_base = p_bottom + skirt_n * half_hem
+		var hem_front_base = p_bottom - skirt_n * half_hem
+		var front_side = -skirt_n
+		var back_side = skirt_n
+
+		var crotch_pos = Vector2(d["cx"], d["cy"])
+		var knee_l = Vector2(knee_l_x, d["cy"] + d["thigh_l"] * sin(ang_l))
+		var knee_r = Vector2(knee_r_x, d["cy"] + d["thigh_l"] * sin(ang_r))
+		var foot_h = ctx.m["height"] * ctx.p / 20.0
+		var shin_draw = max(d["shin_l"] - foot_h, d["shin_l"] * 0.45)
+		var ankle_l = knee_l + Vector2(cos(ang_l + d["knee_l"]), sin(ang_l + d["knee_l"])) * shin_draw
+		var ankle_r = knee_r + Vector2(cos(ang_r + d["knee_r"]), sin(ang_r + d["knee_r"])) * shin_draw
+
+		var candidates: Array = []
+		var pelvis_half = max(half_top, ctx.thigh_w * 0.5)
+		candidates.append(crotch_pos + skirt_n * pelvis_half)
+		candidates.append(crotch_pos - skirt_n * pelvis_half)
+		_append_segment_edge_candidates(candidates, crotch_pos, knee_l, ctx.thigh_w, [0.35, 0.7, 1.0])
+		_append_segment_edge_candidates(candidates, crotch_pos, knee_r, ctx.thigh_w, [0.35, 0.7, 1.0])
+		_append_segment_edge_candidates(candidates, knee_l, ankle_l, ctx.shin_w, [0.2, 0.55, 1.0])
+		_append_segment_edge_candidates(candidates, knee_r, ankle_r, ctx.shin_w, [0.2, 0.55, 1.0])
+
+		var front_pick = _pick_side_outer_candidate(candidates, waist_pos, belt_front, front_side, skirt_u, skirt_length)
+		var back_pick = _pick_side_outer_candidate(candidates, waist_pos, belt_back, back_side, skirt_u, skirt_length)
+
+		var use_legacy_side = (not bool(front_pick["found"])) or (not bool(back_pick["found"]))
+		var front_outer = belt_front.lerp(hem_front_base, 0.5)
+		var back_outer = belt_back.lerp(hem_back_base, 0.5)
+		var front_hem = hem_front_base
+		var back_hem = hem_back_base
+
+		if not use_legacy_side:
+			var front_axis_ratio = clamp(float(front_pick["axis_pos"]) / skirt_length, 0.0, 1.0)
+			var back_axis_ratio = clamp(float(back_pick["axis_pos"]) / skirt_length, 0.0, 1.0)
+			var front_base_at_pick = belt_front.lerp(hem_front_base, front_axis_ratio)
+			var back_base_at_pick = belt_back.lerp(hem_back_base, back_axis_ratio)
+			var front_candidate: Vector2 = front_pick["pos"]
+			var back_candidate: Vector2 = back_pick["pos"]
+
+			front_outer = front_candidate if _side_proj(front_candidate, waist_pos, front_side) > _side_proj(front_base_at_pick, waist_pos, front_side) else front_base_at_pick
+			back_outer = back_candidate if _side_proj(back_candidate, waist_pos, back_side) > _side_proj(back_base_at_pick, waist_pos, back_side) else back_base_at_pick
+
+			var front_seg1 = belt_front.distance_to(front_outer)
+			var back_seg1 = belt_back.distance_to(back_outer)
+			if front_seg1 >= skirt_length - 0.5 or back_seg1 >= skirt_length - 0.5:
+				use_legacy_side = true
+			else:
+				var front_hem_ext = front_outer + skirt_u * (skirt_length - front_seg1)
+				var back_hem_ext = back_outer + skirt_u * (skirt_length - back_seg1)
+				front_hem = front_hem_ext if _side_proj(front_hem_ext, waist_pos, front_side) >= _side_proj(hem_front_base, waist_pos, front_side) else hem_front_base
+				back_hem = back_hem_ext if _side_proj(back_hem_ext, waist_pos, back_side) >= _side_proj(hem_back_base, waist_pos, back_side) else hem_back_base
+
+		if use_legacy_side:
+			CharacterDrawUtils.draw_trapezoid(ctx.canvas, waist_pos, p_bottom, base_width, side_hem_w, bottoms_color)
+		else:
+			var pts = PackedVector2Array([
+				belt_back,
+				back_outer,
+				back_hem,
+				front_hem,
+				front_outer,
+				belt_front,
+			])
+			ctx.canvas.draw_polygon(pts, PackedColorArray([bottoms_color]))
 
 		# プリーツ（セーラー服・ジャンパースカート用）
 		if is_pleated:
 			var pleat_col = bottoms_color.darkened(0.2)
-			var d_vec = p_bottom - waist_pos
-			if d_vec.length() > 0.01:
-				var n = Vector2(-d_vec.y, d_vec.x).normalized()
-				var h_top = base_width / 2.0
-				var h_hem = side_hem_w / 2.0
+			if use_legacy_side:
+				var d_vec = p_bottom - waist_pos
+				if d_vec.length() > 0.01:
+					var legacy_n = Vector2(-d_vec.y, d_vec.x).normalized()
+					var h_top = base_width / 2.0
+					var h_hem = side_hem_w / 2.0
+					for i in range(1, 7): # 6本の線を入れる
+						var t = float(i) / 7.0
+						var top_p = waist_pos + legacy_n * lerp(-h_top, h_top, t)
+						var bot_p = p_bottom + legacy_n * lerp(-h_hem, h_hem, t)
+						ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
+			else:
 				for i in range(1, 7): # 6本の線を入れる
 					var t = float(i) / 7.0
-					var top_p = waist_pos + n * lerp(-h_top, h_top, t)
-					var bot_p = p_bottom + n * lerp(-h_hem, h_hem, t)
+					var top_p = belt_back.lerp(belt_front, t)
+					var bot_p = back_hem.lerp(front_hem, t)
 					ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
 
-		# サスペンダースカート用：スカート上端にダークネイビーのベルト
+		# サスペンダースカート用：スカート上端にダークネイビーの帯
 		if is_jumper_skirt:
 			var belt_color = bottoms_color.darkened(0.35)
 			var belt_h = 7.0
-			var n = Vector2(-p_bottom.y + waist_pos.y, p_bottom.x - waist_pos.x).normalized() if (p_bottom - waist_pos).length() > 0.01 else Vector2(1, 0)
-			var h_top = base_width / 2.0
-			var belt_pts = PackedVector2Array([
-				waist_pos - n * h_top,
-				waist_pos + n * h_top,
-				waist_pos + n * h_top + (p_bottom - waist_pos).normalized() * belt_h,
-				waist_pos - n * h_top + (p_bottom - waist_pos).normalized() * belt_h,
-			])
-			ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
+			if use_legacy_side:
+				var legacy_n = Vector2(-p_bottom.y + waist_pos.y, p_bottom.x - waist_pos.x).normalized() if (p_bottom - waist_pos).length() > 0.01 else Vector2(1, 0)
+				var h_top = base_width / 2.0
+				var belt_pts = PackedVector2Array([
+					waist_pos - legacy_n * h_top,
+					waist_pos + legacy_n * h_top,
+					waist_pos + legacy_n * h_top + (p_bottom - waist_pos).normalized() * belt_h,
+					waist_pos - legacy_n * h_top + (p_bottom - waist_pos).normalized() * belt_h,
+				])
+				ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
+			else:
+				var belt_pts = PackedVector2Array([
+					belt_back,
+					belt_front,
+					belt_front + skirt_u * belt_h,
+					belt_back + skirt_u * belt_h,
+				])
+				ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
 		return
 
 	# 正面・背面の場合、足の広がりに合わせて裾を広げ、下端に緩やかなカーブを付ける
