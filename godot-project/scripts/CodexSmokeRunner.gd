@@ -12,6 +12,35 @@ const DEFAULT_STAGE_ID := "room"
 const DEFAULT_WAIT_FRAMES := 12
 const DEFAULT_DELAY_SEC := 0.15
 const DEFAULT_OUTPUT_DIR := "user://automation_captures"
+const TOPS_COLOR_MAP := {
+	"sailor": "#1a2a5e",
+	"blazer": "#212840",
+	"blouse_bow": "#f0e8e0",
+	"jumper_skirt": "#212840",
+	"sweater": "#7a9a7a",
+	"t_shirt": "#ab82a8",
+}
+const BOTTOMS_COLOR_MAP := {
+	"skirt": "#3a5f8a",
+	"skirt_long": "#3a5f8a",
+	"skirt_sailor": "#1a2a5e",
+	"pants": "#3a5f8a",
+}
+const POSE_ALIASES := {
+	"normal": "normal",
+	"stand": "normal",
+	"taiiku_suwari": "taiiku_suwari",
+	"taiiku": "taiiku_suwari",
+	"gym_sit": "taiiku_suwari",
+	"chair_sit": "chair_sit",
+	"chair": "chair_sit",
+	"sleep": "sleep",
+}
+const FACING_ALIASES := {
+	"front": "front",
+	"back": "back",
+	"side": "side",
+}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -38,6 +67,7 @@ func _run() -> void:
 
 	var scene_instance := (packed_scene as PackedScene).instantiate()
 	add_child(scene_instance)
+	_apply_scene_overrides(scene_instance, options)
 
 	await _wait_frames(int(options.get("frames", DEFAULT_WAIT_FRAMES)))
 	var delay_sec := float(options.get("delay_sec", DEFAULT_DELAY_SEC))
@@ -71,6 +101,10 @@ func _prepare_global_state(global, options: Dictionary) -> void:
 		global.term = int(options["term"])
 	if options.has("height"):
 		global.current_params["height"] = float(options["height"])
+	if options.has("stress"):
+		global.stress = int(options["stress"])
+
+	_apply_appearance_overrides(global, options)
 
 	if global.has_method("_ensure_growth_history"):
 		global.call("_ensure_growth_history")
@@ -120,10 +154,134 @@ func _parse_args(args: PackedStringArray) -> Dictionary:
 				options["term"] = int(value)
 			"height":
 				options["height"] = float(value)
+			"stress":
+				options["stress"] = int(value)
+			"pose":
+				var pose := _normalize_pose(value)
+				if pose != "":
+					options["pose"] = pose
+			"facing":
+				var facing := _normalize_facing(value)
+				if facing != "":
+					options["facing"] = facing
+			"dir":
+				options["dir"] = -1 if int(value) < 0 else 1
+			"auto-crouch":
+				var parsed_bool: Variant = _parse_bool_option(value)
+				if parsed_bool != null:
+					options["auto_crouch"] = parsed_bool
+			"target-crouch-cm":
+				options["target_crouch_cm"] = float(value)
+			"look-head-angle":
+				options["look_head_angle"] = float(value)
+			"look-pitch":
+				options["look_pitch"] = float(value)
+			"tops-type":
+				options["tops_type"] = value
+			"tops-color":
+				options["tops_color"] = value
+			"bottoms-type":
+				options["bottoms_type"] = value
+			"bottoms-color":
+				options["bottoms_color"] = value
+			"hair-style":
+				options["hair_style"] = value
+			"hair-color":
+				options["hair_color"] = value
+			"hat-type":
+				options["hat_type"] = value
+			"hat-color":
+				options["hat_color"] = value
+			"bag-type":
+				options["bag_type"] = value
+			"bag-color":
+				options["bag_color"] = value
 
 	var scene_key := String(options.get("scene", DEFAULT_SCENE_KEY))
 	options["scene_path"] = SCENE_MAP.get(scene_key, SCENE_MAP[DEFAULT_SCENE_KEY])
 	return options
+
+func _apply_appearance_overrides(global, options: Dictionary) -> void:
+	var appearance_updates := {
+		"tops_type": options.get("tops_type", null),
+		"tops_color": options.get("tops_color", null),
+		"bottoms_type": options.get("bottoms_type", null),
+		"bottoms_color": options.get("bottoms_color", null),
+		"hair_style": options.get("hair_style", null),
+		"hair_color": options.get("hair_color", null),
+		"hat_type": options.get("hat_type", null),
+		"hat_color": options.get("hat_color", null),
+		"bag_type": options.get("bag_type", null),
+		"bag_color": options.get("bag_color", null),
+	}
+
+	for key in appearance_updates.keys():
+		var value: Variant = appearance_updates[key]
+		if value != null:
+			global.current_appearance[key] = value
+
+	if options.has("tops_type") and not options.has("tops_color"):
+		var tops_type := String(options["tops_type"])
+		if TOPS_COLOR_MAP.has(tops_type):
+			global.current_appearance["tops_color"] = TOPS_COLOR_MAP[tops_type]
+
+	if options.has("bottoms_type") and not options.has("bottoms_color"):
+		var bottoms_type := String(options["bottoms_type"])
+		if BOTTOMS_COLOR_MAP.has(bottoms_type):
+			global.current_appearance["bottoms_color"] = BOTTOMS_COLOR_MAP[bottoms_type]
+
+func _apply_scene_overrides(scene_instance: Node, options: Dictionary) -> void:
+	var player: Node = _find_player(scene_instance)
+	if player == null:
+		return
+
+	if options.has("pose"):
+		player.set("pose", String(options["pose"]))
+	if options.has("facing"):
+		player.set("facing", String(options["facing"]))
+	if options.has("dir"):
+		player.set("dir", int(options["dir"]))
+	if options.has("auto_crouch"):
+		player.set("auto_crouch", bool(options["auto_crouch"]))
+	if options.has("target_crouch_cm"):
+		player.set("target_crouch_cm", float(options["target_crouch_cm"]))
+	if options.has("look_head_angle"):
+		player.set("look_head_angle", float(options["look_head_angle"]))
+	if options.has("look_pitch"):
+		player.set("look_pitch", float(options["look_pitch"]))
+
+	if player.has_method("update_measurements"):
+		player.call("update_measurements")
+	else:
+		var drawer: Node = player.get_node_or_null("CharacterDrawer")
+		if drawer != null:
+			drawer.call("queue_redraw")
+
+func _find_player(scene_instance: Node) -> Node:
+	var player := scene_instance.get_node_or_null("Player")
+	if player != null:
+		return player
+	return scene_instance.find_child("Player", true, false)
+
+func _normalize_pose(value: String) -> String:
+	var key := value.strip_edges().to_lower()
+	if key == "":
+		return ""
+	return String(POSE_ALIASES.get(key, key))
+
+func _normalize_facing(value: String) -> String:
+	var key := value.strip_edges().to_lower()
+	if key == "":
+		return ""
+	return String(FACING_ALIASES.get(key, key))
+
+func _parse_bool_option(value: String) -> Variant:
+	var key := value.strip_edges().to_lower()
+	if key in ["1", "true", "yes", "on"]:
+		return true
+	if key in ["0", "false", "no", "off"]:
+		return false
+	return null
 
 func _wait_frames(frame_count: int) -> void:
 	for _i in range(maxi(1, frame_count)):

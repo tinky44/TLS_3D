@@ -6,8 +6,41 @@ param(
     [int]$Frames = 12,
     [double]$DelaySec = 0.15,
     [string]$OutputDir = "",
-    [string]$Prefix = ""
+    [string]$Prefix = "",
+    [string]$Age = "",
+    [string]$Term = "",
+    [string]$Height = "",
+    [string]$Stress = "",
+    [string]$Pose = "",
+    [string]$Facing = "",
+    [string]$Dir = "",
+    [string]$AutoCrouch = "",
+    [string]$TargetCrouchCm = "",
+    [string]$LookHeadAngle = "",
+    [string]$LookPitch = "",
+    [string]$TopsType = "",
+    [string]$TopsColor = "",
+    [string]$BottomsType = "",
+    [string]$BottomsColor = "",
+    [string]$HairStyle = "",
+    [string]$HairColor = "",
+    [string]$HatType = "",
+    [string]$HatColor = "",
+    [string]$BagType = "",
+    [string]$BagColor = ""
 )
+
+function Add-OptionalArgument {
+    param(
+        [System.Collections.Generic.List[string]]$ArgumentList,
+        [string]$Key,
+        [string]$Value
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Value)) {
+        $ArgumentList.Add("--$Key=$Value")
+    }
+}
 
 function Resolve-GodotExe {
     param(
@@ -73,7 +106,8 @@ if ([string]::IsNullOrWhiteSpace($Prefix)) {
 $resolvedGodotExe = Resolve-GodotExe -PreferredPath $GodotExe
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-$arguments = @(
+$arguments = [System.Collections.Generic.List[string]]::new()
+$arguments.AddRange([string[]]@(
     "--path", $projectPath,
     "--",
     "--codex-smoke",
@@ -83,7 +117,29 @@ $arguments = @(
     "--stage=$Stage",
     "--output-dir=$OutputDir",
     "--prefix=$Prefix"
-)
+))
+
+Add-OptionalArgument -ArgumentList $arguments -Key "age" -Value $Age
+Add-OptionalArgument -ArgumentList $arguments -Key "term" -Value $Term
+Add-OptionalArgument -ArgumentList $arguments -Key "height" -Value $Height
+Add-OptionalArgument -ArgumentList $arguments -Key "stress" -Value $Stress
+Add-OptionalArgument -ArgumentList $arguments -Key "pose" -Value $Pose
+Add-OptionalArgument -ArgumentList $arguments -Key "facing" -Value $Facing
+Add-OptionalArgument -ArgumentList $arguments -Key "dir" -Value $Dir
+Add-OptionalArgument -ArgumentList $arguments -Key "auto-crouch" -Value $AutoCrouch
+Add-OptionalArgument -ArgumentList $arguments -Key "target-crouch-cm" -Value $TargetCrouchCm
+Add-OptionalArgument -ArgumentList $arguments -Key "look-head-angle" -Value $LookHeadAngle
+Add-OptionalArgument -ArgumentList $arguments -Key "look-pitch" -Value $LookPitch
+Add-OptionalArgument -ArgumentList $arguments -Key "tops-type" -Value $TopsType
+Add-OptionalArgument -ArgumentList $arguments -Key "tops-color" -Value $TopsColor
+Add-OptionalArgument -ArgumentList $arguments -Key "bottoms-type" -Value $BottomsType
+Add-OptionalArgument -ArgumentList $arguments -Key "bottoms-color" -Value $BottomsColor
+Add-OptionalArgument -ArgumentList $arguments -Key "hair-style" -Value $HairStyle
+Add-OptionalArgument -ArgumentList $arguments -Key "hair-color" -Value $HairColor
+Add-OptionalArgument -ArgumentList $arguments -Key "hat-type" -Value $HatType
+Add-OptionalArgument -ArgumentList $arguments -Key "hat-color" -Value $HatColor
+Add-OptionalArgument -ArgumentList $arguments -Key "bag-type" -Value $BagType
+Add-OptionalArgument -ArgumentList $arguments -Key "bag-color" -Value $BagColor
 
 & $resolvedGodotExe @arguments
 exit $LASTEXITCODE
