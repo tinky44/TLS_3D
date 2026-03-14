@@ -4,6 +4,7 @@ signal screenshot_saved(result: Dictionary)
 signal screenshot_failed(result: Dictionary)
 
 const CM_TO_PX: float = 2.0
+const DEFAULT_TERM_PLAN: String = "school"
 
 # プレイヤーの身体パラメータ (初期値として「高身長女性」を設定)
 var current_params: Dictionary = {
@@ -61,7 +62,7 @@ var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた�
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
 var stress: int = 0 # 今学期の生活で溜まるしんどさ
 var pending_term_choice: bool = false # 進級時の続行/終了選択が必要か
-var current_term_plan: String = "" # "home" / "school" / "station"
+var current_term_plan: String = DEFAULT_TERM_PLAN # "home" / "school" / "station"
 var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
 var term_memory_note: String = "" # 今学期の印象的な出来事メモ
 
@@ -334,7 +335,7 @@ func advance_term() -> void:
 	haruka_invited_this_term = false
 	haruka_following = false
 	pending_term_choice = school_level != prev_school_level and school_level >= 1 and school_level <= 3
-	current_term_plan = ""
+	current_term_plan = DEFAULT_TERM_PLAN
 	term_hotspot_flags = {}
 	term_memory_note = ""
 
@@ -501,6 +502,8 @@ func load_settings():
 		stress = int(config.get_value("Player", "stress", stress))
 		pending_term_choice = bool(config.get_value("Player", "pending_term_choice", pending_term_choice))
 		current_term_plan = String(config.get_value("Player", "current_term_plan", current_term_plan))
+		if current_term_plan == "":
+			current_term_plan = DEFAULT_TERM_PLAN
 		var hotspot_value: Variant = config.get_value("Player", "term_hotspot_flags", term_hotspot_flags)
 		term_hotspot_flags = hotspot_value if hotspot_value is Dictionary else {}
 		term_memory_note = String(config.get_value("Player", "term_memory_note", term_memory_note))
@@ -583,7 +586,9 @@ func load_slot(slot: int) -> bool:
 	self_complex = int(config.get_value(section, "self_complex", 0))
 	stress = int(config.get_value(section, "stress", 0))
 	pending_term_choice = bool(config.get_value(section, "pending_term_choice", false))
-	current_term_plan = String(config.get_value(section, "current_term_plan", ""))
+	current_term_plan = String(config.get_value(section, "current_term_plan", DEFAULT_TERM_PLAN))
+	if current_term_plan == "":
+		current_term_plan = DEFAULT_TERM_PLAN
 	var hotspot_slot_value: Variant = config.get_value(section, "term_hotspot_flags", {})
 	term_hotspot_flags = hotspot_slot_value if hotspot_slot_value is Dictionary else {}
 	term_memory_note = String(config.get_value(section, "term_memory_note", ""))

@@ -61,6 +61,7 @@ var term_choice_panel: Control
 var term_choice_header_label: Label
 var _term_choice_showing: bool = false
 var _ending_overlay_showing: bool = false
+var _school_day_transition_running: bool = false
 
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
@@ -671,7 +672,7 @@ func _on_grade_choice_selected(choice_id: String) -> void:
 		return
 
 	global.pending_term_choice = false
-	global.current_term_plan = ""
+	global.current_term_plan = Global.DEFAULT_TERM_PLAN
 	_hide_term_choice_panel()
 	global.save_settings()
 
@@ -1080,6 +1081,8 @@ func _end_dialogue() -> void:
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and global.current_term_plan == "school":
 			call_deferred("_start_dialogue", "player", "term_school")
+	elif _should_run_school_day_transition(global):
+		call_deferred("_run_school_day_transition")
 	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "vball_join_cheer":
 		pass # 特に後処理なし
 	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "haruka_after_summer":
@@ -1087,6 +1090,71 @@ func _end_dialogue() -> void:
 
 	if should_show_term_choice:
 		call_deferred("_show_term_choice_panel")
+
+func _should_run_school_day_transition(global: Node) -> bool:
+	if _school_day_transition_running:
+		return false
+	if _current_dialogue_npc != "player" or _current_dialogue_key != "term_school":
+		return false
+	if global == null or String(global.current_term_plan) != "school":
+		return false
+	return StageBuilder.is_school_classroom_stage(String(global.current_stage_id))
+
+func _run_school_day_transition() -> void:
+	var global = get_node_or_null("/root/Global")
+	if not _should_run_school_day_transition(global):
+		return
+
+	_school_day_transition_running = true
+	_nearby_npc = null
+	_nearby_term_hotspot = ""
+	_nearby_transition_door = ""
+	_nearby_height_scale = false
+	get_tree().paused = true
+
+	var overlay := ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var text_label := Label.new()
+	text_label.text = "授業が始まった。"
+	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	text_label.add_theme_font_size_override("font_size", 34)
+	text_label.add_theme_color_override("font_color", Color(0.94, 0.97, 1.0))
+	text_label.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.12, 0.95))
+	text_label.add_theme_constant_override("outline_size", 6)
+	text_label.modulate.a = 0.0
+	center.add_child(text_label)
+
+	ui_layer.add_child(overlay)
+
+	var intro_tween := create_tween()
+	intro_tween.tween_property(overlay, "color:a", 0.82, 0.5)
+	intro_tween.parallel().tween_property(text_label, "modulate:a", 1.0, 0.2)
+	intro_tween.tween_interval(0.9)
+	intro_tween.tween_property(text_label, "modulate:a", 0.0, 0.2)
+	await intro_tween.finished
+
+	global.current_stage_id = "school_hallway"
+	_load_stage()
+
+	text_label.text = "放課後。"
+	var outro_tween := create_tween()
+	outro_tween.tween_property(text_label, "modulate:a", 1.0, 0.2)
+	outro_tween.tween_interval(0.9)
+	outro_tween.parallel().tween_property(text_label, "modulate:a", 0.0, 0.25)
+	outro_tween.parallel().tween_property(overlay, "color:a", 0.0, 0.45)
+	await outro_tween.finished
+
+	overlay.queue_free()
+	get_tree().paused = false
+	_school_day_transition_running = false
 
 func _get_bubble_screen_pos() -> Vector2:
 	var cam = player.get_node_or_null("Camera2D")
@@ -1600,6 +1668,8 @@ func _setup_pause_menu() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _ending_overlay_showing:
+		return
+	if _school_day_transition_running:
 		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return

@@ -90,7 +90,7 @@ func _prepare_global_state(global, options: Dictionary) -> void:
 	global.current_slot = -1
 	global.pending_events = []
 	global.pending_term_choice = false
-	global.current_term_plan = ""
+	global.current_term_plan = Global.DEFAULT_TERM_PLAN
 	global.term_hotspot_flags = {}
 	global.term_memory_note = ""
 	global.current_stage_id = String(options.get("stage", DEFAULT_STAGE_ID))
