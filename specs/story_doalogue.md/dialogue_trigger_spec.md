@@ -1,6 +1,6 @@
 # キャラクター発話トリガ調査メモ
 
-更新日: 2026-03-14
+更新日: 2026-03-15
 
 ## 対象スコープ
 - ダイアログパネルで表示される会話 (`MainScene.gd` の `_start_dialogue`)
@@ -148,13 +148,31 @@
 
 ### 5-1. NPCに `E` で話しかけた時（会話パネル）
 - `haruka / measure_invite`:
+  - 発火条件（判定順あり）:
+    - `first_meet` 済みであること（未遭遇時は `first_meet` が優先）
+    - `term_school_haruka_support` 条件に入っていないこと
+    - `vball_pain_consult` 条件（`phase=3 && is_leg_pain`）に入っていないこと
+    - `haruka_invited_this_term == false`
+  - 発火時更新:
+    - `haruka_invited_this_term = true`
   - はるか: 「ねえ……また背、伸びてない？」
   - はるか: 「保健室、行こうよ。…正直、最近どんな気持ち？」
   - 選択肢: 「ちょっと嬉しいかも」「目立つし、恥ずかしい……」「よくわからない」
 - `senior / first_meet`:
+  - 発火条件:
+    - 体育館で `gym_senior_invite` イベントを消化した時、または `first_meet` 未遭遇で先輩に話しかけた時
+  - 終了時更新:
+    - `vball_story_phase: 0 -> 1`
   - バレー部先輩: 「君、ちょっといいかな？」
   - バレー部先輩: 「バレー部、興味ない？ 君なら無敵のアタッカーになれるよ。」
 - `senior / pain_concern`:
+  - 発火条件（2経路）:
+    - 直接経路: `vball_story_phase == 3 && is_leg_pain == true` で先輩に `E`
+    - キュー経路: `haruka / vball_pain_consult` で「先輩に伝えてもらう」選択後、`vball_tell_senior` が体育館で消化される
+  - 終了時更新:
+    - `is_leg_pain = false`
+    - `vball_joined = false`
+    - `vball_story_phase = 5`
   - バレー部先輩: 「はるかから聞いたよ。脚が痛いんだって？」
   - バレー部先輩: 「今は無理するな。しばらく休部して、ちゃんと診てもらえ。」
 - `mother / check`:
@@ -232,3 +250,273 @@
 ## 6. 補足（現状の実装観察）
 - `TERM_CHOICES` 定義はあるが、`MainScene.gd` 内では `current_term_plan` を選択更新する処理が見当たらず、実質 `Global.DEFAULT_TERM_PLAN`（`school`）運用が中心。
 - そのため、学期ホットスポットの `plan` 条件は現状だと `school` 系が主に有効になる設計。
+
+---
+
+## 7. フラグ遷移の全体像
+
+### 7-1. 主要フラグの意味と更新箇所
+- `vball_story_phase`（0〜7）:
+  - 0: 未出会い
+  - 1: 先輩遭遇済み（`senior/first_meet` 後）
+  - 2: 入部済み（`join_invite` で `vball_join`）
+  - 3: 脚痛フェーズ（`practice_first` 後）
+  - 4: はるかへ相談済み（`vball_pain_report`）
+  - 5: 休部確定（`pain_concern` 後）
+  - 6: 夏休み後（`summer_growth` 消化時に 2〜5 から遷移）
+  - 7: 継続方針決定（`vball_rejoin` / `vball_manager_role`）
+- `vball_joined`: バレー部在籍フラグ
+- `is_leg_pain`: 脚痛フラグ（歩行モーションにも影響）
+- `haruka_invited_this_term`: 今学期の計測誘導を出したか
+- `haruka_following`: はるか追随中か（計測完了会話のトリガ）
+- `met_npcs`: 各名前付きNPCの初対面管理
+- `term_hotspot_flags`: 今学期に実行済みのホットスポット
+- `pending_events`: ステージ到達待ちを含むイベントキュー
+- `senior_gym_invited`: `gym_senior_invite` の一回性ガード
+
+### 7-2. バレー部関連の会話キーと条件
+- `senior/join_invite`:
+  - 条件: `vball_story_phase == 1`
+  - 選択肢「入部する！」で `vball_joined=true`, `vball_story_phase=2`
+- `senior/practice_first`:
+  - 条件: `vball_story_phase == 2 && vball_joined == true`
+  - 終了後: `is_leg_pain=true`, `vball_story_phase=3`
+- `haruka/vball_pain_consult`:
+  - 条件: `npc_id=haruka` 判定時、`is_leg_pain == true && vball_story_phase == 3`
+  - 選択肢「先輩に伝えてもらう」で `vball_story_phase=4` + `queue_event("vball_tell_senior")`
+  - 選択肢「しばらく自分で頑張る」ではフラグ更新なし（`phase=3` 維持）
+- `senior/pain_concern`:
+  - 条件:
+    - `phase=3 && is_leg_pain=true` で直接会話
+    - または `vball_tell_senior` イベント消化
+  - 終了後: `is_leg_pain=false`, `vball_joined=false`, `phase=5`
+- `senior/senior_after_summer`:
+  - 条件: `vball_story_phase == 6`
+  - 選択結果:
+    - 「また頑張りたい！」 -> `vball_rejoin` -> `phase=7`, `vball_joined=true`
+    - 「マネージャーとして関わりたい」 -> `vball_manager_role` -> `phase=7`, `vball_joined=false`
+    - 「今は勉強に集中したい……」 -> フラグ更新なし（`phase=6` のまま）
+
+### 7-3. `senior / pain_concern` 到達フロー（要望例の詳細）
+1. 先輩初遭遇 (`first_meet`) で `phase=1`
+2. `join_invite` で入部し `phase=2`
+3. `practice_first` 後に `is_leg_pain=true`, `phase=3`
+4. ここから分岐:
+   - 直接先輩へ話す -> `pain_concern`
+   - はるかへ相談して「先輩に伝えてもらう」 -> `phase=4` + `vball_tell_senior` キュー
+5. `vball_tell_senior` が体育館ステージで消化され `pain_concern`
+6. 会話終了で `phase=5`, `is_leg_pain=false`, `vball_joined=false`
+
+### 7-4. `haruka` 会話キーの判定優先順（重要）
+`_interact_with_npc` 内の実装順に依存し、先に当たった条件が採用される。
+
+1. `first_meet` 未済なら `first_meet`
+2. `current_term_plan=="school"` かつ教室ステージかつ `school_haruka_support` 未実施なら `term_school_haruka_support`
+3. `is_leg_pain && phase==3` なら `vball_pain_consult`
+4. `haruka_invited_this_term == false` なら `measure_invite`（同時に `haruka_invited_this_term=true`）
+5. それ以外で身長差分岐（`huge` / `tall`）
+
+### 7-5. 会話終了時フラグ更新（`_end_dialogue`）
+- `haruka/measure_invite` 終了:
+  - `haruka_following=true`（はるか追随開始）
+- `senior/first_meet` 終了:
+  - `phase==0` のとき `phase=1`
+- `senior/practice_first` 終了:
+  - `vball_joined==true` のとき `is_leg_pain=true`, `phase=3`
+- `senior/pain_concern` 終了:
+  - `is_leg_pain=false`, `vball_joined=false`, `phase=5`
+- `teacher/semester_start` 終了:
+  - `current_term_plan=="school"` のとき `player/term_school` を遅延開始
+
+### 7-6. イベントキュー起動の詳細
+- キュー投入:
+  - 新規開始: `entrance_ceremony`
+  - 学期進行: `semester_start`, （条件付き）`summer_growth`
+  - 会話選択: `vball_tell_senior`
+  - `semester_start` 処理内: `gym_senior_invite`（未招待時のみ）
+- キュー消化:
+  - `_load_stage()` で先頭1件だけ `pop_next_event`
+  - ステージ条件不一致なら `push_front` で戻す
+  - 結果として「該当ステージに入った時点で自動会話」が実現される
+
+### 7-7. 学期ホットスポットの再実行制御
+- 実行時に必ず `mark_term_hotspot_done(hotspot_id)`
+- 同学期中は `has_term_hotspot_done` で再発火不可
+- `advance_term()` で `term_hotspot_flags = {}` に戻る
+
+### 7-8. 学期更新時の一括リセット
+`advance_term()` で以下が毎学期更新/初期化される。
+- `queue_event("semester_start")`
+- 夏学期条件なら `queue_event("summer_growth")`
+- `haruka_invited_this_term=false`
+- `haruka_following=false`
+- `pending_term_choice` 再計算
+- `current_term_plan=DEFAULT_TERM_PLAN`
+- `term_hotspot_flags={}`
+- `term_memory_note=""`
+
+### 7-9. セーブ/ロードの観点（現実装）
+- `save_settings` / `save_slot` で保存される:
+  - `pending_term_choice`, `current_term_plan`, `term_hotspot_flags`, `term_memory_note`, `stress` など
+- 現コード上、保存対象に入っていない:
+  - `met_npcs`
+  - `haruka_invited_this_term`, `haruka_following`
+  - `senior_gym_invited`
+  - `vball_story_phase`, `vball_joined`, `is_leg_pain`
+  - `pending_events`
+
+このため、再起動を挟むと会話進行フラグとキューは初期値へ戻る挙動になる。
+
+---
+
+## 8. 条件式ベースの判定順（コード準拠・詳細）
+
+### 8-1. NPC会話キー決定の実際の順序
+判定元: `MainScene.gd::_interact_with_npc`（`1213` 行付近）
+
+1. `npc_id == ""` なら `generic` 扱い
+2. 名前付きNPCは `met_npcs` で初対面判定
+3. `first_meet` 条件があれば最優先で `first_meet`
+4. その後、NPCごとの専用分岐（`senior` / `haruka`）
+5. どれにも当たらなければ身長差キー（`tall` / `huge` / `default`）
+
+補足:
+- `first_meet` は会話開始時点で `met_npcs` に即追加される（会話完了を待たない）
+- 汎用NPCは `has_met=false` 固定のため、毎回初対面扱いのルートを通らず、身長差キーへ直行
+
+### 8-2. `haruka` のキー選択（優先度で上書き）
+判定元: `MainScene.gd` `1269`〜`1281` 行付近
+
+1. `term_school_haruka_support`
+  - 条件: `current_term_plan=="school"` かつ 教室ステージ かつ `school_haruka_support` 未実行
+  - 副作用: 会話開始時に `mark_term_hotspot_done("school_haruka_support")`
+2. `vball_pain_consult`
+  - 条件: `is_leg_pain && vball_story_phase==3`
+3. `measure_invite`
+  - 条件: `haruka_invited_this_term==false`
+  - 副作用: 会話開始時に `haruka_invited_this_term=true`
+4. 身長差 `huge` / `tall`
+
+重要:
+- 同時に複数条件を満たしても、先に書かれた条件が採用される。
+- 例: `phase=3 && is_leg_pain` の間は、`measure_invite` は発火しない。
+
+### 8-3. `senior` のキー選択（フェーズ機械）
+判定元: `MainScene.gd` `1257`〜`1267` 行付近
+
+1. `phase==1` -> `join_invite`
+2. `phase==2 && vball_joined` -> `practice_first`
+3. `phase==3 && is_leg_pain` -> `pain_concern`
+4. `phase==6` -> `senior_after_summer`
+5. それ以外は身長差 `huge`（条件一致時）
+
+補足:
+- `phase==4` は専用分岐がないため、通常会話では `pain_concern` にならない。
+- `phase==4` で `pain_concern` に到達する主経路は `vball_tell_senior` キュー消化。
+
+### 8-4. 会話終了時に走る後処理の詳細
+判定元: `MainScene.gd::_end_dialogue`（`1051` 行付近）
+
+- `haruka/measure_invite`:
+  - `haruka_following=true`
+  - シーン上の `haruka` NPC の `follow_target=player`
+- `senior/first_meet`:
+  - `phase==0` の時だけ `phase=1`
+- `senior/practice_first`:
+  - `vball_joined==true` なら `is_leg_pain=true`, `phase=3`
+- `senior/pain_concern`:
+  - `is_leg_pain=false`, `vball_joined=false`, `phase=5`
+- `teacher/semester_start`:
+  - `current_term_plan=="school"` なら遅延で `player/term_school`
+
+注意:
+- `senior_after_summer` の選択肢「今は勉強に集中したい……」は `action` が無く、`phase=6` のまま据え置き。
+
+### 8-5. 測定パネル連携でのフラグ変化
+判定元:
+- `MainScene.gd::_on_measurement_panel_closed`（`2361` 行付近）
+- `Global.gd::advance_term`（`329` 行付近）
+
+- `measure_invite` 後に測定パネルを閉じる:
+  - `haruka_following==true` なら `haruka/measure_after`
+  - 会話開始前に `haruka_following=false` へ戻す
+- 次学期へ進む（`advance_term()`）:
+  - `haruka_invited_this_term=false`
+  - `haruka_following=false`
+  - `term_hotspot_flags={}` へ初期化
+
+---
+
+## 9. `senior / pain_concern` 到達の時系列（操作ベース）
+
+### 9-1. 直接到達ルート（`phase=3` で先輩に直接 `E`）
+1. `senior/first_meet` 完了 -> `phase=1`
+2. `senior/join_invite` で「入部する！」 -> `phase=2`, `vball_joined=true`
+3. `senior/practice_first` 完了 -> `phase=3`, `is_leg_pain=true`
+4. 先輩に再度 `E` -> `senior/pain_concern`
+5. 会話終了 -> `phase=5`, `is_leg_pain=false`, `vball_joined=false`
+
+セリフ（`pain_concern`）:
+- バレー部先輩: 「はるかから聞いたよ。脚が痛いんだって？」
+- バレー部先輩: 「今は無理するな。しばらく休部して、ちゃんと診てもらえ。」
+- バレー部先輩: 「治ったらいつでも戻ってこい。待ってるから。」
+
+### 9-2. 報告キュールート（はるか経由）
+1. 前提は同じく `phase=3`, `is_leg_pain=true`
+2. はるかに `E` -> `haruka/vball_pain_consult`
+3. 選択肢「先輩に伝えてもらう」
+  - 即時更新: `phase=4`
+  - キュー追加: `pending_events += ["vball_tell_senior"]`
+4. 体育館ステージをロードした時にキュー消化
+  - `senior/pain_concern` 自動発火
+5. 終了時は直接ルートと同じ更新（`phase=5` など）
+
+### 9-3. 報告キューの詰まり方（到達待ち）
+判定元: `MainScene.gd::_load_stage`（`1886` 行付近）
+
+- `vball_tell_senior` は体育館以外だと `push_front` で先頭へ戻される。
+- つまりキューは消えず、体育館へ入るまで保持される。
+- 同関数は1回のステージロードで先頭1件しか処理しないため、前段イベントが詰まっていると後続イベントは待機する。
+
+---
+
+## 10. 会話キーごとの「前提フラグ -> 終了後フラグ」一覧
+
+### 10-1. バレー部関連
+| 会話キー | 主な前提 | 変更タイミング | 主な更新 |
+|---|---|---|---|
+| `senior/first_meet` | `not met_npcs.has("senior")` または `gym_senior_invite` | 終了時 | `phase:0->1` |
+| `senior/join_invite` | `phase==1` | 選択時 (`vball_join`) | `vball_joined=true`, `phase=2` |
+| `senior/practice_first` | `phase==2 && vball_joined` | 終了時 | `is_leg_pain=true`, `phase=3` |
+| `haruka/vball_pain_consult` | `phase==3 && is_leg_pain` | 選択時 (`vball_pain_report`) | `phase=4`, `queue_event("vball_tell_senior")` |
+| `senior/pain_concern` | `phase==3 && is_leg_pain` または `vball_tell_senior` 消化 | 終了時 | `is_leg_pain=false`, `vball_joined=false`, `phase=5` |
+| `senior/senior_after_summer` | `phase==6` | 選択時 | `vball_rejoin` / `vball_manager_role` なら `phase=7` |
+
+### 10-2. はるか計測関連
+| 会話キー | 主な前提 | 変更タイミング | 主な更新 |
+|---|---|---|---|
+| `haruka/measure_invite` | `haruka_invited_this_term==false` かつ他優先条件不成立 | 会話開始時 | `haruka_invited_this_term=true` |
+| `haruka/measure_invite` | 同上 | 終了時 | `haruka_following=true` |
+| `haruka/measure_after` | 測定パネルを閉じる時 `haruka_following==true` | 会話開始直前 | `haruka_following=false` |
+
+---
+
+## 11. セーブ/ロードをまたぐときの実運用メモ
+
+### 11-1. 保存されるため維持されるもの
+- `current_term_plan`
+- `pending_term_choice`
+- `term_hotspot_flags`
+- `term_memory_note`
+- `stress`, `self_confidence`, `self_complex` など
+
+### 11-2. 保存されず再起動で戻るもの
+- `met_npcs`
+- `haruka_invited_this_term`, `haruka_following`
+- `senior_gym_invited`
+- `vball_story_phase`, `vball_joined`, `is_leg_pain`
+- `pending_events`
+
+### 11-3. 仕様化上の注意点
+- デバッグ時に「途中再起動 -> 会話分岐が戻る」の主因は上記非保存フラグ。
+- とくに `vball_story_phase` と `pending_events` が保存されないため、`pain_concern` の到達経路検証は連続プレイ前提で確認する必要がある。
