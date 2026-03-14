@@ -1166,8 +1166,40 @@ func _get_bubble_screen_pos() -> Vector2:
 		screen_pos = player.global_position - cam.get_screen_center_position() + get_viewport().get_visible_rect().size / 2.0
 	else:
 		screen_pos = player.global_position
-	var offset_y = player.visual_height_cm * p + 80
-	return screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
+	var viewport_rect: Rect2 = get_viewport().get_visible_rect()
+	var bubble_size: Vector2 = bubble_panel.get_combined_minimum_size()
+	bubble_size.x = maxf(bubble_size.x, bubble_panel.size.x)
+	bubble_size.y = maxf(bubble_size.y, bubble_panel.size.y)
+	var head_offset_y: float = -float(player.get("visual_height_cm")) * p
+	if player.has_method("get_head_screen_y_offset"):
+		head_offset_y = float(player.call("get_head_screen_y_offset"))
+	var bubble_gap_y: float = bubble_size.y + 20.0
+	var screen_margin: float = 12.0
+	var min_x: float = viewport_rect.position.x + screen_margin
+	var max_x: float = viewport_rect.position.x + viewport_rect.size.x - bubble_size.x - screen_margin
+	var min_y: float = viewport_rect.position.y + screen_margin
+	var max_y: float = viewport_rect.position.y + viewport_rect.size.y - bubble_size.y - screen_margin
+	var bubble_pos: Vector2 = screen_pos + Vector2(-bubble_size.x / 2.0, head_offset_y - bubble_gap_y)
+	if bubble_pos.y < min_y:
+		var player_m: Dictionary = player.get("m") if player.get("m") != null else {}
+		var body_half_w: float = 48.0
+		if not player_m.is_empty():
+			var shoulder_half_w: float = float(player_m.get("shoulder", 35.0)) * p * 0.5
+			var head_half_w: float = float(player_m.get("headWidth", 24.0)) * p * 0.7
+			body_half_w = maxf(body_half_w, maxf(shoulder_half_w, head_half_w))
+		var side_gap_x: float = 24.0
+		var right_x: float = screen_pos.x + body_half_w + side_gap_x
+		var left_x: float = screen_pos.x - body_half_w - side_gap_x - bubble_size.x
+		var free_right: float = (viewport_rect.position.x + viewport_rect.size.x - screen_margin) - right_x
+		var free_left: float = (screen_pos.x - body_half_w - side_gap_x) - (viewport_rect.position.x + screen_margin)
+		var side_y: float = screen_pos.y + head_offset_y - bubble_size.y * 0.5
+		if free_right >= bubble_size.x or free_right >= free_left:
+			bubble_pos = Vector2(right_x, side_y)
+		else:
+			bubble_pos = Vector2(left_x, side_y)
+	bubble_pos.x = clampf(bubble_pos.x, min_x, max_x)
+	bubble_pos.y = clampf(bubble_pos.y, min_y, max_y)
+	return bubble_pos
 
 func _get_nearby_named_npc(dist_px: float) -> Node:
 	if not player: return null
