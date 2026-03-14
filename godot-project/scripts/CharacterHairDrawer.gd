@@ -165,6 +165,12 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		var hair_bottom_len = hr * 1.3 # ショートヘアのデフォルト
 		if hair_style == "long":
 			hair_bottom_len = hr * 3.5
+		elif hair_style == "ponytail":
+			# 【調整用】ポニテは後ろで束ねるので後ろ髪が短い
+			hair_bottom_len = hr * 0.5
+		elif hair_style == "side_tail":
+			# 【調整用】サイドテールも横で束ねるので短め
+			hair_bottom_len = hr * 0.7
 
 		# 1. 顔（肌色の円を先に描画する）
 		CharacterDrawUtils.draw_ellipse(ctx.canvas, head_center, hr, hr, skin_color, head_angle)
@@ -183,39 +189,37 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 
 		var pivot = head_center + back_dir * cut_dist
 
-		# (A) 下部・顔側の頂点
-		var p_face_bottom = pivot + hair_down_dir * hair_bottom_len
-		hair_pts.append(p_face_bottom)
-
-		# (A') 頭の中央を通るピボット（首を曲げた時の剥げ・隙間防止）
-		hair_pts.append(pivot)
-
-		# (B) 頭頂部〜後頭部の丸み（ドーム中心を上にオフセット）
+		# 頭頂部〜後頭部の丸み用パラメータ（min_ang は中間髪でも使用）
 		var steps = 15
 		var min_ang = asin(cut_dist / R)
 
-		# 髪が頭の後ろから自然に垂れる「分離点（接点）」の角度を計算
-		var sep_dir = hair_down_dir.rotated(PI / 2) # 左（後ろ）を向く法線
-		var dot_up = sep_dir.dot(up_dir)
-		var dot_back = sep_dir.dot(back_dir)
-		var max_ang = atan2(dot_back, dot_up)
-		if max_ang < min_ang:
-			max_ang += PI * 2.0
+		if hair_style == "ponytail" or hair_style == "side_tail":
+			# ポニテ・サイドテール: 頭の円弧に沿った後ろ髪（弓形ポリゴン）
+			# 角度系: 0=真上, PI/2=後頭部（真後ろ）, PI=真下
+			# 【調整用】弧の終端角。PI/2 = 後頭部。より下に伸ばすには値を大きくする（例: PI*0.6）
+			var arc_end_ang = PI 
+			var arc_full_steps = 20
+			for i in range(arc_full_steps + 1):
+				var t = float(i) / arc_full_steps
+				var ang = lerp(min_ang, arc_end_ang, t)
+				hair_pts.append(dome_center + back_dir * R * sin(ang) + up_dir * R * cos(ang))
+		else:
+			# ショート・ロング: 顔側下端 → pivot → 弧 → 後ろ下端（垂れ下がる）
+			var p_face_bottom = pivot + hair_down_dir * hair_bottom_len
+			hair_pts.append(p_face_bottom)
+			hair_pts.append(pivot)
 
-		for i in range(steps + 1):
-			var t = float(i) / steps
-			var ang = lerp(min_ang, max_ang, t)
-			var l_back = R * sin(ang)
-			var l_up = R * cos(ang)
-			hair_pts.append(dome_center + back_dir * l_back + up_dir * l_up)
-
-		# (C) 下部・後ろ側の頂点
-		# 分離点（一番後ろの輪郭）から毛先の方向へ垂らす
-		var l_back_sep = R * sin(max_ang)
-		var l_up_sep = R * cos(max_ang)
-		var sep_point = dome_center + back_dir * l_back_sep + up_dir * l_up_sep
-		var p_back_bottom = sep_point + hair_down_dir * hair_bottom_len
-		hair_pts.append(p_back_bottom)
+			# 髪が頭の後ろから自然に垂れる「分離点（接点）」の角度を計算
+			var sep_dir = hair_down_dir.rotated(PI / 2)
+			var max_ang = atan2(sep_dir.dot(back_dir), sep_dir.dot(up_dir))
+			if max_ang < min_ang:
+				max_ang += PI * 2.0
+			for i in range(steps + 1):
+				var t = float(i) / steps
+				var ang = lerp(min_ang, max_ang, t)
+				hair_pts.append(dome_center + back_dir * R * sin(ang) + up_dir * R * cos(ang))
+			var sep_pt = dome_center + back_dir * R * sin(max_ang) + up_dir * R * cos(max_ang)
+			hair_pts.append(sep_pt + hair_down_dir * hair_bottom_len)
 
 		ctx.canvas.draw_polygon(hair_pts, PackedColorArray([hair_color]))
 		_draw_side_tail_profile(ctx, head_center, hr, hair_style, hair_color, back_dir, fwd_dir, up_dir, down_dir)
@@ -262,6 +266,33 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 			fan_center.lerp(p1, 0.2)
 		])
 		ctx.canvas.draw_polygon(bangs_pts, PackedColorArray([hair_color]))
+
+		# 5. 耳（前髪より手前に描画することで、中間髪・後ろ髪に隠れずに見える）
+		# 【調整用】耳の中心位置。fwd_dir で前後、down_dir で上下を調整
+		var ear_center = head_center + fwd_dir * hr * 0.45 + down_dir * hr * 0.10
+		# 【調整用】耳の横幅（前後方向）と縦幅（上下方向）
+		var ear_rx = hr * 0.18
+		var ear_ry = hr * 0.32
+		# TODO: 位置確認用の赤色。確認後 skin_color に戻す
+		CharacterDrawUtils.draw_ellipse(ctx.canvas, ear_center, ear_rx, ear_ry, Color(0.9, 0.1, 0.1))
+		ctx.canvas.draw_circle(ear_center + fwd_dir * hr * 0.03, hr * 0.12, Color(0.7, 0.05, 0.05))
+
+		# 6. 耳の前に垂れる髪（ポニテ・サイドテールのみ）
+		# 上端が目のあたり、下端が顎より少し上
+		if hair_style == "ponytail" or hair_style == "side_tail":
+			# 【調整用】垂れ髪の上端位置。fwd_dir で前後、down_dir で上下
+			var strand_top = head_center + fwd_dir * hr * 0.32 + down_dir * hr * 0.05
+			# 【調整用】垂れ髪の下端位置。顎(down_dir*1.0)より少し上
+			var strand_bottom = head_center + fwd_dir * hr * 0.38 + down_dir * hr * 0.80
+			# 【調整用】垂れ髪の幅（太さ）
+			var strand_w = hr * 0.12
+			var strand_pts = PackedVector2Array([
+				strand_top   - fwd_dir * strand_w * 0.3,  # 上端・内側
+				strand_top   + fwd_dir * strand_w * 0.7,  # 上端・外側
+				strand_bottom + fwd_dir * strand_w * 0.5, # 下端・外側
+				strand_bottom - fwd_dir * strand_w * 0.2, # 下端・内側
+			])
+			ctx.canvas.draw_polygon(strand_pts, PackedColorArray([hair_color]))
 
 
 # ---------------------------------------------------------------
@@ -325,7 +356,7 @@ static func _get_back_hair_bottom_y(head_center: Vector2, hr: float, hair_style:
 		# ※ draw_hair_base_layer の半楕円の最下点がここに来る
 		return head_center.y + hr * 1.2
 	if hair_style == "side_tail":
-		return head_center.y + hr * 1.45
+		return head_center.y + hr * 1.2
 	return head_center.y + hr * 1.3
 
 static func _draw_back_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_style: String, hair_color: Color) -> void:
