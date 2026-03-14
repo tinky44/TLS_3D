@@ -110,8 +110,6 @@ static func draw(ctx: DrawContext) -> void:
 
 	# 4. 頭 + 髪
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
-	if facing == "front" and hair_style == "long":
-		_draw_mouth_front(ctx, d["front_hx"], d["front_hy"], head_w, stress_ratio)
 	CharacterHairDrawer.draw_hair(ctx, Vector2(d["front_hx"], d["front_hy"]), head_r, head_w, hair_style, hair_color, skin_color, facing)
 
 	# 4.2 帽子
@@ -135,13 +133,14 @@ static func draw(ctx: DrawContext) -> void:
 
 		var look_pitch = ctx.look_pitch + stress_ratio * 5.0
 
+		_draw_mouth_front(ctx, hx, hy, head_w, stress_ratio)
+		if hair_style == "long":
+			CharacterHairDrawer.draw_face_overlay_front(ctx, Vector2(hx, hy), head_r, head_w, hair_style, hair_color)
+
 		var eye_off_x = head_w * 0.2
 		var eye_y = hy + look_pitch
 		ctx.canvas.draw_circle(Vector2(hx - eye_off_x, eye_y), 2.5, Color("#333333"))
 		ctx.canvas.draw_circle(Vector2(hx + eye_off_x, eye_y), 2.5, Color("#333333"))
-
-		if hair_style != "long":
-			_draw_mouth_front(ctx, hx, hy, head_w, stress_ratio)
 
 static func _draw_mouth_front(ctx: DrawContext, hx: float, hy: float, head_w: float, stress_ratio: float) -> void:
 	var d = ctx.d

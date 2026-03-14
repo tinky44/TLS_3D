@@ -103,8 +103,6 @@ static func draw(ctx: DrawContext) -> void:
 	var head_r = ctx.head_r
 	var hair_style = ctx.hair_style
 	var hair_color = ctx.hair_color
-	if hair_style == "long":
-		_draw_mouth_side(ctx, hx, hy, head_r, head_angle)
 	CharacterHairDrawer.draw_hair(ctx, Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
 	# 6.2 帽子
@@ -117,8 +115,10 @@ static func draw(ctx: DrawContext) -> void:
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
 	ctx.canvas.draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
 
-	if hair_style != "long":
-		_draw_mouth_side(ctx, hx, hy, head_r, head_angle)
+	_draw_mouth_side(ctx, hx, hy, head_r, head_angle)
+	if hair_style == "long":
+		CharacterHairDrawer.draw_face_overlay_side(ctx, Vector2(hx, hy), head_r, hair_style, hair_color, head_angle)
+		ctx.canvas.draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
 
 	# 7. 手前の腕（台形袖の描画）
 	var p_elb_r = CharacterPoseCalculator.rotated_point(p_arm_shoulder.x, p_arm_shoulder.y, u_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2)

@@ -333,6 +333,49 @@ static func draw_bangs_front(ctx: DrawContext, head_center: Vector2, hr: float, 
 	])
 	ctx.canvas.draw_polygon(pts, PackedColorArray([hair_color]))
 
+static func draw_face_overlay_front(ctx: DrawContext, head_center: Vector2, hr: float, head_w: float, hair_style: String, hair_color: Color) -> void:
+	if hair_style != "long":
+		return
+
+	var hair_outer_w = hr * 1.12
+	var hair_bottom_y = _get_back_hair_bottom_y(head_center, hr, hair_style)
+	var side_inner_w = hr * 0.75
+	var side_top_y = head_center.y - hr * 0.3
+
+	var left_side_pts = PackedVector2Array([
+		Vector2(head_center.x - hair_outer_w, side_top_y),
+		Vector2(head_center.x - side_inner_w, side_top_y),
+		Vector2(head_center.x - side_inner_w, hair_bottom_y),
+		Vector2(head_center.x - hair_outer_w * 0.95, hair_bottom_y)
+	])
+	ctx.canvas.draw_polygon(left_side_pts, PackedColorArray([hair_color]))
+
+	var right_side_pts = PackedVector2Array([
+		Vector2(head_center.x + side_inner_w, side_top_y),
+		Vector2(head_center.x + hair_outer_w, side_top_y),
+		Vector2(head_center.x + hair_outer_w * 0.95, hair_bottom_y),
+		Vector2(head_center.x + side_inner_w, hair_bottom_y)
+	])
+	ctx.canvas.draw_polygon(right_side_pts, PackedColorArray([hair_color]))
+
+	var arc_center = head_center + Vector2(0, -hr * 0.1)
+	var arc_outer_r = hr * 1.10
+	var arc_thickness = hr * 0.35
+	var arc_inner_r = arc_outer_r - arc_thickness
+	var arc_steps = 16
+	var arc_pts = PackedVector2Array()
+	for i in range(arc_steps + 1):
+		var t = float(i) / arc_steps
+		var a = deg_to_rad(lerp(180.0, 360.0, t))
+		arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_outer_r)
+	for i in range(arc_steps + 1):
+		var t = float(i) / arc_steps
+		var a = deg_to_rad(lerp(360.0, 180.0, t))
+		arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_inner_r)
+	ctx.canvas.draw_polygon(arc_pts, PackedColorArray([hair_color]))
+
+	draw_bangs_front(ctx, head_center, hr, head_w, hair_style, hair_color)
+
 # ---------------------------------------------------------------
 # 側面の前髪（現在未使用: draw_hair の side ブロック内に直接記述済み）
 #
@@ -349,6 +392,64 @@ static func draw_bangs_side(ctx: DrawContext, head_center: Vector2, hr: float, h
 
 	var pts = PackedVector2Array([p1, p2, p3])
 	ctx.canvas.draw_polygon(pts, PackedColorArray([hair_color]))
+
+static func draw_face_overlay_side(ctx: DrawContext, head_center: Vector2, hr: float, hair_style: String, hair_color: Color, head_angle: float) -> void:
+	if hair_style != "long":
+		return
+
+	var down_dir = Vector2(0, 1).rotated(head_angle)
+	var back_dir = Vector2(-1, 0).rotated(head_angle)
+	var fwd_dir = Vector2(1, 0).rotated(head_angle)
+	var up_dir = Vector2(0, -1).rotated(head_angle)
+	var gravity_dir = Vector2(0, 1)
+	var hair_down_dir = gravity_dir
+	var R = hr * 1.08
+	var dome_center = head_center + up_dir * (hr * 0.1)
+	var cut_dist = - hr * 0.0
+	var min_ang = asin(cut_dist / R)
+	var hair_bottom_len = hr * 3.5
+
+	var pivot = head_center + back_dir * cut_dist
+	var hair_pts = PackedVector2Array()
+	var p_face_bottom = pivot + hair_down_dir * hair_bottom_len
+	hair_pts.append(p_face_bottom)
+	hair_pts.append(pivot)
+
+	var steps = 15
+	var sep_dir = hair_down_dir.rotated(PI / 2)
+	var max_ang = atan2(sep_dir.dot(back_dir), sep_dir.dot(up_dir))
+	if max_ang < min_ang:
+		max_ang += PI * 2.0
+	for i in range(steps + 1):
+		var t = float(i) / steps
+		var ang = lerp(min_ang, max_ang, t)
+		hair_pts.append(dome_center + back_dir * R * sin(ang) + up_dir * R * cos(ang))
+	var sep_pt = dome_center + back_dir * R * sin(max_ang) + up_dir * R * cos(max_ang)
+	hair_pts.append(sep_pt + hair_down_dir * hair_bottom_len)
+	ctx.canvas.draw_polygon(hair_pts, PackedColorArray([hair_color]))
+
+	var fan_pts = PackedVector2Array()
+	var fan_center = dome_center + back_dir * cut_dist + up_dir * hr * 0.1
+	fan_pts.append(fan_center)
+
+	var fan_steps = 10
+	var fan_end_ang = - PI / 4
+	for i in range(fan_steps + 1):
+		var t = float(i) / fan_steps
+		var ang = lerp(min_ang, fan_end_ang, t)
+		var l_back = R * sin(ang)
+		var l_up = R * cos(ang)
+		fan_pts.append(dome_center + back_dir * l_back + up_dir * l_up)
+	ctx.canvas.draw_polygon(fan_pts, PackedColorArray([hair_color]))
+
+	var p1 = dome_center + back_dir * (R * sin(fan_end_ang)) + up_dir * (R * cos(fan_end_ang))
+	var bangs_pts = PackedVector2Array([
+		p1,
+		head_center + fwd_dir * hr * 1.1 + up_dir * hr * 0.1,
+		head_center + fwd_dir * hr * 0.5 + up_dir * hr * 0.1,
+		fan_center.lerp(p1, 0.2)
+	])
+	ctx.canvas.draw_polygon(bangs_pts, PackedColorArray([hair_color]))
 
 static func _get_back_hair_bottom_y(head_center: Vector2, hr: float, hair_style: String) -> float:
 	if hair_style == "long":
