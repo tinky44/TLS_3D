@@ -400,19 +400,39 @@ static func _draw_side_tail_profile(
 	down_dir: Vector2
 ) -> void:
 	if hair_style == "ponytail":
-		# 【調整用】側面から見たポニテの結び目位置。back_dir で奥行き、down_dir で高さ
-		var pony_tie = head_center + back_dir * hr * 0.42 + down_dir * hr * 0.18
+		# 【調整用】側面から見たポニテの結び目位置。back_dir * 1.1 で後頭部表面あたり、down_dir で高さ
+		var pony_tie = head_center + back_dir * hr * 1.1 + down_dir * hr * 0.18
 		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(pony_tie, hr * 0.14, hair_color.darkened(0.06))
+		# ヘ音記号状のカーブ:
+		#   背面(外側)エッジ → 後ろ上に出て最大後方点を経て下りてくる
+		#   前面(内側)エッジ → ほぼ直線で下り、先端で少し前方に流れる
 		var pony_pts = PackedVector2Array([
-			pony_tie + back_dir * hr * 0.08 + up_dir * hr * 0.10,   # 根元上
-			# 【調整用】尾の中間のふくらみ。back_dir * 0.38 を大きくすると後方に張り出す
-			pony_tie + back_dir * hr * 0.38 + down_dir * hr * 0.72,
-			# 【調整用】尾の先端。down_dir * 2.00 を変えると長さが変わる
-			pony_tie + back_dir * hr * 0.16 + down_dir * hr * 2.00,
-			pony_tie + fwd_dir * hr * 0.02 + down_dir * hr * 1.34,  # 根元下
+			# --- 背面(外側)エッジ ---
+			pony_tie + up_dir * hr * 0.12,                                  # 根元（上）
+			# 【調整用】後方への初期張り出し。up_dir を増やすと根元が上に出る
+			pony_tie + back_dir * hr * 0.26 + up_dir * hr * 0.06,
+			# 【調整用】弧の最後方点。back_dir * 0.34 が後方への最大距離
+			pony_tie + back_dir * hr * 0.34 + down_dir * hr * 0.55,
+			# 【調整用】後方から下りてくる中間点
+			pony_tie + back_dir * hr * 0.16 + down_dir * hr * 1.40,
+			# 【調整用】先端。down_dir * 2.30 で長さ調整。fwd_dir で前方への流れを調整
+			pony_tie + fwd_dir * hr * 0.06 + down_dir * hr * 2.30,
+			# --- 前面(内側)エッジ ---
+			# 【調整用】先端の内側。fwd_dir を大きくすると先端が前方に流れる
+			pony_tie + fwd_dir * hr * 0.20 + down_dir * hr * 2.05,
+			pony_tie + fwd_dir * hr * 0.18 + down_dir * hr * 1.20,        # 前方中間
+			pony_tie + fwd_dir * hr * 0.14 + down_dir * hr * 0.45,        # 前方ふくらみ
+			pony_tie + fwd_dir * hr * 0.06,                                # 根元（下）
 		])
 		ctx.canvas.draw_polygon(pony_pts, PackedColorArray([hair_color]))
+		# 【調整用】尾の輪郭の色。darkened(0.45) を変えると濃さが変わる
+		var outline_color = hair_color.darkened(0.45)
+		# 【調整用】尾の輪郭の太さ
+		var outline_w = hr * 0.01
+		var outline_pts = pony_pts.duplicate()
+		outline_pts.append(pony_pts[0]) # 閉じる
+		ctx.canvas.draw_polyline(outline_pts, outline_color, outline_w, true)
 	elif hair_style == "side_tail":
 		# 【調整用】側面から見たサイドテールの結び目位置。fwd_dir で前後、down_dir で高さ
 		var side_tie = head_center + fwd_dir * hr * 0.18 + down_dir * hr * 0.16
