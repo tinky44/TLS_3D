@@ -118,6 +118,11 @@ function Resolve-GodotExe {
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $projectPath = Join-Path $repoRoot "godot-project"
+$automationRoot = Join-Path $repoRoot "artifacts\godot-runtime"
+$godotRoamingDir = Join-Path $automationRoot "AppData\Roaming"
+$godotLocalDir = Join-Path $automationRoot "AppData\Local"
+$godotTempDir = Join-Path $automationRoot "Temp"
+$godotLogDir = Join-Path $automationRoot "logs"
 
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $repoRoot "artifacts\godot-captures"
@@ -128,12 +133,21 @@ if ([string]::IsNullOrWhiteSpace($Prefix)) {
 }
 
 $resolvedGodotExe = Resolve-GodotExe -PreferredPath $GodotExe
+$safeLogPrefix = ($Prefix -replace '[<>:"/\\|?*]', '_')
+$logTimestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$logFilePath = Join-Path $godotLogDir "$safeLogPrefix`_$logTimestamp.log"
 Write-Host "USING_GODOT_EXE=$resolvedGodotExe"
+Write-Host "USING_GODOT_LOG_FILE=$logFilePath"
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+New-Item -ItemType Directory -Force -Path $godotRoamingDir | Out-Null
+New-Item -ItemType Directory -Force -Path $godotLocalDir | Out-Null
+New-Item -ItemType Directory -Force -Path $godotTempDir | Out-Null
+New-Item -ItemType Directory -Force -Path $godotLogDir | Out-Null
 
 $arguments = [System.Collections.Generic.List[string]]::new()
 $arguments.AddRange([string[]]@(
     "--path", $projectPath,
+    "--log-file", $logFilePath,
     "--",
     "--codex-smoke",
     "--scene=$Scene",
@@ -166,5 +180,32 @@ Add-OptionalArgument -ArgumentList $arguments -Key "hat-color" -Value $HatColor
 Add-OptionalArgument -ArgumentList $arguments -Key "bag-type" -Value $BagType
 Add-OptionalArgument -ArgumentList $arguments -Key "bag-color" -Value $BagColor
 
-& $resolvedGodotExe @arguments
-exit $LASTEXITCODE
+$originalEnv = @{
+    "APPDATA" = $env:APPDATA
+    "LOCALAPPDATA" = $env:LOCALAPPDATA
+    "TEMP" = $env:TEMP
+    "TMP" = $env:TMP
+}
+
+$env:APPDATA = $godotRoamingDir
+$env:LOCALAPPDATA = $godotLocalDir
+$env:TEMP = $godotTempDir
+$env:TMP = $godotTempDir
+
+$exitCode = 1
+try {
+    & $resolvedGodotExe @arguments
+    $exitCode = $LASTEXITCODE
+}
+finally {
+    foreach ($key in $originalEnv.Keys) {
+        if ($null -eq $originalEnv[$key]) {
+            Remove-Item -Path "Env:$key" -ErrorAction SilentlyContinue
+        }
+        else {
+            Set-Item -Path "Env:$key" -Value $originalEnv[$key]
+        }
+    }
+}
+
+exit $exitCode

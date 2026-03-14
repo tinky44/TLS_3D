@@ -22,3 +22,4 @@ artifacts/godot-captures/
 node_modules/
 
 godot-project/artifacts/godot-captures/*.png
+artifacts/godot-runtime/*
