@@ -21,13 +21,32 @@ static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r:
 
 	var dome_offset_y = - hr * 0.1
 	CharacterDrawUtils.draw_ellipse(ctx.canvas, head_center + Vector2(0, dome_offset_y), hair_outer_w, hair_top_h, hair_color)
-	var back_pts = PackedVector2Array([
-		Vector2(head_center.x - hair_outer_w, head_center.y),
-		Vector2(head_center.x + hair_outer_w, head_center.y),
-		Vector2(head_center.x + hair_outer_w * 1.0, hair_bottom_y),
-		Vector2(head_center.x - hair_outer_w * 1.0, hair_bottom_y)
-	])
-	ctx.canvas.draw_polygon(back_pts, PackedColorArray([hair_color]))
+	if hair_style == "ponytail" or hair_style == "side_tail":
+		# ポニテ・サイドテール: 下端を横幅いっぱいの半楕円で丸めた形状
+		# 半楕円の最下点 = hair_bottom_y（顎の位置）になる
+		# 【調整用】下端の楕円の縦半径。大きいほど丸みが深くなる。hair_bottom_y から上に食い込む量
+		var eh = hr * 0.3
+		# 楕円の中心Y（ここから eh 下が hair_bottom_y になる）
+		var arc_center_y = hair_bottom_y - eh
+		var rnd_pts = PackedVector2Array([
+			Vector2(head_center.x - hair_outer_w, head_center.y), # 上左
+			Vector2(head_center.x + hair_outer_w, head_center.y), # 上右
+		])
+		# 【調整用】arc_steps を増やすと下端が滑らかになる
+		var arc_steps = 10
+		for i in range(arc_steps + 1):
+			var a = lerp(0.0, PI, float(i) / arc_steps)
+			# X: 横幅いっぱい(hair_outer_w)、Y: 縦の丸み(eh) の半楕円
+			rnd_pts.append(Vector2(head_center.x + hair_outer_w * cos(a), arc_center_y + eh * sin(a)))
+		ctx.canvas.draw_polygon(rnd_pts, PackedColorArray([hair_color]))
+	else:
+		var back_pts = PackedVector2Array([
+			Vector2(head_center.x - hair_outer_w, head_center.y),
+			Vector2(head_center.x + hair_outer_w, head_center.y),
+			Vector2(head_center.x + hair_outer_w * 1.0, hair_bottom_y),
+			Vector2(head_center.x - hair_outer_w * 1.0, hair_bottom_y)
+		])
+		ctx.canvas.draw_polygon(back_pts, PackedColorArray([hair_color]))
 	_draw_back_tail(ctx, head_center, hr, hair_style, hair_color)
 
 # ---------------------------------------------------------------
@@ -113,10 +132,7 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 			arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_inner_r)
 		ctx.canvas.draw_polygon(arc_pts, PackedColorArray([hair_color]))
 
-		if hair_style == "ponytail":
-			var pony_tie = head_center + Vector2(0, hr * 0.22)
-			ctx.canvas.draw_circle(pony_tie, hr * 0.12, hair_color.darkened(0.08))
-		elif hair_style == "side_tail":
+		if hair_style == "side_tail":
 			_draw_front_side_tail(ctx, head_center, hr, hair_color)
 
 		# 5. 前髪（額にかかるポリゴン）
@@ -300,42 +316,57 @@ static func _get_back_hair_bottom_y(head_center: Vector2, hr: float, hair_style:
 	if hair_style == "long":
 		return head_center.y + hr * 3.5
 	if hair_style == "ponytail":
-		return head_center.y + hr * 1.55
+		# 【調整用】ポニテの後ろ髪の下端。hr * 1.0 = 顎（頭の下端）、hr * 1.3 で首あたり
+		# ※ draw_hair_base_layer の半楕円の最下点がここに来る
+		return head_center.y + hr * 1.2
 	if hair_style == "side_tail":
 		return head_center.y + hr * 1.45
 	return head_center.y + hr * 1.3
 
 static func _draw_back_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_style: String, hair_color: Color) -> void:
 	if hair_style == "ponytail":
+		# 【調整用】結び目の位置。Y を大きくすると下（後頭部の低い位置）に移動する
 		var tie_center = head_center + Vector2(0, hr * 0.55)
+		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(tie_center, hr * 0.16, hair_color.darkened(0.06))
 		var tail_pts = PackedVector2Array([
+			# 【調整用】尾の根元の幅。X値（±0.18）を変えると根元の太さが変わる
 			tie_center + Vector2(-hr * 0.18, -hr * 0.02),
 			tie_center + Vector2(hr * 0.18, -hr * 0.02),
+			# 【調整用】尾の中間のふくらみ。X * 0.32 を大きくすると尾が広がる
 			tie_center + Vector2(hr * 0.32, hr * 2.15),
+			# 【調整用】尾の先端。Y * 2.75 で長さを調整（大きいほど長い）
 			tie_center + Vector2(0, hr * 2.75),
 			tie_center + Vector2(-hr * 0.32, hr * 2.15),
 		])
 		ctx.canvas.draw_polygon(tail_pts, PackedColorArray([hair_color]))
 	elif hair_style == "side_tail":
+		# 【調整用】サイドテールの結び目位置。X を大きくすると外側、Y を大きくすると下
 		var tie_side = head_center + Vector2(hr * 0.72, hr * 0.18)
+		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(tie_side, hr * 0.15, hair_color.darkened(0.06))
 		var side_tail = PackedVector2Array([
 			tie_side + Vector2(-hr * 0.10, -hr * 0.02),
 			tie_side + Vector2(hr * 0.18, hr * 0.02),
+			# 【調整用】尾の中間のふくらみと長さ
 			tie_side + Vector2(hr * 0.62, hr * 0.85),
+			# 【調整用】尾の先端。Y * 2.20 を変えると長さが変わる
 			tie_side + Vector2(hr * 0.30, hr * 2.20),
 			tie_side + Vector2(-hr * 0.06, hr * 1.65),
 		])
 		ctx.canvas.draw_polygon(side_tail, PackedColorArray([hair_color]))
 
 static func _draw_front_side_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_color: Color) -> void:
+	# 【調整用】正面から見たサイドテールの結び目位置。X で左右位置、Y で高さを調整
 	var tie_side = head_center + Vector2(hr * 0.72, hr * 0.16)
+	# 【調整用】結び目の円の半径
 	ctx.canvas.draw_circle(tie_side, hr * 0.14, hair_color.darkened(0.06))
 	var tail_pts = PackedVector2Array([
 		tie_side + Vector2(-hr * 0.08, 0.0),
 		tie_side + Vector2(hr * 0.12, hr * 0.04),
+		# 【調整用】尾の中間のふくらみ
 		tie_side + Vector2(hr * 0.40, hr * 0.65),
+		# 【調整用】尾の先端。Y * 1.85 を変えると長さが変わる
 		tie_side + Vector2(hr * 0.25, hr * 1.85),
 		tie_side + Vector2(-hr * 0.02, hr * 1.45),
 	])
@@ -353,22 +384,30 @@ static func _draw_side_tail_profile(
 	down_dir: Vector2
 ) -> void:
 	if hair_style == "ponytail":
+		# 【調整用】側面から見たポニテの結び目位置。back_dir で奥行き、down_dir で高さ
 		var pony_tie = head_center + back_dir * hr * 0.42 + down_dir * hr * 0.18
+		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(pony_tie, hr * 0.14, hair_color.darkened(0.06))
 		var pony_pts = PackedVector2Array([
-			pony_tie + back_dir * hr * 0.08 + up_dir * hr * 0.10,
+			pony_tie + back_dir * hr * 0.08 + up_dir * hr * 0.10,   # 根元上
+			# 【調整用】尾の中間のふくらみ。back_dir * 0.38 を大きくすると後方に張り出す
 			pony_tie + back_dir * hr * 0.38 + down_dir * hr * 0.72,
+			# 【調整用】尾の先端。down_dir * 2.00 を変えると長さが変わる
 			pony_tie + back_dir * hr * 0.16 + down_dir * hr * 2.00,
-			pony_tie + fwd_dir * hr * 0.02 + down_dir * hr * 1.34,
+			pony_tie + fwd_dir * hr * 0.02 + down_dir * hr * 1.34,  # 根元下
 		])
 		ctx.canvas.draw_polygon(pony_pts, PackedColorArray([hair_color]))
 	elif hair_style == "side_tail":
+		# 【調整用】側面から見たサイドテールの結び目位置。fwd_dir で前後、down_dir で高さ
 		var side_tie = head_center + fwd_dir * hr * 0.18 + down_dir * hr * 0.16
+		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(side_tie, hr * 0.14, hair_color.darkened(0.06))
 		var side_pts = PackedVector2Array([
-			side_tie + up_dir * hr * 0.08,
+			side_tie + up_dir * hr * 0.08,                              # 根元上
+			# 【調整用】尾の中間のふくらみ。fwd_dir を大きくすると前方に張り出す
 			side_tie + fwd_dir * hr * 0.30 + down_dir * hr * 0.52,
+			# 【調整用】尾の先端。down_dir * 1.88 を変えると長さが変わる
 			side_tie + fwd_dir * hr * 0.12 + down_dir * hr * 1.88,
-			side_tie + back_dir * hr * 0.06 + down_dir * hr * 1.22,
+			side_tie + back_dir * hr * 0.06 + down_dir * hr * 1.22,    # 根元下
 		])
 		ctx.canvas.draw_polygon(side_pts, PackedColorArray([hair_color]))
