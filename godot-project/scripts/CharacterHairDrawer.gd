@@ -185,7 +185,7 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		# 【調整用】顔にかかる縦のライン（横髪が来る位置）
 		# 数値を 0.0 や +hr*0.1 などに増やすと、髪が後ろに下がって顔が広く見え、目への干渉が減ります。
 		# -hr*0.2 などマイナスを強めると、髪が前進して顔が隠れます。
-		var cut_dist = - hr * 0.1 # マイナス＝中心より前
+		var cut_dist = - hr * 0.0 # マイナス＝中心より前 
 
 		var pivot = head_center + back_dir * cut_dist
 
