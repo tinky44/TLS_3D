@@ -293,16 +293,17 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		var axis = p_bottom - waist_pos
 		var skirt_u = _normalized_or(axis, Vector2(0, 1))
 		var skirt_n = Vector2(-skirt_u.y, skirt_u.x).normalized()
+		var crotch_pos = Vector2(d["cx"], d["cy"])
+		var torso_u = _normalized_or(crotch_pos - waist_pos, skirt_u)
+		var top_n = Vector2(-torso_u.y, torso_u.x).normalized()
 		var half_top = base_width / 2.0
 		var half_hem = side_hem_w / 2.0
-		var belt_back = waist_pos + skirt_n * half_top
-		var belt_front = waist_pos - skirt_n * half_top
+		var belt_back = waist_pos + top_n * half_top
+		var belt_front = waist_pos - top_n * half_top
 		var hem_back_base = p_bottom + skirt_n * half_hem
 		var hem_front_base = p_bottom - skirt_n * half_hem
 		var front_side = -skirt_n
 		var back_side = skirt_n
-
-		var crotch_pos = Vector2(d["cx"], d["cy"])
 		var knee_l = Vector2(knee_l_x, d["cy"] + d["thigh_l"] * sin(ang_l))
 		var knee_r = Vector2(knee_r_x, d["cy"] + d["thigh_l"] * sin(ang_r))
 		var foot_h = ctx.m["height"] * ctx.p / 20.0
@@ -312,8 +313,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 
 		var candidates: Array = []
 		var pelvis_half = max(half_top, ctx.thigh_w * 0.5)
-		candidates.append(crotch_pos + skirt_n * pelvis_half)
-		candidates.append(crotch_pos - skirt_n * pelvis_half)
+		candidates.append(crotch_pos + top_n * pelvis_half)
+		candidates.append(crotch_pos - top_n * pelvis_half)
 		_append_segment_edge_candidates(candidates, crotch_pos, knee_l, ctx.thigh_w, [0.35, 0.7, 1.0])
 		_append_segment_edge_candidates(candidates, crotch_pos, knee_r, ctx.thigh_w, [0.35, 0.7, 1.0])
 		_append_segment_edge_candidates(candidates, knee_l, ankle_l, ctx.shin_w, [0.2, 0.55, 1.0])
@@ -380,8 +381,9 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 				for i in range(1, 7): # 6本の線を入れる
 					var t = float(i) / 7.0
 					var top_p = belt_back.lerp(belt_front, t)
+					var mid_p = back_outer.lerp(front_outer, t)
 					var bot_p = back_hem.lerp(front_hem, t)
-					ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
+					ctx.canvas.draw_polyline(PackedVector2Array([top_p, mid_p, bot_p]), pleat_col, 1.5)
 
 		# サスペンダースカート用：スカート上端にダークネイビーの帯
 		if is_jumper_skirt:
@@ -401,8 +403,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 				var belt_pts = PackedVector2Array([
 					belt_back,
 					belt_front,
-					belt_front + skirt_u * belt_h,
-					belt_back + skirt_u * belt_h,
+					belt_front + torso_u * belt_h,
+					belt_back + torso_u * belt_h,
 				])
 				ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
 		return
