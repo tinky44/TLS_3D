@@ -130,6 +130,18 @@ static func get_side_garment_waist_pos(ctx: DrawContext) -> Vector2:
 	var torso_dir = torso_vec.normalized() if torso_vec.length() > 0.01 else Vector2(0, 1)
 	return shoulder + torso_dir * u_arm
 
+# ジャンパー系トップスが正面・背面で共有するウエスト上端位置。
+# 側面と同じ「肩から胴体上部を一定距離 내려る」基準を、
+# 正面投影された胴体長へ比率変換して合わせる。
+static func get_front_garment_waist_pos(ctx: DrawContext) -> Vector2:
+	var d = ctx.d
+	var shoulder = Vector2(d["front_sx"], d["front_sy"])
+	var navel = Vector2(d["front_navel_x"], d["front_navel_y"])
+	var chest_l = max(float(d.get("chest_l", 0.0)), 0.01)
+	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
+	var t = clamp(u_arm / chest_l, 0.0, 1.0)
+	return shoulder.lerp(navel, t)
+
 # セーラースカートの側面上端位置。
 # 下胴の中心線（へそ→股）上で合わせ、屈み時にトップス下端とのずれを抑える。
 static func get_side_sailor_waist_pos(ctx: DrawContext) -> Vector2:
@@ -212,12 +224,10 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 	var is_blouse_bow = (tops_type == "blouse_bow")
 	var is_jumper_skirt = (tops_type == "jumper_skirt")
 	if is_jumper or is_blouse_bow or is_jumper_skirt:
-		var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0 # ベルトと同様の offset
 		if facing == "side":
 			waist_pos = get_side_garment_waist_pos(ctx)
 		else:
-			# 正面・背面: Xは固定(cx=0)のままYのみ引き上げる
-			waist_pos.y = d["front_sy"] + u_arm
+			waist_pos = get_front_garment_waist_pos(ctx)
 	elif facing == "side" and bottoms_type == "skirt_sailor":
 		waist_pos = get_side_sailor_waist_pos(ctx)
 
