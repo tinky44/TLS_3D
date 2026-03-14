@@ -65,18 +65,12 @@ static func draw(ctx: DrawContext) -> void:
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_hip_l.x, p_hip_l.y, d["thigh_l"], f_leg_l_ang)
 	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, shin_draw, f_leg_l_ang + d["knee_l"] * 0.2)
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_hip_l, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_color, pants_color, bottoms_type, leg_pants_top_w)
-	var sock_h = foot_h * 0.55
-	var sock_color = Color(0.97, 0.97, 0.97)
-	var shin_up_l = (p_thigh_l - p_shin_l).normalized() # 足首→膝方向（上向き）
-	CharacterDrawUtils.draw_rect(ctx.canvas, p_shin_l, p_shin_l + shin_up_l * sock_h, shin_w, sock_color)
-	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_l, shin_w, foot_h, shoe_color)
+	_draw_legwear_front(ctx, p_shin_l, p_thigh_l, shin_w, foot_h)
 
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_hip_r.x, p_hip_r.y, d["thigh_l"], f_leg_r_ang)
 	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, shin_draw, f_leg_r_ang + d["knee_r"] * 0.2)
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_hip_r, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type, leg_pants_top_w)
-	var shin_up_r = (p_thigh_r - p_shin_r).normalized() # 足首→膝方向（上向き）
-	CharacterDrawUtils.draw_rect(ctx.canvas, p_shin_r, p_shin_r + shin_up_r * sock_h, shin_w, sock_color)
-	CharacterDrawUtils.draw_foot_front(ctx.canvas, p_shin_r, shin_w, foot_h, shoe_color)
+	_draw_legwear_front(ctx, p_shin_r, p_thigh_r, shin_w, foot_h)
 
 	# 1.5 両腕（台形袖の描画）
 	var arm_len = m["armLength"] * p
@@ -153,3 +147,52 @@ static func draw(ctx: DrawContext) -> void:
 			m_pts.append(Vector2(hx + xx, yy))
 		for i in range(m_pts.size() - 1):
 			ctx.canvas.draw_line(m_pts[i], m_pts[i + 1], Color("#c07070"), 2.0)
+
+static func _draw_legwear_front(ctx: DrawContext, ankle: Vector2, knee: Vector2, foot_w: float, foot_h: float, shoe_tint: float = 0.0) -> void:
+	var sock_h = foot_h * 0.55
+	var shin_up = (knee - ankle).normalized()
+	var sock_color = _get_sock_color_front(ctx)
+	CharacterDrawUtils.draw_rect(ctx.canvas, ankle, ankle + shin_up * sock_h, foot_w, sock_color)
+
+	var foot_color = _get_shoe_color_front(ctx).darkened(shoe_tint)
+	CharacterDrawUtils.draw_foot_front(ctx.canvas, ankle, foot_w, foot_h, foot_color)
+
+	match ctx.shoes_type:
+		"uwabaki":
+			var line_y = ankle.y + foot_h * 0.32
+			ctx.canvas.draw_line(
+				Vector2(ankle.x - foot_w * 0.42, line_y),
+				Vector2(ankle.x + foot_w * 0.42, line_y),
+				Color("#d84a4a"),
+				2.0
+			)
+		"loafer":
+			var vamp_y = ankle.y + foot_h * 0.22
+			ctx.canvas.draw_line(
+				Vector2(ankle.x - foot_w * 0.30, vamp_y),
+				Vector2(ankle.x + foot_w * 0.30, vamp_y),
+				foot_color.darkened(0.25),
+				2.0
+			)
+		_:
+			pass
+
+static func _get_sock_color_front(ctx: DrawContext) -> Color:
+	match ctx.shoes_type:
+		"loafer":
+			return Color(0.94, 0.94, 0.96)
+		"socks":
+			return Color(0.98, 0.98, 1.0)
+		_:
+			return Color(0.97, 0.97, 0.97)
+
+static func _get_shoe_color_front(ctx: DrawContext) -> Color:
+	match ctx.shoes_type:
+		"uwabaki":
+			return Color("#f7f7f2")
+		"loafer":
+			return Color("#4b4b52")
+		"socks":
+			return Color("#f5f4fb")
+		_:
+			return ctx.shoe_color

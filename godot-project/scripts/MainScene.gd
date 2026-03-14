@@ -310,10 +310,12 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	var hair_opt = OptionButton.new()
 	hair_opt.focus_mode = Control.FOCUS_NONE
 	hair_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var hair_values = ["short", "long"]
+	var hair_values = ["short", "long", "ponytail", "side_tail"]
 	hair_opt.add_item("ショート", 0)
 	hair_opt.add_item("ロング", 1)
-	hair_opt.selected = hair_values.find(Global.current_appearance.get("hair_style", "short"))
+	hair_opt.add_item("ポニーテール", 2)
+	hair_opt.add_item("サイドテール", 3)
+	hair_opt.selected = max(0, hair_values.find(Global.current_appearance.get("hair_style", "short")))
 	hair_opt.item_selected.connect(func(idx: int) -> void:
 		Global.current_appearance["hair_style"] = hair_values[idx]
 		var drawer = player.get_node_or_null("CharacterDrawer")
@@ -546,6 +548,88 @@ func _hide_term_choice_panel() -> void:
 	term_choice_panel.hide()
 	get_tree().paused = false
 
+func _resolve_stage_id(stage_id: String) -> String:
+	var global = get_node_or_null("/root/Global")
+	var age_value: int = int(global.age) if global else 0
+	return StageBuilder.resolve_stage_id(stage_id, age_value)
+
+func _get_stage_uniform_age(stage_id: String) -> int:
+	var global = get_node_or_null("/root/Global")
+	var fallback_age: int = int(global.age) if global else 6
+	if stage_id.ends_with("_elementary"):
+		return 10
+	if stage_id.ends_with("_middle"):
+		return 13
+	if stage_id.ends_with("_high"):
+		return 16
+	return fallback_age
+
+func _get_shoe_color_for_type(shoes_type: String) -> String:
+	match shoes_type:
+		"uwabaki":
+			return "#f7f7f2"
+		"loafer":
+			return "#4b4b52"
+		"socks":
+			return "#f5f4fb"
+		_:
+			return "#f0f0f0"
+
+func _build_stage_shoe_overrides(stage_id: String) -> Dictionary:
+	var shoes_type: String = Global.get_shoes_for_stage(stage_id)
+	return {
+		"shoes_type": shoes_type,
+		"shoes_color": _get_shoe_color_for_type(shoes_type),
+	}
+
+func _build_stage_uniform_appearance(stage_id: String, hair_style: String, hair_color: String) -> Dictionary:
+	var appearance: Dictionary = Global.get_school_uniform(_get_stage_uniform_age(stage_id)).duplicate(true)
+	var shoe_overrides: Dictionary = _build_stage_shoe_overrides(stage_id)
+	appearance["hair_style"] = hair_style
+	appearance["hair_color"] = hair_color
+	for key in shoe_overrides.keys():
+		appearance[key] = shoe_overrides[key]
+	return appearance
+
+func _sync_player_stage_appearance(stage_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var shoes_type: String = Global.get_shoes_for_stage(stage_id)
+	global.current_appearance["shoes_type"] = shoes_type
+	global.current_appearance["shoes_color"] = _get_shoe_color_for_type(shoes_type)
+	var drawer = player.get_node_or_null("CharacterDrawer") if player else null
+	if drawer:
+		drawer.queue_redraw()
+
+func _get_stage_lock_message(stage_id: String) -> String:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return ""
+	var age_value: int = int(global.age)
+	match stage_id:
+		"school_hallway_elementary", "school_elementary":
+			if age_value > 11:
+				return "懐かしいな……。今はもう、このままは入れない。"
+		"school_middle":
+			if age_value < 12:
+				return "まだこの教室に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この教室じゃない。"
+		"school_high":
+			if age_value < 15:
+				return "まだこの教室に入るには早い。"
+		"school_hallway_high":
+			if age_value < 15:
+				return "まだこの通学路に向かう時期じゃない。"
+	return ""
+
+func _get_transition_lock_message(door_id: String) -> String:
+	if not door_id.begins_with("door_to_"):
+		return ""
+	var destination: String = door_id.substr("door_to_".length())
+	return _get_stage_lock_message(destination)
+
 func _on_term_choice_selected(choice_id: String) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global:
@@ -572,7 +656,7 @@ func _on_term_choice_selected(choice_id: String) -> void:
 	if event_id != "" and not (choice_id == "home" and summer_front):
 		global.pending_events.push_front(event_id)
 
-	global.current_stage_id = String(choice.get("stage_id", global.current_stage_id))
+	global.current_stage_id = _resolve_stage_id(String(choice.get("stage_id", global.current_stage_id)))
 	global.save_settings()
 	_hide_term_choice_panel()
 	_load_stage()
@@ -705,7 +789,7 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
 		if String(hotspot_data.get("plan", "")) != String(global.current_term_plan):
 			continue
-		if String(hotspot_data.get("stage_id", "")) != String(global.current_stage_id):
+		if _resolve_stage_id(String(hotspot_data.get("stage_id", ""))) != String(global.current_stage_id):
 			continue
 		var matched: bool = false
 		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
@@ -989,7 +1073,7 @@ func _interact_with_npc(npc: Node) -> void:
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
 		elif npc_id == "haruka":
-			if global and global.current_term_plan == "school" and global.current_stage_id == "school" and not global.has_term_hotspot_done("school_haruka_support"):
+			if global and global.current_term_plan == "school" and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
 				key = "term_school_haruka_support"
 				global.mark_term_hotspot_done("school_haruka_support")
 			elif global and global.is_leg_pain and vball_phase == 3:
@@ -1180,10 +1264,15 @@ func _update_bubble():
 			_nearby_term_hotspot = hotspot_id
 			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
 		elif obs_id.begins_with("door_to_"):
-			_nearby_transition_door = obs_id
+			var lock_message: String = _get_transition_lock_message(String(obs_id))
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
-			bubble_label.text += "\n[Eキーで移動]"
+			if lock_message != "":
+				_nearby_transition_door = ""
+				bubble_label.text = lock_message
+			else:
+				_nearby_transition_door = obs_id
+				bubble_label.text += "\n[Eキーで移動]"
 		elif obs_id == "height_scale":
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
@@ -1566,6 +1655,10 @@ func _update_ui():
 func _load_stage():
 	var global = get_node_or_null("/root/Global")
 	var stage_id = global.current_stage_id if global else "room"
+	stage_id = _resolve_stage_id(String(stage_id))
+	if global:
+		global.current_stage_id = stage_id
+	_sync_player_stage_appearance(stage_id)
 	
 	# 床や障害物を生成
 	StageBuilder.build_stage(stage_id, self , p, global.age if global else 0)
@@ -1598,7 +1691,7 @@ func _load_stage():
 	if global:
 		var ev = global.pop_next_event()
 		if ev == "semester_start":
-			if stage_id == "school":
+			if StageBuilder.is_school_classroom_stage(stage_id):
 				await get_tree().create_timer(0.5).timeout
 				_start_dialogue("teacher", "semester_start")
 				# 1学期（初回）のみ先輩招待をキュー
@@ -1608,7 +1701,7 @@ func _load_stage():
 			else:
 				global.pending_events.push_front(ev) # 教室に入るまで保留
 		elif ev == "gym_senior_invite":
-			if stage_id == "gymnasium":
+			if StageBuilder.is_gymnasium_stage(stage_id):
 				await get_tree().create_timer(0.8).timeout
 				_start_dialogue("senior", "first_meet")
 			else:
@@ -1639,7 +1732,7 @@ func _load_stage():
 			else:
 				global.pending_events.push_front(ev) # room に入るまで保留
 		elif ev == "vball_tell_senior":
-			if stage_id == "gymnasium":
+			if StageBuilder.is_gymnasium_stage(stage_id):
 				await get_tree().create_timer(0.8).timeout
 				_start_dialogue("senior", "pain_concern")
 			else:
@@ -1659,6 +1752,27 @@ func _get_entrance_dialogue_key(age: int) -> String:
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
 
+func _spawn_stage_npc(
+	npc_scene: PackedScene,
+	position_cm: float,
+	params: Dictionary = {},
+	app: Dictionary = {},
+	npc_id: String = "",
+	patrol_cm: float = 80.0
+) -> Node:
+	var npc = npc_scene.instantiate()
+	npc.set_meta("is_npc", true)
+	if npc_id != "":
+		npc.npc_id = npc_id
+	if not params.is_empty():
+		npc.custom_params = params
+	if not app.is_empty():
+		npc.custom_appearance = app
+	npc.position = Vector2(position_cm * p, 0)
+	npc.patrol_range = patrol_cm
+	add_child(npc)
+	return npc
+
 func _spawn_npcs(stage_id: String) -> void:
 	var npc_scene = load("res://NPC.tscn")
 	if not npc_scene: return
@@ -1667,28 +1781,40 @@ func _spawn_npcs(stage_id: String) -> void:
 		if child.has_meta("is_npc"):
 			child.queue_free()
 
+	var shoe_overrides: Dictionary = _build_stage_shoe_overrides(stage_id)
+	var hall_student_params := {
+		"elementary": {"height": 132.0, "ratio": 6.0, "legRatio": 43.0, "sex": "female"},
+		"middle": {"height": 149.0, "ratio": 6.4, "legRatio": 44.0, "sex": "female"},
+		"high": {"height": 160.0, "ratio": 6.8, "legRatio": 45.0, "sex": "female"},
+	}
+	var classmate_params := {
+		"elementary": {"height": 128.0, "ratio": 5.9, "legRatio": 43.0, "sex": "female"},
+		"middle": {"height": 147.0, "ratio": 6.3, "legRatio": 44.0, "sex": "female"},
+		"high": {"height": 158.0, "ratio": 6.7, "legRatio": 45.0, "sex": "female"},
+	}
+	var stage_suffix := ""
+	if stage_id.ends_with("_elementary"):
+		stage_suffix = "elementary"
+	elif stage_id.ends_with("_middle"):
+		stage_suffix = "middle"
+	elif stage_id.ends_with("_high"):
+		stage_suffix = "high"
+
 	if stage_id == "outdoor":
-		var npc = npc_scene.instantiate()
-		npc.set_meta("is_npc", true)
-		npc.custom_params = {
+		_spawn_stage_npc(npc_scene, 300.0, {
 			"height": 158.0,
 			"ratio": 7.0,
 			"legRatio": 45.0,
 			"sex": "female"
-		}
-		npc.position = Vector2(300 * p, 0)
-		add_child(npc)
+		}, {}, "", 120.0)
 		
 		# 街にいる小さな子供
-		var kid = npc_scene.instantiate()
-		kid.set_meta("is_npc", true)
-		kid.custom_params = {
+		_spawn_stage_npc(npc_scene, 500.0, {
 			"height": 110.0,
 			"ratio": 5.5,
 			"legRatio": 45.0,
 			"sex": "female"
-		}
-		kid.custom_appearance = {
+		}, {
 			"hair_style": "short",
 			"hair_color": "#885533",
 			"tops_type": "t_shirt",
@@ -1697,158 +1823,56 @@ func _spawn_npcs(stage_id: String) -> void:
 			"bottoms_color": "#33aa33",
 			"shoes_type": "sneakers",
 			"shoes_color": "#ffffff"
-		}
-		kid.position = Vector2(500 * p, 0)
-		add_child(kid)
+		}, "", 90.0)
 
 	elif stage_id == "room":
-		# 母親
-		var mother = npc_scene.instantiate()
-		mother.set_meta("is_npc", true)
-		mother.npc_id = "mother"
-		mother.position = Vector2(400 * p, 0)
-		add_child(mother)
-		# 父親（男性パラメータを事前設定）
-		var father = npc_scene.instantiate()
-		father.set_meta("is_npc", true)
-		father.npc_id = "father"
-		father.custom_params = {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}
-		father.position = Vector2(700 * p, 0)
-		add_child(father)
+		_spawn_stage_npc(npc_scene, 400.0, {}, {}, "mother", 0.0)
+		_spawn_stage_npc(npc_scene, 700.0, {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}, {}, "father", 0.0)
 
-	elif stage_id == "school_hallway":
-		# 先輩（バレー部）
-		var senior = npc_scene.instantiate()
-		senior.set_meta("is_npc", true)
-		senior.npc_id = "senior"
-		senior.custom_params = {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}
-		senior.position = Vector2(1200 * p, 0)
-		add_child(senior)
-		# 廊下にいる生徒
-		var npc_hall = npc_scene.instantiate()
-		npc_hall.set_meta("is_npc", true)
-		npc_hall.custom_params = {
-			"height": 140.0,
-			"ratio": 6.2,
-			"legRatio": 43.0,
-			"sex": "female"
-		}
-		npc_hall.custom_appearance = {
-			"hair_style": "long",
-			"hair_color": "#443322",
-			"tops_type": "blouse",
-			"tops_color": "#ffffff",
-			"bottoms_type": "skirt_short",
-			"bottoms_color": "#111166",
-			"shoes_type": "sneakers",
-			"shoes_color": "#ffffff"
-		}
-		npc_hall.position = Vector2(700 * p, 0) # 掲示板付近
-		add_child(npc_hall)
+	elif StageBuilder.is_school_hallway_stage(stage_id):
+		var hall_student_appearance: Dictionary = _build_stage_uniform_appearance(stage_id, "side_tail", "#5b4334")
+		_spawn_stage_npc(npc_scene, 700.0, hall_student_params.get(stage_suffix, hall_student_params["middle"]), hall_student_appearance, "", 70.0)
+		_spawn_stage_npc(npc_scene, 1180.0 if stage_suffix == "high" else 980.0, {"height": 152.0, "ratio": 6.8, "legRatio": 44.0, "sex": "female"}, {}, "haruka", 55.0)
+		if stage_suffix == "high":
+			_spawn_stage_npc(npc_scene, 1450.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 85.0)
 
-	elif stage_id == "school":
-		# 友人「はるか」
-		var haruka = npc_scene.instantiate()
-		haruka.set_meta("is_npc", true)
-		haruka.npc_id = "haruka"
-		# コアNPC「桐島はるか」
-		haruka.custom_params = {
-			"height": 152.0,
-			"ratio": 6.8,
-			"legRatio": 44.0,
-			"sex": "female"
-		}
-		haruka.custom_appearance = {
-			"hair_style": "long",
-			"hair_color": "#885533",
-			"tops_type": "blouse",
-			"tops_color": "#ffffff",
-			"bottoms_type": "skirt_short",
-			"bottoms_color": "#111166",
-			"shoes_type": "sneakers",
-			"shoes_color": "#ffffff"
-		}
-		haruka.position = Vector2(300 * p, 0)
-		add_child(haruka)
+	elif StageBuilder.is_school_classroom_stage(stage_id):
+		_spawn_stage_npc(npc_scene, 300.0, {"height": 152.0, "ratio": 6.8, "legRatio": 44.0, "sex": "female"}, {}, "haruka", 40.0)
+		var classmate_appearance: Dictionary = _build_stage_uniform_appearance(stage_id, "short", "#553a2b")
+		_spawn_stage_npc(npc_scene, 1120.0, classmate_params.get(stage_suffix, classmate_params["middle"]), classmate_appearance, "", 30.0)
+		if stage_suffix == "high":
+			_spawn_stage_npc(npc_scene, 760.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 45.0)
 
-		# 背の高い男性教師のようなダミー（身長175cm）
-		var npc2 = npc_scene.instantiate()
-		npc2.set_meta("is_npc", true)
-		npc2.custom_params = {
-			"height": 175.0,
-			"ratio": 7.2,
-			"legRatio": 46.0,
-			"sex": "male"
-		}
-		npc2.custom_appearance = {
-			"hair_style": "short",
-			"hair_color": "#111111",
-			"tops_type": "sweater",
-			"tops_color": "#333333",
-			"bottoms_type": "pants",
-			"bottoms_color": "#111111",
-			"shoes_type": "sneakers",
-			"shoes_color": "#000000"
-		}
-		npc2.position = Vector2(900 * p, 0) # 先生の机付近
-		add_child(npc2)
+	elif StageBuilder.is_gymnasium_stage(stage_id):
+		_spawn_stage_npc(npc_scene, 1200.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 90.0)
 
-	elif stage_id == "gymnasium":
-		# バレー部先輩
-		var gym_senior = npc_scene.instantiate()
-		gym_senior.set_meta("is_npc", true)
-		gym_senior.npc_id = "senior"
-		gym_senior.custom_params = {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}
-		gym_senior.position = Vector2(1200 * p, 0)
-		add_child(gym_senior)
-
-	elif stage_id == "infirmary":
+	elif StageBuilder.is_infirmary_stage(stage_id):
 		# 保健室の先生（小柄な女性、机の前に立っている）
-		var nurse = npc_scene.instantiate()
-		nurse.set_meta("is_npc", true)
-		nurse.custom_params = {
-			"height": 155.0,
-			"ratio": 6.8,
-			"legRatio": 44.0,
-			"sex": "female"
-		}
-		nurse.custom_appearance = {
+		var nurse_app: Dictionary = {
 			"hair_style": "short",
 			"hair_color": "#334422",
 			"tops_type": "blouse",
 			"tops_color": "#ffffff",
 			"bottoms_type": "skirt_long",
 			"bottoms_color": "#ffffff",
-			"shoes_type": "sneakers",
-			"shoes_color": "#cccccc"
 		}
-		nurse.npc_id = "nurse"
-		nurse.position = Vector2(680 * p, 0) # 机のそば
-		add_child(nurse)
+		for key in shoe_overrides.keys():
+			nurse_app[key] = shoe_overrides[key]
+		_spawn_stage_npc(npc_scene, 680.0, {
+			"height": 155.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}, nurse_app, "nurse", 0.0)
 		# はるかが追随中なら身長計の横にスポーン
 		var global_inf = get_node_or_null("/root/Global")
 		if global_inf and global_inf.haruka_following:
-			var haruka_inf = npc_scene.instantiate()
-			haruka_inf.set_meta("is_npc", true)
-			haruka_inf.npc_id = "haruka"
-			haruka_inf.custom_params = {
+			_spawn_stage_npc(npc_scene, 350.0, {
 				"height": 152.0,
 				"ratio": 6.8,
 				"legRatio": 44.0,
 				"sex": "female"
-			}
-			haruka_inf.custom_appearance = {
-				"hair_style": "long",
-				"hair_color": "#885533",
-				"tops_type": "sweater",
-				"tops_color": "#ffffff",
-				"bottoms_type": "skirt_long",
-				"bottoms_color": "#333333",
-				"shoes_type": "sneakers",
-				"shoes_color": "#aa3333"
-			}
-			haruka_inf.position = Vector2(350 * p, 0) # 身長計付近
-			add_child(haruka_inf)
+			}, {}, "haruka", 0.0)
 
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -1859,6 +1883,11 @@ func _on_save_pressed() -> void:
 func _enter_transition_door() -> void:
 	# "door_to_XXX" → 遷移先ステージID = "XXX"
 	var new_stage_id = _nearby_transition_door.substr("door_to_".length())
+	var lock_message: String = _get_stage_lock_message(new_stage_id)
+	if lock_message != "":
+		_show_bump_alert(lock_message)
+		return
+	new_stage_id = _resolve_stage_id(new_stage_id)
 	if not StageBuilder.STAGES.has(new_stage_id):
 		return
 

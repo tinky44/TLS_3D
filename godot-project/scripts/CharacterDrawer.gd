@@ -75,6 +75,7 @@ func _draw() -> void:
 	ctx.is_skirt = ctx.bottoms_type.begins_with("skirt")
 	ctx.hair_style = appearance.get("hair_style", "short")
 	ctx.hair_color = Color(appearance.get("hair_color", "#4a3c31"))
+	ctx.shoes_type = appearance.get("shoes_type", "sneakers")
 	ctx.shoe_color = Color(appearance.get("shoes_color", "#f0f0f0"))
 	ctx.hat_type = appearance.get("hat_type", "none")
 	

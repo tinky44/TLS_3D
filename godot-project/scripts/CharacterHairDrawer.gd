@@ -9,7 +9,7 @@ class_name CharacterHairDrawer
 # 引数:
 #   head_center : 頭の中心座標
 #   head_r      : 頭の半径
-#   hair_style  : "short" or "long"
+#   hair_style  : "short" / "long" / "ponytail" / "side_tail"
 #   hair_color  : 髪の色
 # ---------------------------------------------------------------
 static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r: float, hair_style: String, hair_color: Color) -> void:
@@ -17,9 +17,7 @@ static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r:
 	var hair_outer_w = hr * 1.12
 	var hair_top_h = hr * 1.08
 	# 【調整用】後ろ髪の下端位置。hair_style に応じて変わる
-	var hair_bottom_y = head_center.y + hr * 1.3
-	if hair_style == "long":
-		hair_bottom_y = head_center.y + hr * 3.5
+	var hair_bottom_y = _get_back_hair_bottom_y(head_center, hr, hair_style)
 
 	var dome_offset_y = - hr * 0.1
 	CharacterDrawUtils.draw_ellipse(ctx.canvas, head_center + Vector2(0, dome_offset_y), hair_outer_w, hair_top_h, hair_color)
@@ -30,6 +28,7 @@ static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r:
 		Vector2(head_center.x - hair_outer_w * 1.0, hair_bottom_y)
 	])
 	ctx.canvas.draw_polygon(back_pts, PackedColorArray([hair_color]))
+	_draw_back_tail(ctx, head_center, hr, hair_style, hair_color)
 
 # ---------------------------------------------------------------
 # 髪型描画ヘルパー（メイン）
@@ -41,7 +40,7 @@ static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r:
 #   head_center : 頭の中心座標
 #   head_r      : 頭の半径
 #   head_w      : 頭の横幅（px）
-#   hair_style  : "short" or "long"
+#   hair_style  : "short" / "long" / "ponytail" / "side_tail"
 #   hair_color  : 髪の色
 #   skin_color  : 肌色
 #   facing      : "front" / "back" / "side"
@@ -58,9 +57,7 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		# 【調整用】ドーム（頭頂部の丸み）の高さ。大きいほど頭が縦に膨らむ
 
 		# 【調整用】髪の下端位置（ショート/ロング）。値を大きくすると髪が長くなる
-		var hair_bottom_y = head_center.y + hr * 1.3 # 短い場合
-		if hair_style == "long":
-			hair_bottom_y = head_center.y + hr * 3.5 # ロングの場合
+		var hair_bottom_y = _get_back_hair_bottom_y(head_center, hr, hair_style)
 
 		# 1. 後ろ髪（顔の背面に描画）は事前描画されるため省略
 		var dome_offset_y = - hr * 0.1 # 2. 顔（肌色の円）
@@ -115,6 +112,12 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 			var a = deg_to_rad(lerp(arc_end_deg, arc_start_deg, t))
 			arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_inner_r)
 		ctx.canvas.draw_polygon(arc_pts, PackedColorArray([hair_color]))
+
+		if hair_style == "ponytail":
+			var pony_tie = head_center + Vector2(0, hr * 0.22)
+			ctx.canvas.draw_circle(pony_tie, hr * 0.12, hair_color.darkened(0.08))
+		elif hair_style == "side_tail":
+			_draw_front_side_tail(ctx, head_center, hr, hair_color)
 
 		# 5. 前髪（額にかかるポリゴン）
 		draw_bangs_front(ctx, head_center, hr, head_w, hair_style, hair_color)
@@ -194,6 +197,7 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		hair_pts.append(p_back_bottom)
 
 		ctx.canvas.draw_polygon(hair_pts, PackedColorArray([hair_color]))
+		_draw_side_tail_profile(ctx, head_center, hr, hair_style, hair_color, back_dir, fwd_dir, up_dir, down_dir)
 
 		# 3. 中間髪（前髪と後ろ髪の間の扇形オブジェクト）
 		# 頭の後ろから前（生え際）へと繋がる自然な丸みを作ります。
@@ -291,3 +295,80 @@ static func draw_bangs_side(ctx: DrawContext, head_center: Vector2, hr: float, h
 
 	var pts = PackedVector2Array([p1, p2, p3])
 	ctx.canvas.draw_polygon(pts, PackedColorArray([hair_color]))
+
+static func _get_back_hair_bottom_y(head_center: Vector2, hr: float, hair_style: String) -> float:
+	if hair_style == "long":
+		return head_center.y + hr * 3.5
+	if hair_style == "ponytail":
+		return head_center.y + hr * 1.55
+	if hair_style == "side_tail":
+		return head_center.y + hr * 1.45
+	return head_center.y + hr * 1.3
+
+static func _draw_back_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_style: String, hair_color: Color) -> void:
+	if hair_style == "ponytail":
+		var tie_center = head_center + Vector2(0, hr * 0.55)
+		ctx.canvas.draw_circle(tie_center, hr * 0.16, hair_color.darkened(0.06))
+		var tail_pts = PackedVector2Array([
+			tie_center + Vector2(-hr * 0.18, -hr * 0.02),
+			tie_center + Vector2(hr * 0.18, -hr * 0.02),
+			tie_center + Vector2(hr * 0.32, hr * 2.15),
+			tie_center + Vector2(0, hr * 2.75),
+			tie_center + Vector2(-hr * 0.32, hr * 2.15),
+		])
+		ctx.canvas.draw_polygon(tail_pts, PackedColorArray([hair_color]))
+	elif hair_style == "side_tail":
+		var tie_side = head_center + Vector2(hr * 0.72, hr * 0.18)
+		ctx.canvas.draw_circle(tie_side, hr * 0.15, hair_color.darkened(0.06))
+		var side_tail = PackedVector2Array([
+			tie_side + Vector2(-hr * 0.10, -hr * 0.02),
+			tie_side + Vector2(hr * 0.18, hr * 0.02),
+			tie_side + Vector2(hr * 0.62, hr * 0.85),
+			tie_side + Vector2(hr * 0.30, hr * 2.20),
+			tie_side + Vector2(-hr * 0.06, hr * 1.65),
+		])
+		ctx.canvas.draw_polygon(side_tail, PackedColorArray([hair_color]))
+
+static func _draw_front_side_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_color: Color) -> void:
+	var tie_side = head_center + Vector2(hr * 0.72, hr * 0.16)
+	ctx.canvas.draw_circle(tie_side, hr * 0.14, hair_color.darkened(0.06))
+	var tail_pts = PackedVector2Array([
+		tie_side + Vector2(-hr * 0.08, 0.0),
+		tie_side + Vector2(hr * 0.12, hr * 0.04),
+		tie_side + Vector2(hr * 0.40, hr * 0.65),
+		tie_side + Vector2(hr * 0.25, hr * 1.85),
+		tie_side + Vector2(-hr * 0.02, hr * 1.45),
+	])
+	ctx.canvas.draw_polygon(tail_pts, PackedColorArray([hair_color]))
+
+static func _draw_side_tail_profile(
+	ctx: DrawContext,
+	head_center: Vector2,
+	hr: float,
+	hair_style: String,
+	hair_color: Color,
+	back_dir: Vector2,
+	fwd_dir: Vector2,
+	up_dir: Vector2,
+	down_dir: Vector2
+) -> void:
+	if hair_style == "ponytail":
+		var pony_tie = head_center + back_dir * hr * 0.42 + down_dir * hr * 0.18
+		ctx.canvas.draw_circle(pony_tie, hr * 0.14, hair_color.darkened(0.06))
+		var pony_pts = PackedVector2Array([
+			pony_tie + back_dir * hr * 0.08 + up_dir * hr * 0.10,
+			pony_tie + back_dir * hr * 0.38 + down_dir * hr * 0.72,
+			pony_tie + back_dir * hr * 0.16 + down_dir * hr * 2.00,
+			pony_tie + fwd_dir * hr * 0.02 + down_dir * hr * 1.34,
+		])
+		ctx.canvas.draw_polygon(pony_pts, PackedColorArray([hair_color]))
+	elif hair_style == "side_tail":
+		var side_tie = head_center + fwd_dir * hr * 0.18 + down_dir * hr * 0.16
+		ctx.canvas.draw_circle(side_tie, hr * 0.14, hair_color.darkened(0.06))
+		var side_pts = PackedVector2Array([
+			side_tie + up_dir * hr * 0.08,
+			side_tie + fwd_dir * hr * 0.30 + down_dir * hr * 0.52,
+			side_tie + fwd_dir * hr * 0.12 + down_dir * hr * 1.88,
+			side_tie + back_dir * hr * 0.06 + down_dir * hr * 1.22,
+		])
+		ctx.canvas.draw_polygon(side_pts, PackedColorArray([hair_color]))

@@ -68,12 +68,7 @@ static func draw(ctx: DrawContext) -> void:
 	var p_thigh_l = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_l_angle"] * PI / 180 + PI / 2)
 	var p_shin_l = CharacterPoseCalculator.rotated_point(p_thigh_l.x, p_thigh_l.y, shin_draw, d["leg_l_angle"] * PI / 180 + PI / 2 + d["knee_l"])
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_crotch, p_thigh_l, p_shin_l, thigh_w, shin_w, skin_dark, pants_dark, bottoms_type, pelvis_bottom_w)
-	var sock_h = foot_h * 0.55
-	var sock_color = Color(0.97, 0.97, 0.97)
-	var shin_up_l = (p_thigh_l - p_shin_l).normalized() # 足首→膝方向（上向き）
-	CharacterDrawUtils.draw_rect(ctx.canvas, p_shin_l, p_shin_l + shin_up_l * sock_h, shin_w, sock_color)
-	# 踵を脚の後ろ端（shin_w/2 分後ろ）に合わせる
-	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_l - Vector2(shin_w * 0.5, 0), foot_w, foot_h, shoe_color.darkened(0.15))
+	_draw_legwear_side(ctx, p_shin_l, p_thigh_l, shin_w, foot_w, foot_h, 0.15)
 
 	# 3. 胴体（服）: 腰で曲がるように分割
 	var p_waist = Vector2(d["navel_x"], d["navel_y"])
@@ -84,10 +79,7 @@ static func draw(ctx: DrawContext) -> void:
 	var p_thigh_r = CharacterPoseCalculator.rotated_point(p_crotch.x, p_crotch.y, d["thigh_l"], d["leg_r_angle"] * PI / 180 + PI / 2)
 	var p_shin_r = CharacterPoseCalculator.rotated_point(p_thigh_r.x, p_thigh_r.y, shin_draw, d["leg_r_angle"] * PI / 180 + PI / 2 + d["knee_r"])
 	CharacterBodyDrawer.draw_pants_leg(ctx, p_crotch, p_thigh_r, p_shin_r, thigh_w, shin_w, skin_color, pants_color, bottoms_type, pelvis_bottom_w)
-	var shin_dir_r = (p_shin_r - p_thigh_r).normalized()
-	CharacterDrawUtils.draw_rect(ctx.canvas, p_shin_r, p_shin_r + shin_dir_r * sock_h, shin_w, sock_color)
-	# 踵を脚の後ろ端（shin_w/2 分後ろ）に合わせる
-	CharacterDrawUtils.draw_foot_side(ctx.canvas, p_shin_r - Vector2(shin_w * 0.5, 0), foot_w, foot_h, shoe_color)
+	_draw_legwear_side(ctx, p_shin_r, p_thigh_r, shin_w, foot_w, foot_h)
 
 	# 5. ボトムス（骨盤部分またはスカート — 足の上に重ねる）
 	# ジャンパースカート(blazer)のスカート部分は服の上に描画するためここでは描かない
@@ -134,3 +126,50 @@ static func draw(ctx: DrawContext) -> void:
 
 	var s_arm_r_ang = d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
 	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true)
+
+static func _draw_legwear_side(ctx: DrawContext, ankle: Vector2, knee: Vector2, shin_w: float, foot_w: float, foot_h: float, shoe_tint: float = 0.0) -> void:
+	var sock_h = foot_h * 0.55
+	var shin_up = (knee - ankle).normalized()
+	CharacterDrawUtils.draw_rect(ctx.canvas, ankle, ankle + shin_up * sock_h, shin_w, _get_sock_color_side(ctx))
+
+	var heel = ankle - Vector2(shin_w * 0.5, 0.0)
+	var foot_color = _get_shoe_color_side(ctx).darkened(shoe_tint)
+	CharacterDrawUtils.draw_foot_side(ctx.canvas, heel, foot_w, foot_h, foot_color)
+
+	match ctx.shoes_type:
+		"uwabaki":
+			ctx.canvas.draw_line(
+				heel + Vector2(foot_w * 0.14, foot_h * 0.30),
+				heel + Vector2(foot_w * 0.82, foot_h * 0.30),
+				Color("#d84a4a"),
+				2.0
+			)
+		"loafer":
+			ctx.canvas.draw_line(
+				heel + Vector2(foot_w * 0.18, foot_h * 0.22),
+				heel + Vector2(foot_w * 0.62, foot_h * 0.18),
+				foot_color.darkened(0.30),
+				2.0
+			)
+		_:
+			pass
+
+static func _get_sock_color_side(ctx: DrawContext) -> Color:
+	match ctx.shoes_type:
+		"loafer":
+			return Color(0.94, 0.94, 0.96)
+		"socks":
+			return Color(0.98, 0.98, 1.0)
+		_:
+			return Color(0.97, 0.97, 0.97)
+
+static func _get_shoe_color_side(ctx: DrawContext) -> Color:
+	match ctx.shoes_type:
+		"uwabaki":
+			return Color("#f7f7f2")
+		"loafer":
+			return Color("#4b4b52")
+		"socks":
+			return Color("#f5f4fb")
+		_:
+			return ctx.shoe_color

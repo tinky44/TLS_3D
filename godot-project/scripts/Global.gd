@@ -20,8 +20,8 @@ var current_appearance: Dictionary = {
 	"tops_color": "#ab82a8",
 	"bottoms_type": "pants",
 	"bottoms_color": "#3a5f8a",
-	"shoes_type": "sneakers",
-	"shoes_color": "#f0f0f0",
+	"shoes_type": "loafer",
+	"shoes_color": "#4b4b52",
 	"hat_type": "school_hat",
 	"hat_color": "#ffd700",
 	"bag_type": "none",
@@ -72,8 +72,14 @@ var core_npcs: Dictionary = {
 		"role": "friend",
 		"height_base": 155.0,
 		"height_mode": "avg", # 年齢平均に近い設定
+		"is_student": true,
+		"greet_events": [
+			"ねえ、最近また伸びた？",
+			"一緒に歩くとすぐ見つけられるね。",
+			"今日も目線、高いなあ。"
+		],
 		"appearance": {
-			"hair_style": "long",
+			"hair_style": "ponytail",
 			"hair_color": "#111111",
 			"tops_type": "school_uniform",
 			"tops_color": "#ffffff",
@@ -86,6 +92,12 @@ var core_npcs: Dictionary = {
 		"role": "senior",
 		"height_base": 168.0,
 		"height_mode": "fixed",
+		"is_student": true,
+		"greet_events": [
+			"お、今日も目立ってるな。",
+			"ネット越しでもすぐ分かる背だな。",
+			"調子どうだ？ 無理してないか。"
+		],
 		"appearance": {
 			"hair_style": "short",
 			"hair_color": "#223344",
@@ -247,6 +259,33 @@ static func get_school_uniform(a: int) -> Dictionary:
 			"bottoms_color": "#212840"
 		}
 	return {}
+
+static func get_school_stage_suffix(a: int) -> String:
+	if a <= 11:
+		return "elementary"
+	elif a <= 14:
+		return "middle"
+	return "high"
+
+static func get_school_stage_id(base_id: String, a: int) -> String:
+	match base_id:
+		"school", "school_hallway", "schoolyard", "infirmary", "gymnasium":
+			return "%s_%s" % [base_id, get_school_stage_suffix(a)]
+		_:
+			return base_id
+
+static func get_shoes_for_stage(stage_id: String) -> String:
+	if stage_id == "room" or stage_id == "myroom":
+		return "socks"
+	if (
+		stage_id == "school"
+		or stage_id == "school_hallway"
+		or stage_id.begins_with("school_")
+		or stage_id.begins_with("infirmary")
+		or stage_id.begins_with("gymnasium")
+	):
+		return "uwabaki"
+	return "loafer"
 
 func advance_term() -> void:
 	prev_height = current_params["height"]
