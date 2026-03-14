@@ -1,12 +1,37 @@
 [gd_scene format=3 uid="uid://w01i1hu88myt"]
 
 [ext_resource type="Script" path="res://scripts/IntroScene.gd" id="1_intro"]
+[ext_resource type="Script" path="res://scripts/HeightChart.gd" id="2_chart"]
 
-[node name="IntroScene" type="Control"]
+[node name="IntroScene" type="Node2D"]
+script = ExtResource("1_intro")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(4, 4)
+
+[node name="HeightChart" type="Node2D" parent="."]
+script = ExtResource("2_chart")
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="Bg" type="ColorRect" parent="UI"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_intro")
+color = Color(0, 0, 0, 0)
+
+[node name="TextLabel" type="Label" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 2
+theme_override_font_sizes/font_size = 26
+modulate = Color(1, 1, 1, 0)

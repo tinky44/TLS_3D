@@ -1,62 +1,85 @@
-extends Control
+extends Node2D
 
-# ゲーム導入シーン（MVP）
-# キャラクリ完了後に「暗転 → テキスト表示 → 明転」を経てメインシーンへ遷移する
+## ゲーム導入シーン（身長計ズームアウト演出）
+## キャラクリ完了後に身長計の前でズームアウトし、テキストを表示してMainへ遷移する
 
-const LINES = [
-	"おはよう",
-]
-const FADE_IN_SEC = 0.8 # テキストフェードイン時間
-const HOLD_SEC = 1.4 # テキスト表示維持時間
-const FADE_OUT_SEC = 0.6 # 画面フェードアウト時間
+const PLAYER_SCENE_PATH = "res://Player.tscn"
 
-var _bg: ColorRect
-var _text_label: Label
-var _line_index: int = 0
+# キャラの足元をワールド原点 (0, 0) に、ルーラーの右60pxに配置
+const PLAYER_OFFSET_X := 60.0
+
+# カメラ最終位置のX（ルーラーとキャラの間あたり）
+const CAM_CENTER_X := 30.0
+
+@onready var _camera: Camera2D = $Camera2D
+@onready var _chart: Node2D = $HeightChart
+@onready var _fade: ColorRect = $UI/Bg
+@onready var _label: Label = $UI/TextLabel
+
+var _player: Node
+
 
 func _ready() -> void:
-	# 黒背景
-	_bg = ColorRect.new()
-	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_bg.color = Color(0, 0, 0, 1)
-	add_child(_bg)
+	RenderingServer.set_default_clear_color(Color(0.06, 0.04, 0.10, 1.0))
 
-	# テキストラベル（中央）
-	_text_label = Label.new()
-	_text_label.set_anchors_preset(Control.PRESET_CENTER)
-	_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_text_label.add_theme_font_size_override("font_size", 32)
-	_text_label.add_theme_color_override("font_color", Color(1, 1, 1, 0))
-	_text_label.text = ""
-	add_child(_text_label)
+	var global: Node = get_node("/root/Global")
+	var h: float = global.current_params.get("height", 160.0)
+	var p: float = global.CM_TO_PX  # 2.0 px/cm
 
-	_play_next_line()
+	# 身長計を初期化
+	_chart.player_height_cm = h
+	_chart.cm_to_px = p
+	_chart.queue_redraw()
 
-func _play_next_line() -> void:
-	if _line_index >= LINES.size():
-		_fade_out_and_go()
-		return
+	# プレイヤーをインスタンス化（物理・入力・プロセスを無効化して静止表示）
+	_player = load(PLAYER_SCENE_PATH).instantiate()
+	_player.process_mode = Node.PROCESS_MODE_DISABLED
+	_player.position = Vector2(PLAYER_OFFSET_X, 0.0)
+	_player.modulate.a = 0.0
+	add_child(_player)
 
-	_text_label.text = LINES[_line_index]
-	_line_index += 1
+	# カメラ初期位置: キャラの頭部付近にズームイン
+	_camera.zoom = Vector2(4.0, 4.0)
+	_camera.position = Vector2(CAM_CENTER_X, -(h * p * 0.9))
 
-	# テキストを徐々に表示
-	var tween = create_tween()
-	tween.tween_method(_set_text_alpha, 0.0, 1.0, FADE_IN_SEC)
-	tween.tween_interval(HOLD_SEC)
-	tween.tween_method(_set_text_alpha, 1.0, 0.0, FADE_IN_SEC * 0.5)
-	tween.tween_callback(_play_next_line)
+	_run_sequence(global, h, p)
 
-func _fade_out_and_go() -> void:
-	# 画面全体を白くフラッシュしてからMainへ
-	_bg.color = Color(0, 0, 0, 0)
-	var tween = create_tween()
-	tween.tween_property(_bg, "color", Color(0, 0, 0, 1), FADE_OUT_SEC)
-	tween.tween_callback(func():
-		get_tree().change_scene_to_file("res://Main.tscn")
-	)
 
-func _set_text_alpha(alpha: float) -> void:
-	if _text_label:
-		_text_label.add_theme_color_override("font_color", Color(1, 1, 1, alpha))
+func _run_sequence(global: Node, h: float, p: float) -> void:
+	# (1) 少し待ってからキャラをフェードイン
+	await get_tree().create_timer(0.4).timeout
+
+	var tw1 := create_tween()
+	tw1.tween_property(_player, "modulate:a", 1.0, 0.5)
+	await tw1.finished
+
+	await get_tree().create_timer(0.2).timeout
+
+	# (2) ズームアウト（カメラを引きながら全身を映す）
+	var tw2 := create_tween().set_parallel(true)
+	tw2.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw2.tween_property(_camera, "zoom",     Vector2(1.0, 1.0),                   2.0)
+	tw2.tween_property(_camera, "position", Vector2(CAM_CENTER_X, -(h * p * 0.5)), 2.0)
+	await tw2.finished
+
+	await get_tree().create_timer(0.4).timeout
+
+	# (3) テキスト表示
+	_label.text = "%d歳、身長%.0fcm。\n――ここから私の生活が始まる。" % [global.age, h]
+	var tw3 := create_tween()
+	tw3.tween_property(_label, "modulate:a", 1.0, 0.5)
+	await tw3.finished
+
+	await get_tree().create_timer(2.8).timeout
+
+	var tw4 := create_tween()
+	tw4.tween_property(_label, "modulate:a", 0.0, 0.4)
+	await tw4.finished
+
+	# (4) 暗転してMain.tscnへ遷移
+	_fade.color = Color(0, 0, 0, 0)
+	var tw5 := create_tween()
+	tw5.tween_property(_fade, "color", Color(0, 0, 0, 1.0), 0.6)
+	await tw5.finished
+
+	get_tree().change_scene_to_file("res://Main.tscn")
