@@ -1,4 +1,3 @@
-
 ## 体育座り問題の原因調査（2026-03-14）
 
 ### 現象
@@ -11,119 +10,133 @@
 体育座りでは胴体が大きく前傾し、`skirt_ang` がほぼ水平になる。
 このとき `skirt_u ≈ (1, 0)`（右向き）、`skirt_n ≈ (0, -1)`（上向き）になる。
 
-#### バグ① `front_side` / `back_side` が `skirt_n` 基準（行 315–316）
+#### バグ① `front_side` / `back_side` が `skirt_n` 基準
 
 ```gdscript
-var front_side = -skirt_n  # 現行：スカート軸の垂直方向
+var front_side = -skirt_n
 var back_side  =  skirt_n
 ```
 
 スカートが水平に近いとき `skirt_n ≈ 上向き` になるため：
-- `back_side ≈ 上向き` → "背面"が「上にある点」に変わる
-- `front_side ≈ 下向き` → "前面"が「下にある点」になる
 
-結果として、`back_outer` は脚候補から「最も上にある点（股関節付近）」、
-`front_outer` は「最も下にある点（足首）」が選ばれてしまう。
+- `back_side ≈ 上向き` になり、背面候補が「後ろ」ではなく「上の点」から選ばれる
+- `front_side ≈ 下向き` になり、前面候補が「前」ではなく「下の点」から選ばれる
 
-#### バグ② `axis_pos` フィルタが `skirt_u` 基準（行 333–334）
+その結果、`back_outer` が臀部ではなく脚側、`front_outer` が極端に下の点へ引っ張られる。
 
-`_pick_side_outer_candidate(... skirt_u ...)` の内部フィルタ：
+#### バグ② `axis_pos` フィルタが `skirt_u` 基準
+
+`_pick_side_outer_candidate(..., skirt_u, ...)` の内部では、
+腰から候補点までの進行量を `skirt_u` で判定している。
 
 ```gdscript
-var axis_pos = (point - waist_pos).dot(axis_dir)  # axis_dir = skirt_u
+var axis_pos = (point - waist_pos).dot(axis_dir)
 if axis_pos < 0.0 or axis_pos > skirt_length + 12.0:
-    continue
+	continue
 ```
 
-`skirt_u ≈ (1, 0)` のとき、腰より左（後方）にある臀部候補は
-`axis_pos < 0` でフィルタアウトされ、有効な背面候補がゼロになることがある。
+体育座りのように `skirt_u ≈ (1, 0)` になると、腰より左にある臀部候補が
+`axis_pos < 0` で落ちてしまい、背面候補が消えることがある。
 
-#### バグ③ 裾延長方向が `skirt_u`（行 358–359）
+#### バグ③ 裾延長方向が `skirt_u`
 
 ```gdscript
 var front_hem_ext = front_outer + skirt_u * (skirt_length - front_seg1)
 var back_hem_ext  = back_outer  + skirt_u * (skirt_length - back_seg1)
 ```
 
-`skirt_u ≈ 右向き` なので、裾延長が右（前方）に伸びる。
-`back_hem` まで右に行くため、後方（左側）が完全に露出する。
-`front_hem` はさらに右に飛び出して「尖り」になる。
+`skirt_u ≈ 右向き` のまま残り丈を延長すると、裾が前方へ飛ぶ。
+結果として、
 
-### デグレの原因（修正①の設計ミス）
+- `back_hem` が後方を覆えず、臀部が露出する
+- `front_hem` が前方へ伸びて尖る
 
-`top_n = Vector2(-torso_u.y, torso_u.x)` は torso_u の CCW 回転で、
-胴体が前傾するにつれ **下方向成分が大きくなる**。
+### 以前の修正で起きたデグレ
 
-```
-lean 0°  → top_n = (-1,  0)     back_side が 左 ✓
-lean 30° → top_n = (-0.87, +0.5) back_side が 左+下
-lean 54° → top_n = (-0.59, +0.81) back_side が ほぼ下 ← 問題
-```
-
-`back_side ≈ 下方向` になると、脚候補の中で
-**最も y が大きい点（足首）** がスコア最大で `back_outer` に選ばれる。
+`top_n = Vector2(-torso_u.y, torso_u.x)` をそのまま前後判定に使うと、
+前傾が深くなるほど `back_side` に下向き成分が混ざる。
 
 ```
-lean = 54° での back_side = (-0.59, 0.81) のスコア
-  足首 ( +5, +130): score = -2.95 + 105.3 = 102  ← 勝つ
-  臀部 ( -8,  +57): score =  4.72 +  46.2 =  51
+lean 0°  -> top_n = (-1.00, 0.00)
+lean 30° -> top_n = (-0.87, 0.50)
+lean 54° -> top_n = (-0.59, 0.81)
 ```
 
-→ `back_outer = 足首`（腰から 130px 下）
-→ プリーツ線の `mid_p = back_outer.lerp(...)` が画面外まで伸びる = デグレ
+この状態で `back_side` スコアを取ると、臀部よりも足首の方が高得点になりやすく、
+`back_outer` が脚先へ飛んでプリーツ線も大きく崩れる。
 
-### 修正方針（再設計）
+---
 
-#### 修正①（再設計）：スクリーン水平軸に固定する
+## 修正方針
 
-前後方向を **画面の横軸（常に水平）** に固定する。
-側面描画ではキャラクターは常に右向きなので：
+### 1. 前後判定軸を「側面ローカルの水平軸」に固定する
+
+側面描画のローカル座標では、常に `+X = 前`、`-X = 後` と扱う。
+左右反転は `CharacterDrawer` 側の描画 transform に任せる。
 
 ```gdscript
-# 誤（lean に引きずられる）
-var front_side = -top_n
-var back_side  =  top_n
-
-# 正：右 = 前面、左 = 背面（姿勢によらず不変）
 var front_side = Vector2(1, 0)
 var back_side  = Vector2(-1, 0)
 ```
 
-| 姿勢 | back_side スコア（足首 +5, +130） | back_side スコア（臀部 -8, +57） |
-|---|---|---|
-| 旧 top_n (lean 54°) | **102**（足首が勝つ） | 51 |
-| 新 (-1, 0) | **-5**（足首は負 = 除外） | **8**（臀部が勝つ）✓ |
+これで姿勢に関係なく、前面候補は右側、背面候補は左側から選ばれる。
 
-#### 修正②：`axis_dir` を `torso_u` に変える（維持）
+### 2. 候補点の進行判定は `torso_u` で行う
+
+候補の「腰からどれだけ下流か」は、スカート中心線ではなく
+腰から股への進行方向 `torso_u` を使う。
 
 ```gdscript
-# 済・維持
 var front_pick = _pick_side_outer_candidate(..., torso_u, skirt_length)
 var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 ```
 
-#### 修正③（再設計）：裾延長を純粋な重力方向に変更
+これで、体育座りでも腰より後ろの臀部候補を不必要に捨てにくくなる。
 
-`normalize(skirt_u + gravity)` にも前方成分が残るため、
-extreme lean では `back_hem` が前方へ飛ぶ。純粋な `(0, 1)` に変更する。
+### 3. ベクトルの役割を分離する
 
-```gdscript
-# 誤（前方成分が残る）
-var extend_u = _normalized_or(skirt_u + Vector2(0, 1), Vector2(0, 1))
+今回の修正では、各ベクトルを次の用途に固定する。
 
-# 正：重力方向のみ
-var extend_u = Vector2(0, 1)
-```
+- `skirt_u`: スカート中心線の傾き追従、`p_bottom` の決定
+- `top_n`: 腰上端の厚み方向、`belt_front/back` の配置
+- `extend_u = Vector2(0, 1)`: 残り丈の延長方向
+- `front_side` / `back_side`: 前後判定スコア
+- `torso_u`: 候補点の進行量判定と、`jumper_skirt` 上端帯の向き
 
-通常姿勢では `skirt_u ≈ (0, 1)` なので見た目の変化はゼロ。
+特に `jumper_skirt` の上端帯は、従来どおり `torso_u * belt_h` で描く。
+スカートの残り丈延長にだけ `extend_u` を使う。
 
-### 修正対象箇所（再設計後）
+### 3.5. `outer` は「膝帯まで」の中間制約点として選ぶ
+
+6点ポリゴンの `front_outer/back_outer` は、中間の折れ点であって裾点ではない。
+そのため、足首側の深い候補まで含めると、体育座りでは `front_outer` が下へ落ちすぎて
+膝の張り出しを拾えなくなる。
+
+- `outer` 候補: 臀部、太腿、膝帯、すね上部のごく近傍
+- `hem`: `outer` 通過後に `extend_u` 方向へ残り丈を延長して決める
+
+### 4. 不正な6点ポリゴンは台形へフォールバックする
+
+候補点を前後独立に選ぶ都合上、歩きと屈みの中間姿勢では
+前後点が入れ替わったり、自己交差したりする可能性がある。
+
+そのため、以下のいずれかを満たした場合は従来の側面台形へ戻す。
+
+- `back_outer.x > front_outer.x`
+- `back_hem.x > front_hem.x`
+- `back_hem.y < back_outer.y` または `front_hem.y < front_outer.y`
+- 6点ポリゴンが自己交差する
+
+---
+
+## 修正対象箇所
 
 | 修正 | ファイル | 変更内容 |
 |---|---|---|
-| ① | CharacterBodyDrawer.gd:315–316 | `Vector2(1,0)` / `Vector2(-1,0)` に変更 |
-| ② | CharacterBodyDrawer.gd:333–334 | `torso_u`（済・維持） |
-| ③ | CharacterBodyDrawer.gd:358 | `extend_u = Vector2(0, 1)` に変更 |
+| ① | `CharacterBodyDrawer.gd` | `front_side/back_side` を `Vector2(1,0)` / `Vector2(-1,0)` に固定 |
+| ② | `CharacterBodyDrawer.gd` | `_pick_side_outer_candidate()` の `axis_dir` を `torso_u` に変更 |
+| ③ | `CharacterBodyDrawer.gd` | 残り丈延長用に `extend_u = Vector2(0, 1)` を導入 |
+| ④ | `CharacterBodyDrawer.gd` | 6点ポリゴン破綻時の fallback ガードを追加 |
 
 ---
 
@@ -132,26 +145,27 @@ var extend_u = Vector2(0, 1)
 ### 今回の実装に含む
 
 - 側面スカートの前後非対称ポリゴン化
-- 前後制約点を「膝固定」ではなく「下半身シルエット最外点」に変更
-- 現行の傾き追従と裾幅補正の維持
-- プリーツ線と上端帯を、新ポリゴンに整合する形へ変更
+- 前後制約点を「膝固定」ではなく「下半身シルエット最外点」にする
+- 現行の `skirt_ang` と `side_hem_w` の補正を維持する
+- プリーツ線と `jumper_skirt` 上端帯を、新ポリゴンに整合する形へ保つ
 
 ### 今回はスコープ外
 
-- 短スカート時の 4 点ポリゴン最適化
+- 短スカート時の4点ポリゴン最適化
+- 正面・背面スカートの形状見直し
 
-初版では、`front_seg1` または `back_seg1` が `skirt_length` を超えるような短丈ケースは
-**従来の側面台形ロジックへフォールバック**してよい。
+短丈や候補点不足で 6 点ポリゴンが安定しないケースは、
+初版では従来の側面台形ロジックへフォールバックしてよい。
 
 ---
 
 ## 実装ステップ
 
 1. `draw_skirt()` の側面分岐で、現行の `skirt_ang` / `p_bottom` / `side_hem_w` 計算を残す
-2. `u`, `n`, `belt_front/back`, `hem_front/back_base` を導入する
-3. 膝・脛・足首・臀部寄り候補から、前後シルエット最外点を選ぶ
-4. 制約点通過後は `u` 方向へ残り丈を延長し、前後裾を決める
-5. 6 点ポリゴンで側面スカート本体を描画する
-6. プリーツ線は `belt_back/front` と `back_hem/front_hem` の間で引き直す
-7. `jumper_skirt` の上端帯は上端辺 + `u * belt_h` で描き直す
-8. 立ち / 歩き / 屈みで、膝・脛・足首の貫通が減っているか確認する
+2. `skirt_u`, `torso_u`, `top_n`, `extend_u`, `front_side/back_side` の役割を分離する
+3. 臀部・太腿・膝帯寄り候補から、中間制約点 `front_outer/back_outer` を選ぶ
+4. 制約点通過後は `extend_u` 方向へ残り丈を延長し、前後裾を決める
+5. 不正ポリゴン判定を通ったときだけ 6 点ポリゴンで本体を描画する
+6. フォールバック時は従来の側面台形と既存プリーツ処理を使う
+7. `jumper_skirt` の上端帯は `torso_u * belt_h` を維持する
+8. 立ち / 歩き / 屈み / 体育座りで、膝・脛・足首の貫通と臀部露出を確認する
