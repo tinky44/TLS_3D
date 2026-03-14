@@ -503,13 +503,13 @@ static func draw_bow_side(ctx: DrawContext, sx: float, sy: float, navel_y: float
 #   strap_outer  : ストラップ外端位置（half_sh * 0.98 で肩幅に合わせる）
 #   strap_inner  : ストラップ内端位置（half_body * 0.30 で胸中央を開ける）
 #   strap_top_y  : ストラップ上端Y（sy - 4.0 で肩より少し上）
-#   strap_bot_y  : ストラップ下端Y（navel_y + 10.0 でウエストより少し下）
+#   strap_bot_y  : ストラップ下端Y（スカート上端アンカーに一致）
 # ---------------------------------------------------------------
 static func draw_suspenderSkirt_front(ctx: DrawContext, sx: float, sy: float, _neck_y: float, _navel_y: float,
 		_half_sh: float, half_body: float, _jumper_color: Color) -> void:
 	var strap_top_y = sy # ストラップ上端（肩）
-	var u_arm = ctx.m["armLength"] * ctx.p * 0.5 + 10.0
-	var strap_bot_y = sy + u_arm # ストラップ下端（ひじ＝スカート上端）
+	var waist_anchor = CharacterBodyDrawer.get_front_garment_waist_pos(ctx)
+	var strap_bot_y = waist_anchor.y # ストラップ下端（スカート上端）
 
 	# サスペンダーストラップ（細い黒縦線、左右に余白あり）
 	var strap_color = Color(0.08, 0.08, 0.08) # 黒
