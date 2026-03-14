@@ -4,6 +4,7 @@ signal screenshot_saved(result: Dictionary)
 signal screenshot_failed(result: Dictionary)
 
 const CM_TO_PX: float = 2.0
+const DEFAULT_TERM_PLAN: String = "school"
 
 # プレイヤーの身体パラメータ (初期値として「高身長女性」を設定)
 var current_params: Dictionary = {
@@ -61,9 +62,15 @@ var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた�
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
 var stress: int = 0 # 今学期の生活で溜まるしんどさ
 var pending_term_choice: bool = false # 進級時の続行/終了選択が必要か
-var current_term_plan: String = "" # "home" / "school" / "station"
+var current_term_plan: String = DEFAULT_TERM_PLAN # "home" / "school" / "station"
 var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
 var term_memory_note: String = "" # 今学期の印象的な出来事メモ
+
+# ─── 初期状態・通算ログ ──────────────────────────────────────────
+var initial_params: Dictionary = {}      # キャラメイク確定時の体型（エンディング用）
+var initial_appearance: Dictionary = {}  # キャラメイク確定時の外見（エンディング用）
+var visited_stages: Dictionary = {}      # {stage_id: true} 全プレイを通じて訪れた場所
+var experienced_events: Array = []       # 体験済みイベントID一覧
 
 # コアNPCの定義
 var core_npcs: Dictionary = {
@@ -190,6 +197,17 @@ static func get_base_growth(current_age: int) -> float:
 
 func calc_growth() -> float:
 	return get_base_growth(age) * growth_factor * randf_range(0.7, 1.3)
+
+func lock_initial_state() -> void:
+	initial_params = current_params.duplicate(true)
+	initial_appearance = current_appearance.duplicate(true)
+
+func record_stage_visit(stage_id: String) -> void:
+	visited_stages[stage_id] = true
+
+func record_event(event_id: String) -> void:
+	if not event_id in experienced_events:
+		experienced_events.append(event_id)
 
 func _ensure_growth_history() -> void:
 	if growth_history.is_empty():
@@ -333,8 +351,12 @@ func advance_term() -> void:
 	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false
 	haruka_following = false
-	pending_term_choice = school_level != prev_school_level and school_level >= 1 and school_level <= 3
-	current_term_plan = ""
+	# 学校段階が変わるとき（小4進級・中学・高校・卒業）に選択ダイアログを表示
+	pending_term_choice = school_level != prev_school_level and (
+		(school_level >= 1 and school_level <= 3) or  # 小4進級 / 中学 / 高校 への進学
+		(prev_school_level == 3 and school_level == 4) # 高校卒業
+	)
+	current_term_plan = DEFAULT_TERM_PLAN
 	term_hotspot_flags = {}
 	term_memory_note = ""
 
@@ -501,6 +523,8 @@ func load_settings():
 		stress = int(config.get_value("Player", "stress", stress))
 		pending_term_choice = bool(config.get_value("Player", "pending_term_choice", pending_term_choice))
 		current_term_plan = String(config.get_value("Player", "current_term_plan", current_term_plan))
+		if current_term_plan == "":
+			current_term_plan = DEFAULT_TERM_PLAN
 		var hotspot_value: Variant = config.get_value("Player", "term_hotspot_flags", term_hotspot_flags)
 		term_hotspot_flags = hotspot_value if hotspot_value is Dictionary else {}
 		term_memory_note = String(config.get_value("Player", "term_memory_note", term_memory_note))
@@ -558,6 +582,14 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
+	config.set_value(section, "initial_height", initial_params.get("height", 0.0))
+	config.set_value(section, "initial_ratio", initial_params.get("ratio", 7.5))
+	config.set_value(section, "initial_legRatio", initial_params.get("legRatio", 48.0))
+	config.set_value(section, "initial_sex", initial_params.get("sex", "female"))
+	for key in current_appearance.keys():
+		config.set_value(section, "initial_appearance_" + key, initial_appearance.get(key, current_appearance[key]))
+	config.set_value(section, "visited_stages", visited_stages)
+	config.set_value(section, "experienced_events", experienced_events)
 	config.save(SLOTS_PATH)
 	current_slot = slot
 
@@ -583,7 +615,9 @@ func load_slot(slot: int) -> bool:
 	self_complex = int(config.get_value(section, "self_complex", 0))
 	stress = int(config.get_value(section, "stress", 0))
 	pending_term_choice = bool(config.get_value(section, "pending_term_choice", false))
-	current_term_plan = String(config.get_value(section, "current_term_plan", ""))
+	current_term_plan = String(config.get_value(section, "current_term_plan", DEFAULT_TERM_PLAN))
+	if current_term_plan == "":
+		current_term_plan = DEFAULT_TERM_PLAN
 	var hotspot_slot_value: Variant = config.get_value(section, "term_hotspot_flags", {})
 	term_hotspot_flags = hotspot_slot_value if hotspot_slot_value is Dictionary else {}
 	term_memory_note = String(config.get_value(section, "term_memory_note", ""))
@@ -594,6 +628,19 @@ func load_slot(slot: int) -> bool:
 	_ensure_growth_history()
 	for key in current_appearance.keys():
 		current_appearance[key] = config.get_value(section, "appearance_" + key, current_appearance[key])
+	if config.has_section_key(section, "initial_height"):
+		initial_params = {
+			"height": config.get_value(section, "initial_height", 0.0),
+			"ratio":  config.get_value(section, "initial_ratio", 7.5),
+			"legRatio": config.get_value(section, "initial_legRatio", 48.0),
+			"sex":    config.get_value(section, "initial_sex", "female"),
+		}
+		for key in current_appearance.keys():
+			initial_appearance[key] = config.get_value(section, "initial_appearance_" + key, current_appearance[key])
+	var vs = config.get_value(section, "visited_stages", {})
+	visited_stages = vs if vs is Dictionary else {}
+	var ev = config.get_value(section, "experienced_events", [])
+	experienced_events = ev if ev is Array else []
 	current_slot = slot
 	return true
 

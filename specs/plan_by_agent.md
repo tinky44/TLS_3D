@@ -2,94 +2,94 @@
 
 ---
 
-## アクション計画（2026-03-14）
-
-### 対象ブランチ: `feat/add-story-stage-npcReaction`
-
----
----
-
-## #47 進級システムの実装 [In Progress]
-
-### 残タスク
-- [ ] 高校生でも中学校に入れるバグを修正
-- [ ] 進級/エンディング選択ダイアログの実装
+## アクション計画（2026-03-14 更新）
 
 ---
 
-### タスク①：高校生が中学校に入れるバグ（簡易fix）
+## ✅ 完了済み
 
-**問題の場所**
-- `godot-project/scripts/MainScene.gd` の `_get_stage_lock_message()` (605-625行)
-
-**原因**
-`school_hallway_middle` など中学校関連ステージに `age > 14` の入場制限がない。
-現在ロックされているのは以下のみ：
-
-| ステージ | 条件 |
-|---|---|
-| `school_hallway_elementary`, `school_elementary` | age > 11 |
-| `school_middle` | age < 12 または age > 14 |
-| `school_high` | age < 15 |
-| `school_hallway_high` | age < 15 |
-
-**抜けているケース（中学校系で `age > 14` のガードがない）**
-- `school_hallway_middle`
-- `infirmary_middle`
-- `gymnasium_middle`
-- `schoolyard_middle`
-
-**修正方針**
-`_get_stage_lock_message()` に以下を追加：
-
-```gdscript
-"school_hallway_middle":
-    if age_value < 12:
-        return "まだこの廊下に入る時期じゃない。"
-    if age_value > 14:
-        return "今はもう、この廊下には入れない。"
-"infirmary_middle":
-    if age_value < 12:
-        return "まだこの保健室に入る時期じゃない。"
-    if age_value > 14:
-        return "今はもう、この保健室には入れない。"
-"gymnasium_middle":
-    if age_value < 12:
-        return "まだこの体育館に入る時期じゃない。"
-    if age_value > 14:
-        return "今はもう、この体育館には入れない。"
-"schoolyard_middle":
-    if age_value < 12:
-        return "まだここには入れない。"
-    if age_value > 14:
-        return "今はもう、この校庭には入れない。"
-```
+| タスク | ブランチ | 備考 |
+|---|---|---|
+| イントロ（身長計ズームアウト演出） | `feat/ending-and-intro` | `ecd6f23` |
+| エンディング（最終比較画面） | `feat/ending-and-intro` | `10ad049` |
 
 ---
 
-### タスク②：進級選択ダイアログ（大きめの変更）
+## 残タスク（優先順）
 
-**背景**
-- 現在: `Global.gd` の `advance_term()` が自動で進級（手動選択なし）
-- 改善要望: 小3→4, 小6→中, 中3→高 の学校段階切り替え時に「続ける/エンディングへ」を選択させる
-
-**検討ポイント**
-- `_school_level_from_age(age) != _school_level_from_age(prev_age)` の条件はすでに `advance_term()` にある（`Global.gd` 304行）
-- このタイミングで `MainScene.gd` 側にシグナルを飛ばし、選択UIを出す設計が自然
-- エンディング実装（#49）と密接に関係するため、#49 の設計が固まってから本格実装推奨
-
-**現ブランチとの関係**
-- `feat/add-story-stage-npcReaction` は「ストーリーステージでのNPC反応追加」
-- 進級時のNPC台詞変化（#31）は Done 済み
-- 現ブランチでの作業完了後、別ブランチ `feat/grade-select-dialog` で実装する方が安全
-
----
-
-## 優先順位まとめ
-
-| 優先 | タスク | 規模 | ブランチ |
+| 優先 | タスク | 規模 | ブランチ候補 |
 |---|---|---|---|
-| ★★★ | #52 ロング髪の口描画バグ | 小 | 現ブランチ or 別ブランチ |
-| ★★★ | #52 ロング髪の重力弾性 | 小 | 同上 |
-| ★★★ | #47 高校生が中学校に入れるバグ | 小 | 現ブランチ or hotfix |
-| ★★☆ | #47 進級選択ダイアログ | 中〜大 | `feat/grade-select-dialog`（後で） |
+| ★★★ | B-3 吹き出しが顔に被る | 小 | `fix/bubble-position` |
+| ★★☆ | B-1 駅→電車の遷移が不自然 | 小〜中 | `fix/stage-transition` |
+| ★★☆ | B-2 屋外に家のドアが出る | 小 | `fix/stage-door` |
+| ★★☆ | #47 進級選択ダイアログ | 中 | `feat/grade-select-dialog` |
+| ★★☆ | 受動的ストーリー（授業暗転・NPC自動声かけ） | 中 | `feat/passive-story` |
+| ★★☆ | 会話トーン改善（ポジティブ台詞追加） | 中 | `feat/npc-dialogue-balance` |
+| ★☆☆ | 椅子・干渉表現 | 中 | `feat/body-environment-interaction` |
+
+---
+
+## バグ詳細
+
+### B-3 吹き出しが顔に被る（★★★）
+
+場所: `MainScene.gd:1091` `_get_bubble_screen_pos()`
+
+現在の計算: `offset_y = player.visual_height_cm * p + 80`
+
+問題: 高身長時に `visual_height_cm * p` が画面上の頭位置と合っておらず、吹き出しが頭部と重なる。
+
+修正方針:
+- `offset_y` の固定オフセット `80` を `bubble_panel.size.y + 20` など吹き出しサイズ依存に変更
+- または `SkeletalPlayer` に `get_head_screen_y_offset()` を追加して実際の頭部Y座標を返す方式
+
+### B-1 駅→電車の遷移が不自然（★★☆）
+
+場所: `StageBuilder.gd` ステージ遷移定義
+
+修正方針: 駅→電車の遷移ロジックを確認・整理
+
+### B-2 屋外に家のドアが出る（★★☆）
+
+場所: `StageBuilder.gd` ドア配置ロジック
+
+修正方針: 屋外判定フラグを追加してドアを非表示
+
+---
+
+## 受動的ストーリー設計
+
+### B. 授業イベント（教室での時間スキップ）
+- 教室ステージに入る → 既存の `semester_start` ダイアログ
+- ダイアログ後: 「授業が始まった。」→ 暗転（0.5s）→ 「放課後。」テキスト → `school_hallway` へ自動遷移
+  - ※ 遷移先は `school_hallway`（`MainScene.gd:1137` の現行実装に合わせる）
+
+### C. NPC自動声かけ（身長依存）
+
+| 条件 | NPCの反応例 |
+|---|---|
+| 身長 ≥ 170cm（中学生〜） | 「背が高いね！」「バスケ部来てよ〜」（ポジティブ） |
+| 身長 ≥ 180cm | 「上の棚取ってもらえる？」「モデルみたい！」（ユーモラス） |
+| 身長 ≥ 190cm | 子どもNPCが「すごい！○○cm！？」と駆け寄ってくる |
+| 特定ステージ初訪問 | ステージ固有のNPC一言（驚き・感心・無遠慮） |
+
+---
+
+## 会話イベントのトーン改善
+
+**現状:** ネガティブな反応（「しんどい」「つらい」）が大半
+
+**目標比率:** ネガティブ3 : 中立4 : ポジティブ3
+
+**台詞例（追加候補）**
+- ポジティブ: 「モデルさんみたい！」「バスケ向いてそう」「高いところ楽そうだね」
+- ユーモラス: 「天井に頭ぶつけないの？」「棚の上何がある？」「ドア通れる？」
+- 受動的声かけ（NPC側から）: 「ちょっと〜！写真撮っていい？」「え、何年生？」
+
+---
+
+## 身体と環境の干渉表現（後回し）
+
+- **椅子に座る**: 椅子オブジェクトへのインタラクション追加、「脚が机に収まらない」「体育座りがきつい」などのテキスト
+- **NPC自動声かけ**: 受動的ストーリーの「C. NPC自動声かけ」と統合
+- **後回し**: ドア・天井・電車との接触シーン

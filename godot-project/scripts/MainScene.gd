@@ -61,6 +61,7 @@ var term_choice_panel: Control
 var term_choice_header_label: Label
 var _term_choice_showing: bool = false
 var _ending_overlay_showing: bool = false
+var _school_day_transition_running: bool = false
 
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
@@ -671,14 +672,14 @@ func _on_grade_choice_selected(choice_id: String) -> void:
 		return
 
 	global.pending_term_choice = false
-	global.current_term_plan = ""
+	global.current_term_plan = Global.DEFAULT_TERM_PLAN
 	_hide_term_choice_panel()
 	global.save_settings()
 
 	if choice_id == "continue":
 		return
 
-	await _show_temp_ending_and_return_to_title()
+	get_tree().change_scene_to_file("res://scenes/EndingScene.tscn")
 
 func _get_grade_transition_title(age_value: int) -> String:
 	match age_value:
@@ -929,6 +930,9 @@ func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	var npc_data: Dictionary = _dialogues[npc_id]
 	if not npc_data.has(key): return
 
+	var _g = get_node_or_null("/root/Global")
+	if _g:
+		_g.record_event(npc_id + "_" + key)
 	_current_dialogue_npc = npc_id
 	_current_dialogue_key = key
 	_dialogue_lines = _build_dialogue_sequence(npc_id, key)
@@ -1080,6 +1084,8 @@ func _end_dialogue() -> void:
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and global.current_term_plan == "school":
 			call_deferred("_start_dialogue", "player", "term_school")
+	elif _should_run_school_day_transition(global):
+		call_deferred("_run_school_day_transition")
 	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "vball_join_cheer":
 		pass # 特に後処理なし
 	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "haruka_after_summer":
@@ -1088,6 +1094,71 @@ func _end_dialogue() -> void:
 	if should_show_term_choice:
 		call_deferred("_show_term_choice_panel")
 
+func _should_run_school_day_transition(global: Node) -> bool:
+	if _school_day_transition_running:
+		return false
+	if _current_dialogue_npc != "player" or _current_dialogue_key != "term_school":
+		return false
+	if global == null or String(global.current_term_plan) != "school":
+		return false
+	return StageBuilder.is_school_classroom_stage(String(global.current_stage_id))
+
+func _run_school_day_transition() -> void:
+	var global = get_node_or_null("/root/Global")
+	if not _should_run_school_day_transition(global):
+		return
+
+	_school_day_transition_running = true
+	_nearby_npc = null
+	_nearby_term_hotspot = ""
+	_nearby_transition_door = ""
+	_nearby_height_scale = false
+	get_tree().paused = true
+
+	var overlay := ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var text_label := Label.new()
+	text_label.text = "授業が始まった。"
+	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	text_label.add_theme_font_size_override("font_size", 34)
+	text_label.add_theme_color_override("font_color", Color(0.94, 0.97, 1.0))
+	text_label.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.12, 0.95))
+	text_label.add_theme_constant_override("outline_size", 6)
+	text_label.modulate.a = 0.0
+	center.add_child(text_label)
+
+	ui_layer.add_child(overlay)
+
+	var intro_tween := create_tween()
+	intro_tween.tween_property(overlay, "color:a", 0.82, 0.5)
+	intro_tween.parallel().tween_property(text_label, "modulate:a", 1.0, 0.2)
+	intro_tween.tween_interval(0.9)
+	intro_tween.tween_property(text_label, "modulate:a", 0.0, 0.2)
+	await intro_tween.finished
+
+	global.current_stage_id = "school_hallway"
+	_load_stage()
+
+	text_label.text = "放課後。"
+	var outro_tween := create_tween()
+	outro_tween.tween_property(text_label, "modulate:a", 1.0, 0.2)
+	outro_tween.tween_interval(0.9)
+	outro_tween.parallel().tween_property(text_label, "modulate:a", 0.0, 0.25)
+	outro_tween.parallel().tween_property(overlay, "color:a", 0.0, 0.45)
+	await outro_tween.finished
+
+	overlay.queue_free()
+	get_tree().paused = false
+	_school_day_transition_running = false
+
 func _get_bubble_screen_pos() -> Vector2:
 	var cam = player.get_node_or_null("Camera2D")
 	var screen_pos: Vector2
@@ -1095,8 +1166,40 @@ func _get_bubble_screen_pos() -> Vector2:
 		screen_pos = player.global_position - cam.get_screen_center_position() + get_viewport().get_visible_rect().size / 2.0
 	else:
 		screen_pos = player.global_position
-	var offset_y = player.visual_height_cm * p + 80
-	return screen_pos + Vector2(-bubble_panel.size.x / 2.0, -offset_y)
+	var viewport_rect: Rect2 = get_viewport().get_visible_rect()
+	var bubble_size: Vector2 = bubble_panel.get_combined_minimum_size()
+	bubble_size.x = maxf(bubble_size.x, bubble_panel.size.x)
+	bubble_size.y = maxf(bubble_size.y, bubble_panel.size.y)
+	var head_offset_y: float = -float(player.get("visual_height_cm")) * p
+	if player.has_method("get_head_screen_y_offset"):
+		head_offset_y = float(player.call("get_head_screen_y_offset"))
+	var bubble_gap_y: float = bubble_size.y + 20.0
+	var screen_margin: float = 12.0
+	var min_x: float = viewport_rect.position.x + screen_margin
+	var max_x: float = viewport_rect.position.x + viewport_rect.size.x - bubble_size.x - screen_margin
+	var min_y: float = viewport_rect.position.y + screen_margin
+	var max_y: float = viewport_rect.position.y + viewport_rect.size.y - bubble_size.y - screen_margin
+	var bubble_pos: Vector2 = screen_pos + Vector2(-bubble_size.x / 2.0, head_offset_y - bubble_gap_y)
+	if bubble_pos.y < min_y:
+		var player_m: Dictionary = player.get("m") if player.get("m") != null else {}
+		var body_half_w: float = 48.0
+		if not player_m.is_empty():
+			var shoulder_half_w: float = float(player_m.get("shoulder", 35.0)) * p * 0.5
+			var head_half_w: float = float(player_m.get("headWidth", 24.0)) * p * 0.7
+			body_half_w = maxf(body_half_w, maxf(shoulder_half_w, head_half_w))
+		var side_gap_x: float = 24.0
+		var right_x: float = screen_pos.x + body_half_w + side_gap_x
+		var left_x: float = screen_pos.x - body_half_w - side_gap_x - bubble_size.x
+		var free_right: float = (viewport_rect.position.x + viewport_rect.size.x - screen_margin) - right_x
+		var free_left: float = (screen_pos.x - body_half_w - side_gap_x) - (viewport_rect.position.x + screen_margin)
+		var side_y: float = screen_pos.y + head_offset_y - bubble_size.y * 0.5
+		if free_right >= bubble_size.x or free_right >= free_left:
+			bubble_pos = Vector2(right_x, side_y)
+		else:
+			bubble_pos = Vector2(left_x, side_y)
+	bubble_pos.x = clampf(bubble_pos.x, min_x, max_x)
+	bubble_pos.y = clampf(bubble_pos.y, min_y, max_y)
+	return bubble_pos
 
 func _get_nearby_named_npc(dist_px: float) -> Node:
 	if not player: return null
@@ -1601,6 +1704,8 @@ func _setup_pause_menu() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _ending_overlay_showing:
 		return
+	if _school_day_transition_running:
+		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return
 	if _term_choice_showing and event is InputEventKey and event.pressed and not event.echo:
@@ -1748,6 +1853,7 @@ func _load_stage():
 	stage_id = _resolve_stage_id(String(stage_id))
 	if global:
 		global.current_stage_id = stage_id
+		global.record_stage_visit(stage_id)
 	_sync_player_stage_appearance(stage_id)
 	
 	# 床や障害物を生成

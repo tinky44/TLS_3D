@@ -5,6 +5,112 @@ const GRAVITY = 1200.0
 const REACTION_DIST := 170.0
 const HUGE_DIFF_CM := 35.0
 const VERY_HUGE_DIFF_CM := 60.0
+const GENERIC_PASSIVE_TRIGGER_SEC := 1.8
+const GENERIC_PASSIVE_TALL_CM := 170.0
+const GENERIC_PASSIVE_HUGE_CM := 180.0
+const GENERIC_PASSIVE_VERY_HUGE_CM := 190.0
+const GENERIC_PASSIVE_DURATION := 2.4
+const GENERIC_PASSIVE_COOLDOWN := 6.0
+const NAMED_GREET_TRIGGER_SEC := 2.0
+const NAMED_GREET_DURATION := 2.6
+const NAMED_GREET_COOLDOWN := 5.0
+const GENERIC_PASSIVE_LINES := {
+	"default": {
+		"tall": [
+			"背が高いね。",
+			"モデルさんみたい。",
+			"え、何年生？"
+		],
+		"huge": [
+			"ちょっと、写真みたいに目立つね。",
+			"上の棚、お願いしてもいい？",
+			"すごく目を引くなあ。"
+		],
+		"very_huge": [
+			"うわっ……何センチあるの！？",
+			"遠くからでもすぐ分かった。",
+			"そんなに大きい人、初めて見た。"
+		]
+	},
+	"school": {
+		"tall": [
+			"背が高いね！",
+			"バスケ部とか向いてそう。",
+			"教室でもすぐ見つかるね。"
+		],
+		"huge": [
+			"掲示物、上の方まで見やすそう。",
+			"体育館でもすぐ分かりそうだね。",
+			"モデルみたいで目立ってたよ。"
+		],
+		"very_huge": [
+			"すごい……何年生？",
+			"そこまで大きいと皆ふり返るね。",
+			"写真に撮りたくなるくらい目立つ。"
+		]
+	},
+	"station": {
+		"tall": [
+			"人混みでもすぐ見つかりそう。",
+			"待ち合わせ、すごく楽そう。",
+			"背、高くて目立つね。"
+		],
+		"huge": [
+			"路線案内、上まで見やすそう。",
+			"広告より先に目が行っちゃった。",
+			"モデルさんみたいだね。"
+		],
+		"very_huge": [
+			"人波から頭ひとつ抜けてる……！",
+			"うわっ、何センチあるの！？",
+			"駅でいちばん目立ってるかも。"
+		]
+	},
+	"outdoor": {
+		"tall": [
+			"信号の向こうからでも分かった。",
+			"背が高くてかっこいいね。",
+			"高いところ、全部届きそう。"
+		],
+		"huge": [
+			"上の棚、頼んでもよさそう。",
+			"遠くからでもすぐ見つかったよ。",
+			"モデルさんみたいでびっくりした。"
+		],
+		"very_huge": [
+			"すごい！ 本当に大きい……！",
+			"街でいちばん目立ってるかも。",
+			"そんな身長、ちょっと憧れる。"
+		]
+	},
+	"room": {
+		"tall": [
+			"今日もすらっとしてるね。",
+			"部屋の中でも背の高さが映えるなあ。"
+		],
+		"huge": [
+			"この部屋だと、なおさら大きく見えるね。",
+			"家具とのサイズ差がすごい……。"
+		],
+		"very_huge": [
+			"天井が近く見えそうなくらい大きい……！",
+			"家の中でも存在感がすごいね。"
+		]
+	}
+}
+const GENERIC_CHILD_PASSIVE_LINES := {
+	"tall": [
+		"背、高いね！"
+	],
+	"huge": [
+		"わっ、高い！",
+		"ほんとに大きい……！"
+	],
+	"very_huge": [
+		"すごい！ %dcm！？",
+		"こんなに大きい人、はじめて見た！"
+	]
+}
 var CM_TO_PX: float = 2.0
 
 var facing: String = "side"
@@ -39,6 +145,7 @@ var _proximity_time: float = 0.0
 var _greet_cooldown_left: float = 0.0
 var _greet_triggered_for_approach: bool = false
 var _last_greet_index: int = -1
+var _last_generic_callout_text: String = ""
 var _player_is_close: bool = false
 
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -110,7 +217,11 @@ func _process(delta: float) -> void:
 	var p_node: Node2D = get_parent().get_node_or_null("Player") as Node2D
 	if not p_node:
 		return
-	if not m or not p_node.get("m"):
+	var player_m_value: Variant = p_node.get("m")
+	if m == null or m.is_empty() or not (player_m_value is Dictionary):
+		return
+	var player_m: Dictionary = player_m_value
+	if player_m.is_empty():
 		return
 
 	_reaction_time_left = max(0.0, _reaction_time_left - delta)
@@ -124,48 +235,14 @@ func _process(delta: float) -> void:
 		_reset_reaction(delta)
 		return
 
-	var player_m: Dictionary = p_node.get("m")
-	var self_eye_y: float = global_position.y - float(m["landmarks"]["eye"]) * CM_TO_PX
-	var player_eye_y: float = p_node.global_position.y - float(player_m["landmarks"]["eye"]) * CM_TO_PX
-	var diff_y_px: float = player_eye_y - self_eye_y
-
-	var angle: float = clamp(atan2(diff_y_px, max(abs_dist, 1.0)), -PI / 3.0, PI / 3.0)
-	look_head_angle = angle
-	var max_pitch: float = float(m["head"]) * CM_TO_PX * 0.2
-	look_pitch = sin(angle) * max_pitch
-
-	if dist_x < 0:
-		dir = 1
-	else:
-		dir = -1
-	facing = "side"
+	_update_look_towards_player(delta, p_node, player_m, abs_dist, dist_x)
 
 	_reaction_label.position.y = - (visual_height_cm * CM_TO_PX) - 40.0
 	if npc_id == "":
-		# プレイヤーがNPCより小さければ反応しない。大きい場合のみ年齢平均との差で判定。
-		var actual_height_diff: float = float(player_m["height"]) - float(m["height"])
-		var reaction_key: String
-		if actual_height_diff <= 0.0:
-			reaction_key = "same"
-		else:
-			var global_node = get_node_or_null("/root/Global")
-			var avg_height: float = 158.5
-			if global_node:
-				avg_height = global_node.get_avg_height(global_node.age)
-			reaction_key = _get_reaction_key(float(player_m["height"]) - avg_height)
-		if reaction_key != _current_reaction_key:
-			_current_reaction_key = reaction_key
-			_show_reaction_text(_get_reaction_text(reaction_key), 1.2)
-
-		if reaction_key == "very_huge":
-			_avoid_dir = sign(dist_x)
-		elif reaction_key == "huge":
-			_avoid_dir = sign(dist_x) * 0.45
-		else:
-			_avoid_dir = 0.0
+		_process_generic_reaction(delta, player_m, dist_x)
 	else:
 		_avoid_dir = 0.0
-		_process_passive_greet(delta)
+		_process_named_passive_greet(delta)
 
 	_reaction_label.visible = _reaction_time_left > 0.0 and _reaction_label.text != ""
 
@@ -204,6 +281,60 @@ func _physics_process(delta: float) -> void:
 	_update_collision()
 	move_and_slide()
 	character_drawer.queue_redraw()
+
+func _update_look_towards_player(
+	delta: float,
+	player_node: Node2D,
+	player_m: Dictionary,
+	abs_dist: float,
+	dist_x: float
+) -> void:
+	var self_eye_y: float = global_position.y - float(m["landmarks"]["eye"]) * CM_TO_PX
+	var player_eye_y: float = player_node.global_position.y - float(player_m["landmarks"]["eye"]) * CM_TO_PX
+	var diff_y_px: float = player_eye_y - self_eye_y
+
+	var angle: float = clamp(atan2(diff_y_px, max(abs_dist, 1.0)), -PI / 3.0, PI / 3.0)
+	look_head_angle = lerp_angle(look_head_angle, angle, 8.0 * delta)
+	var max_pitch: float = float(m["head"]) * CM_TO_PX * 0.2
+	look_pitch = lerp(look_pitch, sin(angle) * max_pitch, 8.0 * delta)
+
+	dir = 1 if dist_x < 0.0 else -1
+	facing = "side"
+
+func _process_generic_reaction(delta: float, player_m: Dictionary, dist_x: float) -> void:
+	var actual_height_diff: float = float(player_m["height"]) - float(m["height"])
+	var reaction_key: String = _get_reaction_key(actual_height_diff)
+	if reaction_key != _current_reaction_key:
+		_current_reaction_key = reaction_key
+		_show_reaction_text(_get_reaction_text(reaction_key), 1.2)
+
+	if reaction_key == "very_huge":
+		_avoid_dir = sign(dist_x)
+	elif reaction_key == "huge":
+		_avoid_dir = sign(dist_x) * 0.45
+	else:
+		_avoid_dir = 0.0
+
+	_process_generic_passive_greet(delta, player_m)
+
+func _process_generic_passive_greet(delta: float, player_m: Dictionary) -> void:
+	if _greet_cooldown_left > 0.0:
+		return
+	_proximity_time += delta
+	if _proximity_time < GENERIC_PASSIVE_TRIGGER_SEC or _greet_triggered_for_approach:
+		return
+
+	var passive_key: String = _get_generic_passive_height_key(float(player_m["height"]))
+	if passive_key == "same":
+		return
+	var text: String = _get_generic_passive_text(passive_key, float(player_m["height"]))
+	if text == "":
+		return
+
+	_greet_triggered_for_approach = true
+	_greet_cooldown_left = GENERIC_PASSIVE_COOLDOWN
+	_last_generic_callout_text = text
+	_show_reaction_text(text, GENERIC_PASSIVE_DURATION)
 
 func _get_reaction_key(height_diff_cm: float) -> String:
 	if height_diff_cm >= VERY_HUGE_DIFF_CM:
@@ -292,13 +423,13 @@ func _mock_measurements() -> Dictionary:
 		}
 	}
 
-func _process_passive_greet(delta: float) -> void:
+func _process_named_passive_greet(delta: float) -> void:
 	if npc_data.is_empty():
 		return
 	if _greet_cooldown_left > 0.0:
 		return
 	_proximity_time += delta
-	if _proximity_time < 2.0 or _greet_triggered_for_approach:
+	if _proximity_time < NAMED_GREET_TRIGGER_SEC or _greet_triggered_for_approach:
 		return
 	var greet_events: Variant = npc_data.get("greet_events", [])
 	if not (greet_events is Array) or greet_events.is_empty():
@@ -310,8 +441,8 @@ func _process_passive_greet(delta: float) -> void:
 			next_index = (next_index + 1) % greet_events.size()
 	_last_greet_index = next_index
 	_greet_triggered_for_approach = true
-	_greet_cooldown_left = 5.0
-	_show_reaction_text(String(greet_events[next_index]), 2.6)
+	_greet_cooldown_left = NAMED_GREET_COOLDOWN
+	_show_reaction_text(String(greet_events[next_index]), NAMED_GREET_DURATION)
 
 func _reset_proximity_state() -> void:
 	_player_is_close = false
@@ -320,7 +451,79 @@ func _reset_proximity_state() -> void:
 
 func _show_reaction_text(text: String, duration: float) -> void:
 	_reaction_label.text = text
-	_reaction_time_left = duration
+	_reaction_time_left = duration if text != "" else 0.0
+
+func _get_generic_passive_height_key(player_height_cm: float) -> String:
+	if player_height_cm >= GENERIC_PASSIVE_VERY_HUGE_CM:
+		return "very_huge"
+	if player_height_cm >= GENERIC_PASSIVE_HUGE_CM:
+		return "huge"
+	if player_height_cm >= GENERIC_PASSIVE_TALL_CM:
+		return "tall"
+	return "same"
+
+func _get_generic_passive_text(passive_key: String, player_height_cm: float) -> String:
+	var child_text: String = _get_child_generic_passive_text(passive_key, player_height_cm)
+	if child_text != "":
+		return child_text
+
+	var stage_bucket: String = _get_generic_passive_stage_bucket()
+	var stage_lines: Variant = GENERIC_PASSIVE_LINES.get(stage_bucket, GENERIC_PASSIVE_LINES["default"])
+	if not (stage_lines is Dictionary):
+		stage_lines = GENERIC_PASSIVE_LINES["default"]
+	var texts: Variant = stage_lines.get(passive_key, GENERIC_PASSIVE_LINES["default"].get(passive_key, []))
+	if not (texts is Array):
+		return ""
+	return _pick_non_repeating_text(texts, _last_generic_callout_text)
+
+func _get_child_generic_passive_text(passive_key: String, player_height_cm: float) -> String:
+	if not _is_child_generic_npc():
+		return ""
+	var texts: Variant = GENERIC_CHILD_PASSIVE_LINES.get(passive_key, [])
+	if not (texts is Array):
+		return ""
+	var text: String = _pick_non_repeating_text(texts, _last_generic_callout_text)
+	if text.contains("%d"):
+		return text % int(round(player_height_cm))
+	return text
+
+func _is_child_generic_npc() -> bool:
+	return npc_id == "" and m != null and not m.is_empty() and float(m.get("height", 999.0)) <= 125.0
+
+func _get_generic_passive_stage_bucket() -> String:
+	var global = get_node_or_null("/root/Global")
+	if global == null:
+		return "default"
+	var stage_id: String = String(global.current_stage_id)
+	if stage_id == "station" or stage_id == "train":
+		return "station"
+	if stage_id == "outdoor":
+		return "outdoor"
+	if stage_id == "room" or stage_id == "myroom":
+		return "room"
+	if (
+		StageBuilder.is_school_hallway_stage(stage_id)
+		or StageBuilder.is_school_classroom_stage(stage_id)
+		or StageBuilder.is_schoolyard_stage(stage_id)
+		or StageBuilder.is_infirmary_stage(stage_id)
+		or StageBuilder.is_gymnasium_stage(stage_id)
+	):
+		return "school"
+	return "default"
+
+func _pick_non_repeating_text(options: Array, last_text: String) -> String:
+	var cleaned: Array[String] = []
+	for option in options:
+		var text: String = String(option).strip_edges()
+		if text != "":
+			cleaned.append(text)
+	if cleaned.is_empty():
+		return ""
+	var picked_index: int = randi_range(0, cleaned.size() - 1)
+	var picked_text: String = cleaned[picked_index]
+	if cleaned.size() > 1 and picked_text == last_text:
+		picked_text = cleaned[(picked_index + 1) % cleaned.size()]
+	return picked_text
 
 func _get_default_shoe_color(shoes_type: String) -> String:
 	match shoes_type:

@@ -19,6 +19,7 @@ var is_walking: bool = false
 var walk_phase: float = 0.0
 var walk_speed: float = 12.0
 var pose: String = "normal"
+var appearance: Dictionary = {}  # 空のとき CharacterDrawer は Global.current_appearance を使用
 var receives_global_stress: bool = true
 
 var auto_crouch: bool = true
@@ -304,6 +305,15 @@ func _update_collision() -> void:
 	if shape:
 		shape.height = max(40.0, h_px)
 		collision_shape.position.y = -h_px / 2.0
+
+func get_head_screen_y_offset() -> float:
+	if not smooth_d.is_empty():
+		var head_center_key: String = "front_hy" if facing == "front" else "hy"
+		var fallback_head_h: float = float(m.get("head", 0.0)) * CM_TO_PX if m and not m.is_empty() else visual_height_cm * CM_TO_PX * 0.13
+		var head_center_y: float = float(smooth_d.get(head_center_key, -fallback_head_h * 0.5))
+		var head_h: float = float(smooth_d.get("head_h", fallback_head_h))
+		return head_center_y - head_h * 0.5
+	return -visual_height_cm * CM_TO_PX
 
 func _process_head_bump(delta: float) -> void:
 	_head_bump_cooldown_left = max(0.0, _head_bump_cooldown_left - delta)
