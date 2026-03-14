@@ -376,6 +376,11 @@ static func _draw_back_tail(ctx: DrawContext, head_center: Vector2, hr: float, h
 			var outline_pts = side_tail.duplicate()
 			outline_pts.append(side_tail[0])
 			ctx.canvas.draw_polyline(outline_pts, outline_color, outline_w, true)
+			# 生え際マーカー（結び目位置の確認用）
+			# 【調整用】マーカーの色（黄色系）
+			var marker_color = Color(0.95, 0.85, 0.10)
+			# 【調整用】マーカーの半径
+			ctx.canvas.draw_circle(tie_side, hr * 0.08, marker_color)
 
 # 現在未使用（正面ビューのサイドテールは draw_hair_base_layer → _draw_back_tail が担う）
 static func _draw_front_side_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_color: Color) -> void:
@@ -453,13 +458,24 @@ static func _draw_side_tail_profile(
 		var side_tie = head_center + back_dir * hr * 0.75 + down_dir * hr * 0.20
 		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(side_tie, hr * 0.14, hair_color.darkened(0.06))
+		# D字型（背中側に膨らむ）の尾。ポニテと同様に外側エッジ→先端→内側エッジの構造
 		var side_pts = PackedVector2Array([
-			side_tie + up_dir * hr * 0.08,                              # 根元上
-			# 【調整用】尾の中間のふくらみ。fwd_dir を大きくすると前方に張り出す
-			side_tie + fwd_dir * hr * 0.30 + down_dir * hr * 0.52,
-			# 【調整用】尾の先端。down_dir * 1.88 を変えると長さが変わる
-			side_tie + fwd_dir * hr * 0.12 + down_dir * hr * 1.88,
-			side_tie + back_dir * hr * 0.06 + down_dir * hr * 1.22,    # 根元下
+			# --- 背面(外側)エッジ ---
+			side_tie + up_dir * hr * 0.10,                                  # 根元（上）
+			# 【調整用】後方への初期張り出し。up_dir を増やすと根元が上に出る
+			side_tie + back_dir * hr * 0.22 + up_dir * hr * 0.05,
+			# 【調整用】弧の最後方点。back_dir * 0.32 が後方への最大距離（ポニテの0.34相当）
+			side_tie + back_dir * hr * 0.5 + down_dir * hr * 0.50,
+			# 【調整用】後方から下りてくる中間点
+			side_tie + back_dir * hr * 0.14 + down_dir * hr * 1.30,
+			# 【調整用】先端。down_dir * 1.88 で長さ調整。fwd_dir で前方への流れを調整
+			side_tie + fwd_dir * hr * 0.04 + down_dir * hr * 1.88,
+			# --- 前面(内側)エッジ ---
+			# 【調整用】先端の内側。fwd_dir を大きくすると先端が前方に流れる
+			side_tie + fwd_dir * hr * 0.18 + down_dir * hr * 1.65,
+			side_tie + fwd_dir * hr * 0.16 + down_dir * hr * 1.05,         # 前方中間
+			side_tie + fwd_dir * hr * 0.12 + down_dir * hr * 0.40,         # 前方ふくらみ
+			side_tie + fwd_dir * hr * 0.04,                                 # 根元（下）
 		])
 		ctx.canvas.draw_polygon(side_pts, PackedColorArray([hair_color]))
 		# 【調整用】輪郭線の色（darkened値を大きくすると濃く）と太さ
