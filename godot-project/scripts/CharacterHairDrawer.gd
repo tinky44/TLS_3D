@@ -282,10 +282,10 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		# 6. 耳の前に垂れる髪（ポニテ・サイドテールのみ）
 		# 上端が目のあたり、下端が顎より少し上
 		if hair_style == "ponytail" or hair_style == "side_tail":
-			# 【調整用】垂れ髪の上端位置。fwd_dir で前後、down_dir で上下
-			var strand_top = head_center + fwd_dir * hr * 0.32 + down_dir * hr * 0.05
+			# 【調整用】垂れ髪の上端位置。耳の前端(右端)に合わせて fwd=0。fwd_dir で前後調整
+			var strand_top = head_center + fwd_dir * hr * 0.0 - down_dir * hr * 1.0
 			# 【調整用】垂れ髪の下端位置。顎(down_dir*1.0)より少し上
-			var strand_bottom = head_center + fwd_dir * hr * 0.38 + down_dir * hr * 0.80
+			var strand_bottom = head_center + fwd_dir * hr * 0.0 + down_dir * hr * 0.80
 			# 【調整用】垂れ髪の幅（太さ）
 			var strand_w = hr * 0.12
 			var strand_pts = PackedVector2Array([
