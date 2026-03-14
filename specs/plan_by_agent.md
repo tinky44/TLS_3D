@@ -315,3 +315,11 @@ func _draw() -> void:
 | ★★☆ | 椅子・干渉表現 | 中 | `feat/body-environment-interaction` |
 | ★☆☆ | イントロ見直し（身長計ズームアウト） | 中 | `feat/intro-revamp` |
 | ★☆☆ | エンディング（最終比較画面） | 大 | `feat/ending-report` |
+
+## レビュー結果
+
+High: エンディングの初期シルエット復元案は、そのままだと正確に実装できません。plan_by_agent.md:93 plan_by_agent.md:95 では growth_history[0] を代用に使っていますが、現行の保存内容は Global.gd:198 Global.gd:204 の通り height と平均差分系だけで、ratio / legRatio / 外見が入っていません。初期体型を並べたいなら initial_params と initial_appearance を必須保存に寄せた方が安全です。
+High: NPC プロフィールの使用例が定義と食い違っています。plan_by_agent.md:101 では setup_player(player_npc, NPC_PROFILES["honoka"], ...) になっていますが、定義は plan_by_agent.md:121 のように params 配下へ体型値を入れる形です。このままだと呼び出し側が params ではなくプロファイル全体を渡すことになります。
+Medium: Intro のプレイヤー scene パスが現行 repo にありません。plan_by_agent.md:162 は res://scenes/SkeletalPlayer.tscn を前提にしていますが、今ある再利用 scene は Player.tscn:1 で、スクリプトも Player.tscn:3 にぶら下がっています。新規 scene を作る前提なら、その作成タスクを計画に明記した方がよいです。
+Medium: visited_stages の記録フック名が現行コードとズレています。plan_by_agent.md:82 では _on_stage_changed() を例示していますが、今の実装でステージ切替の中心になっているのは _load_stage() / MainScene.gd:1815 です。実装者がそのまま追うと存在しないフックを探すことになります。
+Medium: 学校の強制イベントの遷移先が最新実装と食い違っています。plan_by_agent.md:240 では「家ステージへ自動遷移」ですが、現行コードは MainScene.gd:1137 で school_hallway にしています。ここは計画書を最新化しておいた方が後続作業で迷いません。
