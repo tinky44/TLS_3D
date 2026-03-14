@@ -66,6 +66,12 @@ var current_term_plan: String = DEFAULT_TERM_PLAN # "home" / "school" / "station
 var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
 var term_memory_note: String = "" # 今学期の印象的な出来事メモ
 
+# ─── 初期状態・通算ログ ──────────────────────────────────────────
+var initial_params: Dictionary = {}      # キャラメイク確定時の体型（エンディング用）
+var initial_appearance: Dictionary = {}  # キャラメイク確定時の外見（エンディング用）
+var visited_stages: Dictionary = {}      # {stage_id: true} 全プレイを通じて訪れた場所
+var experienced_events: Array = []       # 体験済みイベントID一覧
+
 # コアNPCの定義
 var core_npcs: Dictionary = {
 	"haruka": {
@@ -191,6 +197,17 @@ static func get_base_growth(current_age: int) -> float:
 
 func calc_growth() -> float:
 	return get_base_growth(age) * growth_factor * randf_range(0.7, 1.3)
+
+func lock_initial_state() -> void:
+	initial_params = current_params.duplicate(true)
+	initial_appearance = current_appearance.duplicate(true)
+
+func record_stage_visit(stage_id: String) -> void:
+	visited_stages[stage_id] = true
+
+func record_event(event_id: String) -> void:
+	if not event_id in experienced_events:
+		experienced_events.append(event_id)
 
 func _ensure_growth_history() -> void:
 	if growth_history.is_empty():
@@ -561,6 +578,14 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
+	config.set_value(section, "initial_height", initial_params.get("height", 0.0))
+	config.set_value(section, "initial_ratio", initial_params.get("ratio", 7.5))
+	config.set_value(section, "initial_legRatio", initial_params.get("legRatio", 48.0))
+	config.set_value(section, "initial_sex", initial_params.get("sex", "female"))
+	for key in current_appearance.keys():
+		config.set_value(section, "initial_appearance_" + key, initial_appearance.get(key, current_appearance[key]))
+	config.set_value(section, "visited_stages", visited_stages)
+	config.set_value(section, "experienced_events", experienced_events)
 	config.save(SLOTS_PATH)
 	current_slot = slot
 
@@ -599,6 +624,19 @@ func load_slot(slot: int) -> bool:
 	_ensure_growth_history()
 	for key in current_appearance.keys():
 		current_appearance[key] = config.get_value(section, "appearance_" + key, current_appearance[key])
+	if config.has_section_key(section, "initial_height"):
+		initial_params = {
+			"height": config.get_value(section, "initial_height", 0.0),
+			"ratio":  config.get_value(section, "initial_ratio", 7.5),
+			"legRatio": config.get_value(section, "initial_legRatio", 48.0),
+			"sex":    config.get_value(section, "initial_sex", "female"),
+		}
+		for key in current_appearance.keys():
+			initial_appearance[key] = config.get_value(section, "initial_appearance_" + key, current_appearance[key])
+	var vs = config.get_value(section, "visited_stages", {})
+	visited_stages = vs if vs is Dictionary else {}
+	var ev = config.get_value(section, "experienced_events", [])
+	experienced_events = ev if ev is Array else []
 	current_slot = slot
 	return true
 

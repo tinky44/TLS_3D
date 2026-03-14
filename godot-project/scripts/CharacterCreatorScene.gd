@@ -399,6 +399,9 @@ func _on_next_pressed() -> void:
         global.term_hotspot_flags = {}
         global.term_memory_note = ""
         global.record_growth_history("start")
+        global.visited_stages = {}
+        global.experienced_events = []
+        global.lock_initial_state()
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"
         global.queue_event("entrance_ceremony") # 最初の入学式モノローグ

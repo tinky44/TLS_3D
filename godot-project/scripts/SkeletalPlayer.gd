@@ -19,6 +19,7 @@ var is_walking: bool = false
 var walk_phase: float = 0.0
 var walk_speed: float = 12.0
 var pose: String = "normal"
+var appearance: Dictionary = {}  # 空のとき CharacterDrawer は Global.current_appearance を使用
 var receives_global_stress: bool = true
 
 var auto_crouch: bool = true

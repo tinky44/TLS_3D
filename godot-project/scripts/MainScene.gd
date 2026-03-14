@@ -679,7 +679,7 @@ func _on_grade_choice_selected(choice_id: String) -> void:
 	if choice_id == "continue":
 		return
 
-	await _show_temp_ending_and_return_to_title()
+	get_tree().change_scene_to_file("res://scenes/EndingScene.tscn")
 
 func _get_grade_transition_title(age_value: int) -> String:
 	match age_value:
@@ -930,6 +930,9 @@ func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	var npc_data: Dictionary = _dialogues[npc_id]
 	if not npc_data.has(key): return
 
+	var _g = get_node_or_null("/root/Global")
+	if _g:
+		_g.record_event(npc_id + "_" + key)
 	_current_dialogue_npc = npc_id
 	_current_dialogue_key = key
 	_dialogue_lines = _build_dialogue_sequence(npc_id, key)
@@ -1818,6 +1821,7 @@ func _load_stage():
 	stage_id = _resolve_stage_id(String(stage_id))
 	if global:
 		global.current_stage_id = stage_id
+		global.record_stage_visit(stage_id)
 	_sync_player_stage_appearance(stage_id)
 	
 	# 床や障害物を生成
