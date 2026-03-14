@@ -1,283 +1,129 @@
-# 側面スカート：下半身シルエット追従ポリゴン実装計画
 
-## 目的
+## 体育座り問題の原因調査（2026-03-14）
 
-- 現在の側面スカートは **台形（`draw_trapezoid`）** で描画している
-- 屈みや歩行で、膝・脛・足首が前に出たときにスカートを突き抜けて見える
-- ただし、現行の「脚角 0.7 倍 + 腰角追従」による**スカート全体の傾き**は残したい
+### 現象
 
-今回の方針は、**既存のスカート軸と裾幅補正は維持したまま**、
-前後輪郭だけを非対称ポリゴン化して、下半身シルエットの最外点を包むようにする。
+- スカートが右方向に尖った三角形になる
+- 背中・臀部が露出する
 
----
+### 原因：3つのバグが連鎖している
 
-## 基本方針
+体育座りでは胴体が大きく前傾し、`skirt_ang` がほぼ水平になる。
+このとき `skirt_u ≈ (1, 0)`（右向き）、`skirt_n ≈ (0, -1)`（上向き）になる。
 
-### 残すもの
-
-- `waist_pos`
-- `skirt_length`
-- `skirt_ang`
-- `waist_lean`
-- `p_bottom`
-- `side_hem_w`
-
-つまり、現行の側面スカートが持っている
-「全体としてどちらに傾くか」「どれくらい裾を広げるか」はそのまま使う。
-
-### 置き換えるもの
-
-- `draw_trapezoid()` による左右対称な側面シルエット
-- 「前側制約点 = 膝固定」という前提
-
-前側は**膝ではなく、下半身人体の一番外側の点**を使う。
-足首が最前面なら足首、脛途中が最前面なら脛途中、膝が最前面なら膝を採用する。
-
-背面側も同様に、臀部固定ではなく**後方シルエットの最外点**を使う。
-ただし、立位で後方シルエットが臀部になるケースが多いため、臀部候補は必ず含める。
-
----
-
-## 変更対象ファイル
-
-- **`godot-project/scripts/CharacterBodyDrawer.gd`**
-  - `draw_skirt()` 内 `if facing == "side":` ブロック
-
----
-
-## 既存の傾きロジックは維持する
-
-以下は現行のまま使う。
+#### バグ① `front_side` / `back_side` が `skirt_n` 基準（行 315–316）
 
 ```gdscript
-var avg_leg_ang = (d["leg_l_angle"] + d["leg_r_angle"]) / 2.0
-var skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
-
-var waist_lean = 0.5 if (is_jumper or is_blouse_bow or is_jumper_skirt) else 0.3
-skirt_ang += d["waist_angle"] * waist_lean
-
-var p_bottom = Vector2(
-    waist_pos.x + skirt_length * cos(skirt_ang),
-    waist_pos.y + skirt_length * sin(skirt_ang)
-)
+var front_side = -skirt_n  # 現行：スカート軸の垂直方向
+var back_side  =  skirt_n
 ```
 
-この `waist_pos -> p_bottom` を **スカート中心軸** として使い続ける。
+スカートが水平に近いとき `skirt_n ≈ 上向き` になるため：
+- `back_side ≈ 上向き` → "背面"が「上にある点」に変わる
+- `front_side ≈ 下向き` → "前面"が「下にある点」になる
 
----
+結果として、`back_outer` は脚候補から「最も上にある点（股関節付近）」、
+`front_outer` は「最も下にある点（足首）」が選ばれてしまう。
 
-## 軸ベースの基準点
+#### バグ② `axis_pos` フィルタが `skirt_u` 基準（行 333–334）
+
+`_pick_side_outer_candidate(... skirt_u ...)` の内部フィルタ：
 
 ```gdscript
-var axis = p_bottom - waist_pos
-var u = axis.normalized() if axis.length() > 0.01 else Vector2(0, 1)
-var n = Vector2(-u.y, u.x).normalized() # +n = 背面側, -n = 前面側
-
-var half_top = base_width / 2.0
-var half_hem = side_hem_w / 2.0
-
-var belt_back = waist_pos + n * half_top
-var belt_front = waist_pos - n * half_top
-var hem_back_base = p_bottom + n * half_hem
-var hem_front_base = p_bottom - n * half_hem
+var axis_pos = (point - waist_pos).dot(axis_dir)  # axis_dir = skirt_u
+if axis_pos < 0.0 or axis_pos > skirt_length + 12.0:
+    continue
 ```
 
-ここでの `n` は、現行 `draw_trapezoid()` と同じく
-スカート軸に直交する方向を表す。
+`skirt_u ≈ (1, 0)` のとき、腰より左（後方）にある臀部候補は
+`axis_pos < 0` でフィルタアウトされ、有効な背面候補がゼロになることがある。
 
----
-
-## 下半身シルエット候補点
-
-「前側制約点」「背面側制約点」は、固定の膝ではなく
-**下半身の外形候補群から最外点を選ぶ**。
-
-### 候補に含める点
+#### バグ③ 裾延長方向が `skirt_u`（行 358–359）
 
 ```gdscript
-var crotch_pos = Vector2(d["cx"], d["cy"])
-
-var ang_l = d["leg_l_angle"] * PI / 180.0 + PI / 2.0
-var ang_r = d["leg_r_angle"] * PI / 180.0 + PI / 2.0
-
-var knee_l = Vector2(d["cx"] + d["thigh_l"] * cos(ang_l),
-                     d["cy"] + d["thigh_l"] * sin(ang_l))
-var knee_r = Vector2(d["cx"] + d["thigh_l"] * cos(ang_r),
-                     d["cy"] + d["thigh_l"] * sin(ang_r))
+var front_hem_ext = front_outer + skirt_u * (skirt_length - front_seg1)
+var back_hem_ext  = back_outer  + skirt_u * (skirt_length - back_seg1)
 ```
 
-基本候補:
+`skirt_u ≈ 右向き` なので、裾延長が右（前方）に伸びる。
+`back_hem` まで右に行くため、後方（左側）が完全に露出する。
+`front_hem` はさらに右に飛び出して「尖り」になる。
 
-- `knee_l`, `knee_r`
-- `crotch_pos + n * half_top`（臀部寄り候補）
-- `crotch_pos - n * half_top`（骨盤前面寄り候補）
+### デグレの原因（修正①の設計ミス）
 
-追加候補:
+`top_n = Vector2(-torso_u.y, torso_u.x)` は torso_u の CCW 回転で、
+胴体が前傾するにつれ **下方向成分が大きくなる**。
 
-- `skirt_long`:
-  - `ankle_l`, `ankle_r`
-- プリーツ系:
-  - 既存で裾幅補正に使っている `shin_l * 0.4` 相当の前後点
+```
+lean 0°  → top_n = (-1,  0)     back_side が 左 ✓
+lean 30° → top_n = (-0.87, +0.5) back_side が 左+下
+lean 54° → top_n = (-0.59, +0.81) back_side が ほぼ下 ← 問題
+```
 
-要点:
+`back_side ≈ 下方向` になると、脚候補の中で
+**最も y が大きい点（足首）** がスコア最大で `back_outer` に選ばれる。
 
-- **足首が最前面なら足首が勝つ**
-- **脛途中が最前面なら脛途中が勝つ**
-- **臀部より後ろに脚が出ていれば、その脚側が背面候補として勝つ**
+```
+lean = 54° での back_side = (-0.59, 0.81) のスコア
+  足首 ( +5, +130): score = -2.95 + 105.3 = 102  ← 勝つ
+  臀部 ( -8,  +57): score =  4.72 +  46.2 =  51
+```
 
----
+→ `back_outer = 足首`（腰から 130px 下）
+→ プリーツ線の `mid_p = back_outer.lerp(...)` が画面外まで伸びる = デグレ
 
-## 最外点の選び方
+### 修正方針（再設計）
 
-候補点を「スカート軸から見てどちら側にどれだけ張り出しているか」で評価する。
+#### 修正①（再設計）：スクリーン水平軸に固定する
+
+前後方向を **画面の横軸（常に水平）** に固定する。
+側面描画ではキャラクターは常に右向きなので：
 
 ```gdscript
-func side_proj(p: Vector2, origin: Vector2, side_dir: Vector2) -> float:
-    return (p - origin).dot(side_dir)
+# 誤（lean に引きずられる）
+var front_side = -top_n
+var back_side  =  top_n
 
-var front_side = -n
-var back_side = n
+# 正：右 = 前面、左 = 背面（姿勢によらず不変）
+var front_side = Vector2(1, 0)
+var back_side  = Vector2(-1, 0)
 ```
 
-前面候補:
+| 姿勢 | back_side スコア（足首 +5, +130） | back_side スコア（臀部 -8, +57） |
+|---|---|---|
+| 旧 top_n (lean 54°) | **102**（足首が勝つ） | 51 |
+| 新 (-1, 0) | **-5**（足首は負 = 除外） | **8**（臀部が勝つ）✓ |
 
-- `side_proj(candidate, waist_pos, front_side)` が最大の点
-
-背面候補:
-
-- `side_proj(candidate, waist_pos, back_side)` が最大の点
-
-これにより、「膝」ではなく
-**その姿勢で実際にシルエットを作っている最前面/最後面の点**を採れる。
-
----
-
-## 輪郭線の作り方
-
-### 方針
-
-既存の傾きは消さず、制約点を通過した後も
-**鉛直落下ではなく、現在のスカート軸 `u` に沿って残り丈を延長**する。
-
-これで、
-
-- 現行の傾き追従は維持
-- そのうえで前後の張り出しだけ非対称化
-
-が両立できる。
-
-### 前面側
+#### 修正②：`axis_dir` を `torso_u` に変える（維持）
 
 ```gdscript
-var front_outer = ... # 前面最外点
-var front_seg1 = belt_front.distance_to(front_outer)
-var front_remain = skirt_length - front_seg1
-
-var front_hem_ext = front_outer + u * front_remain
+# 済・維持
+var front_pick = _pick_side_outer_candidate(..., torso_u, skirt_length)
+var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
 ```
 
-### 背面側
+#### 修正③（再設計）：裾延長を純粋な重力方向に変更
+
+`normalize(skirt_u + gravity)` にも前方成分が残るため、
+extreme lean では `back_hem` が前方へ飛ぶ。純粋な `(0, 1)` に変更する。
 
 ```gdscript
-var back_outer = ... # 背面最外点
-var back_seg1 = belt_back.distance_to(back_outer)
-var back_remain = skirt_length - back_seg1
+# 誤（前方成分が残る）
+var extend_u = _normalized_or(skirt_u + Vector2(0, 1), Vector2(0, 1))
 
-var back_hem_ext = back_outer + u * back_remain
+# 正：重力方向のみ
+var extend_u = Vector2(0, 1)
 ```
 
-### 既存裾幅との統合
+通常姿勢では `skirt_u ≈ (0, 1)` なので見た目の変化はゼロ。
 
-新方式でも、現行の `side_hem_w` による裾幅確保は残したい。
-そのため最終的な裾端は、基準裾と拡張裾のうち「より外側」を使う。
+### 修正対象箇所（再設計後）
 
-```gdscript
-var front_hem = front_hem_ext
-if side_proj(hem_front_base, waist_pos, front_side) > side_proj(front_hem, waist_pos, front_side):
-    front_hem = hem_front_base
-
-var back_hem = back_hem_ext
-if side_proj(hem_back_base, waist_pos, back_side) > side_proj(back_hem, waist_pos, back_side):
-    back_hem = hem_back_base
-```
-
-これで、
-
-- 現行補正で確保していた最低限の裾幅は維持
-- さらに必要な姿勢では、前後どちらかだけを追加で外へ張り出せる
-
----
-
-## ポリゴン構築
-
-通常ケースでは 6 点ポリゴンとする。
-
-```gdscript
-var pts = PackedVector2Array([
-    belt_back,
-    back_outer,
-    back_hem,
-    front_hem,
-    front_outer,
-    belt_front,
-])
-ctx.canvas.draw_polygon(pts, PackedColorArray([bottoms_color]))
-```
-
-時計回りで並べる。
-
----
-
-## プリーツ描画
-
-ここは `p_bottom_new` を単純導入するのではなく、
-**ポリゴンの内側に確実に収まるコア四辺形**を使う。
-
-```gdscript
-var pleat_top_l = belt_back
-var pleat_top_r = belt_front
-var pleat_bot_l = back_hem
-var pleat_bot_r = front_hem
-```
-
-```gdscript
-for i in range(1, 7):
-    var t = float(i) / 7.0
-    var top_p = pleat_top_l.lerp(pleat_top_r, t)
-    var bot_p = pleat_bot_l.lerp(pleat_bot_r, t)
-    ctx.canvas.draw_line(top_p, bot_p, pleat_col, 1.5)
-```
-
-これで、
-
-- プリーツ線の始点/終点が常に上端・裾端の内側に乗る
-- `front_outer` / `back_outer` の張り出しに引きずられて線が外へ飛び出しにくい
-
----
-
-## `jumper_skirt` の上端帯
-
-ここで重要なのは「新しいポリゴンでも**スカート上端が正しい角度と位置を保つこと**」。
-そのため、上端帯は `p_bottom_new` のような中心点ではなく、
-**上端辺そのもの**から作る。
-
-```gdscript
-var belt_color = bottoms_color.darkened(0.35)
-var belt_h = 7.0
-var belt_pts = PackedVector2Array([
-    belt_back,
-    belt_front,
-    belt_front + u * belt_h,
-    belt_back + u * belt_h,
-])
-ctx.canvas.draw_polygon(belt_pts, PackedColorArray([belt_color]))
-```
-
-これなら、
-
-- 直立時の上端ラインがそのまま正しく出る
-- 屈み時も現行のスカート軸に沿って帯が傾く
-- 上衣側の共有アンカーとも整合しやすい
+| 修正 | ファイル | 変更内容 |
+|---|---|---|
+| ① | CharacterBodyDrawer.gd:315–316 | `Vector2(1,0)` / `Vector2(-1,0)` に変更 |
+| ② | CharacterBodyDrawer.gd:333–334 | `torso_u`（済・維持） |
+| ③ | CharacterBodyDrawer.gd:358 | `extend_u = Vector2(0, 1)` に変更 |
 
 ---
 
