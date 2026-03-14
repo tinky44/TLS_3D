@@ -141,13 +141,11 @@ static func age_to_term(a: int) -> int:
 	elif a <= 15: return 27 + (a - 13) * 3
 	else: return 36 + (a - 16) * 3
 
-# TODO flooriを使う
-@warning_ignore("integer_division")
 static func term_to_age(t: int) -> int:
-	if t < 6: return 3 + t / 2
-	elif t < 27: return 6 + (t - 6) / 3
-	elif t < 36: return 13 + (t - 27) / 3
-	else: return 16 + min((t - 36) / 3, 2)
+	if t < 6: return 3 + floori(t / 2.0)
+	elif t < 27: return 6 + floori((t - 6) / 3.0)
+	elif t < 36: return 13 + floori((t - 27) / 3.0)
+	else: return 16 + min(floori((t - 36) / 3.0), 2)
 
 static func get_base_growth(current_age: int) -> float:
 	if current_age <= 5: return 2.0
