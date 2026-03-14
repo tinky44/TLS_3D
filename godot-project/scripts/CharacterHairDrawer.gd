@@ -140,9 +140,6 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 			arc_pts.append(arc_center + Vector2(cos(a), sin(a)) * arc_inner_r)
 		ctx.canvas.draw_polygon(arc_pts, PackedColorArray([hair_color]))
 
-		if hair_style == "side_tail":
-			_draw_front_side_tail(ctx, head_center, hr, hair_color)
-
 		# 5. 前髪（額にかかるポリゴン）
 		draw_bangs_front(ctx, head_center, hr, head_w, hair_style, hair_color)
 
@@ -357,36 +354,53 @@ static func _draw_back_tail(ctx: DrawContext, head_center: Vector2, hr: float, h
 		tail_outline_pts.append(tail_pts[0]) # 閉じる
 		ctx.canvas.draw_polyline(tail_outline_pts, tail_outline_color, tail_outline_w, true)
 	elif hair_style == "side_tail":
-		# 【調整用】サイドテールの結び目位置。X を大きくすると外側、Y を大きくすると下
-		var tie_side = head_center + Vector2(hr * 0.72, hr * 0.18)
-		# 【調整用】結び目の円の半径
-		ctx.canvas.draw_circle(tie_side, hr * 0.15, hair_color.darkened(0.06))
-		var side_tail = PackedVector2Array([
-			tie_side + Vector2(-hr * 0.10, -hr * 0.02),
-			tie_side + Vector2(hr * 0.18, hr * 0.02),
-			# 【調整用】尾の中間のふくらみと長さ
-			tie_side + Vector2(hr * 0.62, hr * 0.85),
-			# 【調整用】尾の先端。Y * 2.20 を変えると長さが変わる
-			tie_side + Vector2(hr * 0.30, hr * 2.20),
-			tie_side + Vector2(-hr * 0.06, hr * 1.65),
-		])
-		ctx.canvas.draw_polygon(side_tail, PackedColorArray([hair_color]))
+		# 右側・左側の両方を描画（左右対称）
+		for side_sign in [1.0, -1.0]:
+			# 【調整用】サイドテールの結び目位置。X を大きくすると外側、Y を大きくすると下
+			var tie_side = head_center + Vector2(hr * 0.72 * side_sign, hr * 0.18)
+			# 【調整用】結び目の円の半径
+			ctx.canvas.draw_circle(tie_side, hr * 0.15, hair_color.darkened(0.06))
+			var side_tail = PackedVector2Array([
+				tie_side + Vector2(-hr * 0.10 * side_sign, -hr * 0.02),
+				tie_side + Vector2(hr * 0.18 * side_sign, hr * 0.02),
+				# 【調整用】尾の中間のふくらみと長さ
+				tie_side + Vector2(hr * 0.62 * side_sign, hr * 0.85),
+				# 【調整用】尾の先端。Y * 2.20 を変えると長さが変わる
+				tie_side + Vector2(hr * 0.30 * side_sign, hr * 2.20),
+				tie_side + Vector2(-hr * 0.06 * side_sign, hr * 1.65),
+			])
+			ctx.canvas.draw_polygon(side_tail, PackedColorArray([hair_color]))
+			# 【調整用】輪郭線の色（darkened値を大きくすると濃く）と太さ
+			var outline_color = hair_color.darkened(0.35)
+			var outline_w = hr * 0.02
+			var outline_pts = side_tail.duplicate()
+			outline_pts.append(side_tail[0])
+			ctx.canvas.draw_polyline(outline_pts, outline_color, outline_w, true)
 
+# 現在未使用（正面ビューのサイドテールは draw_hair_base_layer → _draw_back_tail が担う）
 static func _draw_front_side_tail(ctx: DrawContext, head_center: Vector2, hr: float, hair_color: Color) -> void:
-	# 【調整用】正面から見たサイドテールの結び目位置。X で左右位置、Y で高さを調整
-	var tie_side = head_center + Vector2(hr * 0.72, hr * 0.16)
-	# 【調整用】結び目の円の半径
-	ctx.canvas.draw_circle(tie_side, hr * 0.14, hair_color.darkened(0.06))
-	var tail_pts = PackedVector2Array([
-		tie_side + Vector2(-hr * 0.08, 0.0),
-		tie_side + Vector2(hr * 0.12, hr * 0.04),
-		# 【調整用】尾の中間のふくらみ
-		tie_side + Vector2(hr * 0.40, hr * 0.65),
-		# 【調整用】尾の先端。Y * 1.85 を変えると長さが変わる
-		tie_side + Vector2(hr * 0.25, hr * 1.85),
-		tie_side + Vector2(-hr * 0.02, hr * 1.45),
-	])
-	ctx.canvas.draw_polygon(tail_pts, PackedColorArray([hair_color]))
+	# 右側・左側の両方を描画（左右対称）
+	for side_sign in [1.0, -1.0]:
+		# 【調整用】正面から見たサイドテールの結び目位置。X で左右位置、Y で高さを調整
+		var tie_side = head_center + Vector2(hr * 0.72 * side_sign, hr * 0.16)
+		# 【調整用】結び目の円の半径
+		ctx.canvas.draw_circle(tie_side, hr * 0.14, hair_color.darkened(0.06))
+		var tail_pts = PackedVector2Array([
+			tie_side + Vector2(-hr * 0.08 * side_sign, 0.0),
+			tie_side + Vector2(hr * 0.12 * side_sign, hr * 0.04),
+			# 【調整用】尾の中間のふくらみ
+			tie_side + Vector2(hr * 0.40 * side_sign, hr * 0.65),
+			# 【調整用】尾の先端。Y * 1.85 を変えると長さが変わる
+			tie_side + Vector2(hr * 0.25 * side_sign, hr * 1.85),
+			tie_side + Vector2(-hr * 0.02 * side_sign, hr * 1.45),
+		])
+		ctx.canvas.draw_polygon(tail_pts, PackedColorArray([hair_color]))
+		# 【調整用】輪郭線の色（darkened値を大きくすると濃く）と太さ
+		var outline_color = hair_color.darkened(0.35)
+		var outline_w = hr * 0.02
+		var outline_pts = tail_pts.duplicate()
+		outline_pts.append(tail_pts[0])
+		ctx.canvas.draw_polyline(outline_pts, outline_color, outline_w, true)
 
 static func _draw_side_tail_profile(
 	ctx: DrawContext,
@@ -434,8 +448,9 @@ static func _draw_side_tail_profile(
 		outline_pts.append(pony_pts[0]) # 閉じる
 		ctx.canvas.draw_polyline(outline_pts, outline_color, outline_w, true)
 	elif hair_style == "side_tail":
-		# 【調整用】側面から見たサイドテールの結び目位置。fwd_dir で前後、down_dir で高さ
-		var side_tie = head_center + fwd_dir * hr * 0.18 + down_dir * hr * 0.16
+		# 【調整用】側面から見たサイドテールの結び目位置。
+		# back_dir を増やすと後頭部方向（後ろへ）、down_dir を増やすと下に
+		var side_tie = head_center + back_dir * hr * 0.75 + down_dir * hr * 0.20
 		# 【調整用】結び目の円の半径
 		ctx.canvas.draw_circle(side_tie, hr * 0.14, hair_color.darkened(0.06))
 		var side_pts = PackedVector2Array([
@@ -447,3 +462,9 @@ static func _draw_side_tail_profile(
 			side_tie + back_dir * hr * 0.06 + down_dir * hr * 1.22,    # 根元下
 		])
 		ctx.canvas.draw_polygon(side_pts, PackedColorArray([hair_color]))
+		# 【調整用】輪郭線の色（darkened値を大きくすると濃く）と太さ
+		var outline_color = hair_color.darkened(0.35)
+		var outline_w = hr * 0.02
+		var outline_pts = side_pts.duplicate()
+		outline_pts.append(side_pts[0])
+		ctx.canvas.draw_polyline(outline_pts, outline_color, outline_w, true)
