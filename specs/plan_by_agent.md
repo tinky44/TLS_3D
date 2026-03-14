@@ -8,63 +8,222 @@
 
 ## エンディングの作成
 
-**概要**
-全学年クリアまたは進級時に選択した後に「最終比較画面」を表示するエンディングシーンを作成する。
+**`#49 エンディング実装` と紐づく。**
 
-**画面構成**
-- 右: 現在の主人公（フル描画）
-- 左: キャラメイク時（初期）の半透明シルエット、および当時の親友キャラ（ほのか等）のフル描画
-- 中央上: 「成長記録テキスト」（身長推移・体験イベントのハイライト）
-- 演出ポイント: 「最初と最後」「一般人との差」が1枚の画面で視覚的に伝わる構成
+### 画面レイアウト
 
-**技術メモ**
-- `EndingScene.tscn` を新規作成
-- `Global.gd` の `growth_history` と `current_params["height"]` を使って成長テキストを生成
-- キャラ描画は `CharacterDrawer.gd` を再利用（シルエット化は `modulate.a = 0.3` で対応可）
-- 比較相手（ほのかなど）を出す場合は `Global.gd` にNPC身長テーブルを追加
+```
+┌─────────────────────────────────────────┐
+│  [成長記録テキスト]                       │
+│  小学1年 120cm → 高校3年 185cm (+65cm)   │
+│  平均より +25cm                           │
+├──────────────┬──────────────────────────┤
+│ 初期シルエット │    現在の主人公           │
+│ (α=0.3)      │    (フルカラー)            │
+│  +友人NPC     │                           │
+│              │                           │
+├──────────────┴──────────────────────────┤
+│              [タイトルへ戻る]             │
+└─────────────────────────────────────────┘
+```
 
-**データ不足の問題**
+### シーン構成
 
-`growth_history` が持つのは身長推移のみ。「訪問ステージ」「体験イベント」の通算ログが存在しない。
-`term_memory_note` は学期ごとにリセット（`advance_term()` で `""`）されるため累積されない。
+```
+EndingScene (Node2D)
+├── CanvasLayer
+│   ├── ColorRect         ← 黒背景
+│   ├── VBoxContainer     ← 成長記録テキスト（上部）
+│   ├── Label (subtitle)  ← 「--- おわり ---」等
+│   └── Button            ← 「タイトルへ戻る」→ TitleScene.tscn
+├── PlayerCurrent         ← SkeletalPlayer、右寄り配置
+└── ComparisonGroup       ← Node2D、左寄り
+    ├── PlayerInitial     ← SkeletalPlayer、modulate.a = 0.3
+    └── PlayerNPC         ← SkeletalPlayer（ほのか等）、フルカラー
+```
 
-エンディングで「思い出レポート」を出すには以下の追加が必要：
+### 前提データの追加（Global.gd 改修）
 
-| 追加データ | 型 | 記録タイミング |
-|---|---|---|
-| `visited_stages: Dictionary` | `{stage_id: true}` のセット | ステージ入場時に `Global.gd` へ記録 |
-| `experienced_events: Array` | `[event_id, ...]` | ダイアログ発火時に `Global.gd` へ追記 |
+**問題:** 初期外見（キャラメイク直後の状態）が保存されていない。現在の `current_appearance` はゲーム中に制服等で上書きされる。
 
-これらは `save_slot()` / `load_slot()` への追加も必要。
+**解決:** `Global.gd` に以下を追加し、新規ゲーム開始時に一度だけセット：
 
-**`#49 エンディング実装` と紐づく。設計確定後に着手。**
+```gdscript
+# Global.gd に追加
+var initial_params: Dictionary = {}      # キャラメイク確定時の身長・頭身
+var initial_appearance: Dictionary = {}  # キャラメイク確定時の外見
+
+# 新規ゲーム開始時（CharacterCreatorScene の確定ボタン押下後）に呼ぶ
+func lock_initial_state() -> void:
+    initial_params = current_params.duplicate(true)
+    initial_appearance = current_appearance.duplicate(true)
+```
+
+`save_slot()` / `load_slot()` にも `initial_params` / `initial_appearance` の保存・復元を追加。
+
+**訪問ステージ・体験イベントのログ（思い出レポート用）**
+
+`growth_history` は身長のみ、`term_memory_note` は毎学期リセット。
+エンディングで「思い出」を表示するには以下を追加：
+
+```gdscript
+var visited_stages: Dictionary = {}    # {stage_id: true}
+var experienced_events: Array = []     # ["semester_start", "summer_growth", ...]
+
+func record_stage_visit(stage_id: String) -> void:
+    visited_stages[stage_id] = true
+
+func record_event(event_id: String) -> void:
+    if not event_id in experienced_events:
+        experienced_events.append(event_id)
+```
+
+記録タイミング:
+- `visited_stages`: `MainScene.gd` のステージ遷移時（`_on_stage_changed()` 等）
+- `experienced_events`: ダイアログ発火時（`_start_dialogue()` 内）
+
+### EndingScene.gd の処理
+
+```gdscript
+func _ready() -> void:
+    # 現在のキャラを右に配置
+    setup_player(player_current, Global.current_params, Global.current_appearance)
+    player_current.position = Vector2(viewport_w * 0.65, floor_y)
+
+    # 初期シルエットを左に配置（initial_params が空なら growth_history[0] で代用）
+    var init_p = Global.initial_params if not Global.initial_params.is_empty() \
+                 else _params_from_history(Global.growth_history[0])
+    setup_player(player_initial, init_p, Global.initial_appearance)
+    player_initial.position = Vector2(viewport_w * 0.2, floor_y)
+    player_initial.modulate.a = 0.3
+
+    # NPC（ほのか）を左中央に配置
+    setup_player(player_npc, NPC_PROFILES["honoka"], NPC_PROFILES["honoka"]["appearance"])
+    player_npc.position = Vector2(viewport_w * 0.35, floor_y)
+
+    # 成長記録テキスト
+    _build_growth_text()
+
+func _build_growth_text() -> void:
+    var h0 = growth_history[0]["height"]
+    var h1 = Global.current_params["height"]
+    var avg = Global.get_avg_height(Global.age)
+    label_record.text = (
+        "%.0fcm → %.0fcm（+%.0fcm）\n平均より %+.0fcm" % [h0, h1, h1 - h0, h1 - avg]
+    )
+```
+
+### NPC プロフィール定数（Global.gd に追加）
+
+```gdscript
+const NPC_PROFILES = {
+    "honoka": {
+        "params": {"height": 160.0, "ratio": 7.0, "legRatio": 48.0, "sex": "female"},
+        "appearance": {"hair_style": "long", "hair_color": "#5c3a1e",
+                       "tops_type": "t_shirt", "tops_color": "#f0e0d0", ...}
+    }
+}
+```
+
+### 遷移元
+
+`MainScene.gd` の進級選択ダイアログで「エンディングへ」を選択したとき：
+```gdscript
+get_tree().change_scene_to_file("res://scenes/EndingScene.tscn")
+```
 
 ---
 
 ## イントロダクションの見直し
 
-**現状の実装**（`IntroScene.gd` 調査済み）
-- 黒背景 `ColorRect` + `Label` のみ
-- 「おはよう」をフェードイン(0.8s) → 維持(1.4s) → フェードアウト(0.3s) して `Main.tscn` へ遷移
-- カメラ・キャラクター描画なし
+### 現状
 
-**採用演出：身長計ズームアウト**
-1. 画面いっぱいに「身長計の目盛り」をドアップで表示
-2. ズームアウトすると、キャラメイク済みの主人公が身長計の前に立っている
-3. `「〇〇歳、身長〇〇cm。――ここから私の生活が始まる。」` を表示（`Global.current_params["height"]` を使用）
-4. 短いフェードを挟んで `Main.tscn`（自室）へ移行
+`IntroScene.tscn` は root の `Control` ノードだけで、子ノードはなし。`IntroScene.gd` が
+`ColorRect`（黒背景）と `Label`（「おはよう」）を動的生成し、Tween でフェードしてから
+`get_tree().change_scene_to_file("res://Main.tscn")` へ遷移する。カメラ・キャラ描画はなし。
 
-**実装方針**
-- `IntroScene.gd` を改修（`IntroScene.tscn` に `Camera2D` を追加）
-- 身長計: `draw_line()` で目盛りを描画、数値ラベルを並べる
-- ズームアウト: `Camera2D.zoom` を `Tween` でアニメーション（例: 5.0 → 1.0、2秒）
-- キャラ描画: `SkeletalPlayer` インスタンスを `IntroScene` に置いて `Global` から外見を読み込む
+### 採用演出：身長計ズームアウト
 
-**スコープ外（今回は実装しない）**
-- キャラが歩く動的演出（後続フェーズで検討）
-- 作品説明テキスト画面（別途 `TitleScene` 改修で対応）
+```
+[起動直後] 身長計の目盛りがドアップ（zoom=4） → キャラがフェードイン →
+[Tween 2s] zoom が 1.0 まで引く → 身長計の前にキャラが立っている全体像 →
+[テキスト] 「〇〇歳、身長〇〇cm。――ここから私の生活が始まる。」→
+[暗転] → Main.tscn へ遷移
+```
 
-**ブランチ候補:** `feat/intro-revamp`
+### シーン構成変更
+
+`IntroScene.tscn` の root を **`Node2D`** に変更し、以下を追加：
+
+```
+IntroScene (Node2D)   ← root を Control → Node2D に変更
+├── Camera2D           ← zoom アニメ用。初期 zoom = Vector2(4, 4)
+├── HeightChart        ← Node2D、_draw() で目盛りを描画
+├── SkeletalPlayer     ← res://scenes/SkeletalPlayer.tscn をインスタンス化
+└── CanvasLayer        ← カメラに影響されない UI 層
+    ├── ColorRect      ← 黒背景フェード用（α アニメ）
+    └── Label          ← テキスト表示
+```
+
+### IntroScene.gd の処理フロー
+
+```gdscript
+func _ready() -> void:
+    # Camera2D: zoom=(4,4)、キャラの頭上あたりを初期注視点に
+    camera.zoom = Vector2(4, 4)
+    var h = Global.current_params["height"]
+    camera.position.y = -(h * Global.CM_TO_PX)  # 頭部の高さ
+
+    # SkeletalPlayer: Global から外見を読み込む
+    player.call_deferred("update_measurements")
+    player.modulate.a = 0.0  # 最初は非表示
+
+    # 0.5s 後にキャラをフェードイン、その後 zoom アウト開始
+    await get_tree().create_timer(0.5).timeout
+    _tween_alpha(player, 0.0, 1.0, 0.6)
+    await get_tree().create_timer(0.6).timeout
+    _tween_zoom(Vector2(4,4), Vector2(1,1), 2.0)
+    await get_tree().create_timer(2.0).timeout
+
+    # テキスト表示
+    var age = Global.age
+    var cm = snappedf(h, 0.1)
+    label.text = "%d歳、身長%.1fcm。\n――ここから私の生活が始まる。" % [age, cm]
+    _tween_alpha(label, 0.0, 1.0, 0.5)
+    await get_tree().create_timer(2.5).timeout
+    _tween_alpha(label, 1.0, 0.0, 0.5)
+
+    # 暗転して遷移
+    _tween_alpha(bg_rect, 0.0, 1.0, 0.5)
+    await get_tree().create_timer(0.5).timeout
+    get_tree().change_scene_to_file("res://Main.tscn")
+```
+
+### HeightChart（目盛り描画）
+
+```gdscript
+extends Node2D
+# _draw() で 100cm〜220cm の目盛りを描画
+func _draw() -> void:
+    var p = Global.CM_TO_PX      # ≈ 2.0 px/cm
+    var h_now = Global.current_params["height"]
+    for cm in range(100, 230, 10):
+        var y = -(cm * p)
+        var is_major = cm % 50 == 0
+        var line_len = 30.0 if is_major else 15.0
+        draw_line(Vector2(-line_len, y), Vector2(0, y), Color.WHITE, 1.5)
+        if is_major or cm % 20 == 0:
+            draw_string(font, Vector2(-line_len - 40, y + 5), "%dcm" % cm, ...)
+    # キャラの現在身長マーカーを強調（黄色）
+    var mark_y = -(h_now * p)
+    draw_line(Vector2(-40, mark_y), Vector2(0, mark_y), Color.YELLOW, 2.5)
+```
+
+### 注意点
+
+- `SkeletalPlayer` は `CharacterCreatorScene` のあとに呼ばれるため `Global.current_appearance` と `Global.current_params` は確定済み
+- `CM_TO_PX` は `Global.gd` のシングルトンで一元管理（`SkeletalPlayer` 経由でなく直接参照）
+- スコープ外（今回は実装しない）: キャラが歩く動的演出、作品説明テキスト画面
 
 ---
 
@@ -147,7 +306,7 @@
 | 優先 | タスク | 規模 | ブランチ |
 |---|---|---|---|
 | ★★★ | B-3 吹き出しが顔に被る | 小 | `fix/bubble-position` |
-| ★★☆ | エンディング用ログ追加（visited_stages / experienced_events） | 小 | `feat/ending-report` の前提 |
+| ★★☆ | Global.gd: initial_state / visited_stages / experienced_events 追加 | 小 | エンディングの前提 |
 | ★★☆ | B-1 駅→電車の遷移が不自然 | 小〜中 | `fix/stage-transition` |
 | ★★☆ | B-2 屋外に家のドアが出る | 小 | `fix/stage-door` |
 | ★★☆ | #47 進級選択ダイアログ | 中 | `feat/grade-select-dialog` |
