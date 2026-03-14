@@ -351,7 +351,11 @@ func advance_term() -> void:
 	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false
 	haruka_following = false
-	pending_term_choice = school_level != prev_school_level and school_level >= 1 and school_level <= 3
+	# 学校段階が変わるとき（小4進級・中学・高校・卒業）に選択ダイアログを表示
+	pending_term_choice = school_level != prev_school_level and (
+		(school_level >= 1 and school_level <= 3) or  # 小4進級 / 中学 / 高校 への進学
+		(prev_school_level == 3 and school_level == 4) # 高校卒業
+	)
 	current_term_plan = DEFAULT_TERM_PLAN
 	term_hotspot_flags = {}
 	term_memory_note = ""
