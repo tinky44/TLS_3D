@@ -1,176 +1,95 @@
-## 体育座り問題の原因調査（2026-03-14）
-
-### 現象
-
-- スカートが右方向に尖った三角形になる
-- 背中・臀部が露出する
-
-### 原因：3つのバグが連鎖している
-
-体育座りでは胴体が大きく前傾し、`skirt_ang` がほぼ水平になる。
-このとき `skirt_u ≈ (1, 0)`（右向き）、`skirt_n ≈ (0, -1)`（上向き）になる。
-
-#### バグ① `front_side` / `back_side` が `skirt_n` 基準
-
-```gdscript
-var front_side = -skirt_n
-var back_side  =  skirt_n
-```
-
-スカートが水平に近いとき `skirt_n ≈ 上向き` になるため：
-
-- `back_side ≈ 上向き` になり、背面候補が「後ろ」ではなく「上の点」から選ばれる
-- `front_side ≈ 下向き` になり、前面候補が「前」ではなく「下の点」から選ばれる
-
-その結果、`back_outer` が臀部ではなく脚側、`front_outer` が極端に下の点へ引っ張られる。
-
-#### バグ② `axis_pos` フィルタが `skirt_u` 基準
-
-`_pick_side_outer_candidate(..., skirt_u, ...)` の内部では、
-腰から候補点までの進行量を `skirt_u` で判定している。
-
-```gdscript
-var axis_pos = (point - waist_pos).dot(axis_dir)
-if axis_pos < 0.0 or axis_pos > skirt_length + 12.0:
-	continue
-```
-
-体育座りのように `skirt_u ≈ (1, 0)` になると、腰より左にある臀部候補が
-`axis_pos < 0` で落ちてしまい、背面候補が消えることがある。
-
-#### バグ③ 裾延長方向が `skirt_u`
-
-```gdscript
-var front_hem_ext = front_outer + skirt_u * (skirt_length - front_seg1)
-var back_hem_ext  = back_outer  + skirt_u * (skirt_length - back_seg1)
-```
-
-`skirt_u ≈ 右向き` のまま残り丈を延長すると、裾が前方へ飛ぶ。
-結果として、
-
-- `back_hem` が後方を覆えず、臀部が露出する
-- `front_hem` が前方へ伸びて尖る
-
-### 以前の修正で起きたデグレ
-
-`top_n = Vector2(-torso_u.y, torso_u.x)` をそのまま前後判定に使うと、
-前傾が深くなるほど `back_side` に下向き成分が混ざる。
-
-```
-lean 0°  -> top_n = (-1.00, 0.00)
-lean 30° -> top_n = (-0.87, 0.50)
-lean 54° -> top_n = (-0.59, 0.81)
-```
-
-この状態で `back_side` スコアを取ると、臀部よりも足首の方が高得点になりやすく、
-`back_outer` が脚先へ飛んでプリーツ線も大きく崩れる。
+# plan_by_agent.md — AIエージェントのメモ帳
 
 ---
 
-## 修正方針
+## アクション計画（2026-03-14）
 
-### 1. 前後判定軸を「側面ローカルの水平軸」に固定する
+### 対象ブランチ: `feat/add-story-stage-npcReaction`
 
-側面描画のローカル座標では、常に `+X = 前`、`-X = 後` と扱う。
-左右反転は `CharacterDrawer` 側の描画 transform に任せる。
+---
+---
+
+## #47 進級システムの実装 [In Progress]
+
+### 残タスク
+- [ ] 高校生でも中学校に入れるバグを修正
+- [ ] 進級/エンディング選択ダイアログの実装
+
+---
+
+### タスク①：高校生が中学校に入れるバグ（簡易fix）
+
+**問題の場所**
+- `godot-project/scripts/MainScene.gd` の `_get_stage_lock_message()` (605-625行)
+
+**原因**
+`school_hallway_middle` など中学校関連ステージに `age > 14` の入場制限がない。
+現在ロックされているのは以下のみ：
+
+| ステージ | 条件 |
+|---|---|
+| `school_hallway_elementary`, `school_elementary` | age > 11 |
+| `school_middle` | age < 12 または age > 14 |
+| `school_high` | age < 15 |
+| `school_hallway_high` | age < 15 |
+
+**抜けているケース（中学校系で `age > 14` のガードがない）**
+- `school_hallway_middle`
+- `infirmary_middle`
+- `gymnasium_middle`
+- `schoolyard_middle`
+
+**修正方針**
+`_get_stage_lock_message()` に以下を追加：
 
 ```gdscript
-var front_side = Vector2(1, 0)
-var back_side  = Vector2(-1, 0)
+"school_hallway_middle":
+    if age_value < 12:
+        return "まだこの廊下に入る時期じゃない。"
+    if age_value > 14:
+        return "今はもう、この廊下には入れない。"
+"infirmary_middle":
+    if age_value < 12:
+        return "まだこの保健室に入る時期じゃない。"
+    if age_value > 14:
+        return "今はもう、この保健室には入れない。"
+"gymnasium_middle":
+    if age_value < 12:
+        return "まだこの体育館に入る時期じゃない。"
+    if age_value > 14:
+        return "今はもう、この体育館には入れない。"
+"schoolyard_middle":
+    if age_value < 12:
+        return "まだここには入れない。"
+    if age_value > 14:
+        return "今はもう、この校庭には入れない。"
 ```
 
-これで姿勢に関係なく、前面候補は右側、背面候補は左側から選ばれる。
+---
 
-### 2. 候補点の進行判定は `torso_u` で行う
+### タスク②：進級選択ダイアログ（大きめの変更）
 
-候補の「腰からどれだけ下流か」は、スカート中心線ではなく
-腰から股への進行方向 `torso_u` を使う。
+**背景**
+- 現在: `Global.gd` の `advance_term()` が自動で進級（手動選択なし）
+- 改善要望: 小3→4, 小6→中, 中3→高 の学校段階切り替え時に「続ける/エンディングへ」を選択させる
 
-```gdscript
-var front_pick = _pick_side_outer_candidate(..., torso_u, skirt_length)
-var back_pick  = _pick_side_outer_candidate(..., torso_u, skirt_length)
-```
+**検討ポイント**
+- `_school_level_from_age(age) != _school_level_from_age(prev_age)` の条件はすでに `advance_term()` にある（`Global.gd` 304行）
+- このタイミングで `MainScene.gd` 側にシグナルを飛ばし、選択UIを出す設計が自然
+- エンディング実装（#49）と密接に関係するため、#49 の設計が固まってから本格実装推奨
 
-これで、体育座りでも腰より後ろの臀部候補を不必要に捨てにくくなる。
-
-### 3. ベクトルの役割を分離する
-
-今回の修正では、各ベクトルを次の用途に固定する。
-
-- `skirt_u`: スカート中心線の傾き追従、`p_bottom` の決定
-- `top_n`: 腰上端の厚み方向、`belt_front/back` の配置
-- `extend_u = Vector2(0, 1)`: 残り丈の延長方向
-- `front_side` / `back_side`: 前後判定スコア
-- `torso_u`: 候補点の進行量判定と、`jumper_skirt` 上端帯の向き
-
-特に `jumper_skirt` の上端帯は、従来どおり `torso_u * belt_h` で描く。
-スカートの残り丈延長にだけ `extend_u` を使う。
-
-### 3.5. `outer` は「膝帯まで」の中間制約点として選ぶ
-
-9点ポリゴンの `front_peak`, `front_outer/back_outer`, `front_lower/back_lower` は、
-それぞれ「膝山」「中間折れ点」「下側折れ点」の役割を持つ。
-足首側の深い候補まで上側折れ点に含めると、体育座りでは `front_outer` が下へ落ちすぎて
-膝の張り出しを拾えなくなる。
-
-- `peak` 候補: 太腿終端、膝、すね上端
-- `outer` 候補: 臀部、太腿、膝帯上部、すね上部のごく近傍
-- `lower` 候補: 膝下からすね中部まで
-- `hem`: `lower` 通過後に `extend_u` 方向へ残り丈を延長して決める
-
-### 4. 不正な6点ポリゴンは台形へフォールバックする
-
-候補点を前後独立に選ぶ都合上、歩きと屈みの中間姿勢では
-前後点が入れ替わったり、自己交差したりする可能性がある。
-
-そのため、以下のいずれかを満たした場合は従来の側面台形へ戻す。
-
-- `back_outer.x > front_outer.x`
-- `back_hem.x > front_hem.x`
-- `back_hem.y < back_outer.y` または `front_hem.y < front_outer.y`
-- 6点ポリゴンが自己交差する
+**現ブランチとの関係**
+- `feat/add-story-stage-npcReaction` は「ストーリーステージでのNPC反応追加」
+- 進級時のNPC台詞変化（#31）は Done 済み
+- 現ブランチでの作業完了後、別ブランチ `feat/grade-select-dialog` で実装する方が安全
 
 ---
 
-## 修正対象箇所
+## 優先順位まとめ
 
-| 修正 | ファイル | 変更内容 |
-|---|---|---|
-| ① | `CharacterBodyDrawer.gd` | `front_side/back_side` を `Vector2(1,0)` / `Vector2(-1,0)` に固定 |
-| ② | `CharacterBodyDrawer.gd` | `_pick_side_outer_candidate()` の `axis_dir` を `torso_u` に変更 |
-| ③ | `CharacterBodyDrawer.gd` | 残り丈延長用に `extend_u = Vector2(0, 1)` を導入 |
-| ④ | `CharacterBodyDrawer.gd` | 9点ポリゴン破綻時の fallback ガードを追加 |
-
----
-
-## スコープ
-
-### 今回の実装に含む
-
-- 側面スカートの前後非対称9点ポリゴン化
-- 前後制約点を「膝固定」ではなく「下半身シルエット最外点」にする
-- 現行の `skirt_ang` と `side_hem_w` の補正を維持する
-- プリーツ線と `jumper_skirt` 上端帯を、新ポリゴンに整合する形へ保つ
-
-### 今回はスコープ外
-
-- 短スカート時の4点ポリゴン最適化
-- 正面・背面スカートの形状見直し
-
-短丈や候補点不足で 9 点ポリゴンが安定しないケースは、
-初版では従来の側面台形ロジックへフォールバックしてよい。
-
----
-
-## 実装ステップ
-
-1. `draw_skirt()` の側面分岐で、現行の `skirt_ang` / `p_bottom` / `side_hem_w` 計算を残す
-2. `skirt_u`, `torso_u`, `top_n`, `extend_u`, `front_side/back_side` の役割を分離する
-3. 太腿終端・膝・すね上端候補から、前面膝山 `front_peak` を選ぶ
-4. 臀部・太腿・膝帯寄り候補から、中間制約点 `front_outer/back_outer` を選ぶ
-5. 膝下〜すね中部候補から、下側折れ点 `front_lower/back_lower` を選ぶ
-6. 制約点通過後は `extend_u` 方向へ残り丈を延長し、前後裾を決める
-7. 不正ポリゴン判定を通ったときだけ 9 点ポリゴンで本体を描画する
-8. フォールバック時は従来の側面台形と既存プリーツ処理を使う
-9. `jumper_skirt` の上端帯は `torso_u * belt_h` を維持する
-10. 立ち / 歩き / 屈み / 体育座りで、膝・脛・足首の貫通と臀部露出を確認する
+| 優先 | タスク | 規模 | ブランチ |
+|---|---|---|---|
+| ★★★ | #52 ロング髪の口描画バグ | 小 | 現ブランチ or 別ブランチ |
+| ★★★ | #52 ロング髪の重力弾性 | 小 | 同上 |
+| ★★★ | #47 高校生が中学校に入れるバグ | 小 | 現ブランチ or hotfix |
+| ★★☆ | #47 進級選択ダイアログ | 中〜大 | `feat/grade-select-dialog`（後で） |

@@ -20,8 +20,8 @@ var current_appearance: Dictionary = {
 	"tops_color": "#ab82a8",
 	"bottoms_type": "pants",
 	"bottoms_color": "#3a5f8a",
-	"shoes_type": "sneakers",
-	"shoes_color": "#f0f0f0",
+	"shoes_type": "loafer",
+	"shoes_color": "#4b4b52",
 	"hat_type": "school_hat",
 	"hat_color": "#ffd700",
 	"bag_type": "none",
@@ -60,7 +60,7 @@ var vball_joined: bool = false # バレー部入部フラグ
 var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた選択の累積
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
 var stress: int = 0 # 今学期の生活で溜まるしんどさ
-var pending_term_choice: bool = false # 学期の過ごし方選択が必要か
+var pending_term_choice: bool = false # 進級時の続行/終了選択が必要か
 var current_term_plan: String = "" # "home" / "school" / "station"
 var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
 var term_memory_note: String = "" # 今学期の印象的な出来事メモ
@@ -72,8 +72,14 @@ var core_npcs: Dictionary = {
 		"role": "friend",
 		"height_base": 155.0,
 		"height_mode": "avg", # 年齢平均に近い設定
+		"is_student": true,
+		"greet_events": [
+			"ねえ、最近また伸びた？",
+			"一緒に歩くとすぐ見つけられるね。",
+			"今日も目線、高いなあ。"
+		],
 		"appearance": {
-			"hair_style": "long",
+			"hair_style": "ponytail",
 			"hair_color": "#111111",
 			"tops_type": "school_uniform",
 			"tops_color": "#ffffff",
@@ -86,6 +92,12 @@ var core_npcs: Dictionary = {
 		"role": "senior",
 		"height_base": 168.0,
 		"height_mode": "fixed",
+		"is_student": true,
+		"greet_events": [
+			"お、今日も目立ってるな。",
+			"ネット越しでもすぐ分かる背だな。",
+			"調子どうだ？ 無理してないか。"
+		],
 		"appearance": {
 			"hair_style": "short",
 			"hair_color": "#223344",
@@ -146,6 +158,27 @@ static func term_to_age(t: int) -> int:
 	elif t < 27: return 6 + floori((t - 6) / 3.0)
 	elif t < 36: return 13 + floori((t - 27) / 3.0)
 	else: return 16 + min(floori((t - 36) / 3.0), 2)
+
+static func get_school_grade_name(a: int) -> String:
+	if a >= 6 and a <= 11:
+		return "小学%d年生" % (a - 5)
+	if a >= 12 and a <= 14:
+		return "中学%d年生" % (a - 11)
+	if a >= 15 and a <= 17:
+		return "高校%d年生" % (a - 14)
+	if a >= 18:
+		return "卒業後"
+	return "%d歳" % a
+
+static func get_term_in_school_year(a: int, t: int) -> int:
+	var max_terms: int = 3 if a >= 6 else 2
+	var base_term: int = age_to_term(a)
+	return clampi(t - base_term + 1, 1, max_terms)
+
+static func get_school_term_label(a: int, t: int) -> String:
+	if a >= 6:
+		return "%s、%d学期" % [get_school_grade_name(a), get_term_in_school_year(a, t)]
+	return "%d歳、%d学期" % [a, get_term_in_school_year(a, t)]
 
 static func get_base_growth(current_age: int) -> float:
 	if current_age <= 5: return 2.0
@@ -248,11 +281,40 @@ static func get_school_uniform(a: int) -> Dictionary:
 		}
 	return {}
 
+static func get_school_stage_suffix(a: int) -> String:
+	if a <= 11:
+		return "elementary"
+	elif a <= 14:
+		return "middle"
+	return "high"
+
+static func get_school_stage_id(base_id: String, a: int) -> String:
+	match base_id:
+		"school", "school_hallway", "schoolyard", "infirmary", "gymnasium":
+			return "%s_%s" % [base_id, get_school_stage_suffix(a)]
+		_:
+			return base_id
+
+static func get_shoes_for_stage(stage_id: String) -> String:
+	if stage_id == "room" or stage_id == "myroom":
+		return "socks"
+	if (
+		stage_id == "school"
+		or stage_id == "school_hallway"
+		or stage_id.begins_with("school_")
+		or stage_id.begins_with("infirmary")
+		or stage_id.begins_with("gymnasium")
+	):
+		return "uwabaki"
+	return "loafer"
+
 func advance_term() -> void:
 	prev_height = current_params["height"]
 	var prev_age: int = age
+	var prev_school_level: int = _school_level_from_age(prev_age)
 	term += 1
 	age = term_to_age(term)
+	var school_level: int = _school_level_from_age(age)
 	current_params["height"] += calc_growth()
 	# 夏休み（1学期→2学期）急成長: term>=6 かつ (term-6)%3==1
 	if term >= 6 and (term - 6) % 3 == 1:
@@ -262,7 +324,7 @@ func advance_term() -> void:
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
 	# 進学時（学校段階が変わった場合）に制服を自動更新
-	if _school_level_from_age(age) != _school_level_from_age(prev_age):
+	if school_level != prev_school_level:
 		var uniform := get_school_uniform(age)
 		for key in uniform.keys():
 			current_appearance[key] = uniform[key]
@@ -271,7 +333,7 @@ func advance_term() -> void:
 	queue_event("semester_start") # 学期開始イベントを予約
 	haruka_invited_this_term = false
 	haruka_following = false
-	pending_term_choice = true
+	pending_term_choice = school_level != prev_school_level and school_level >= 1 and school_level <= 3
 	current_term_plan = ""
 	term_hotspot_flags = {}
 	term_memory_note = ""
@@ -547,6 +609,7 @@ func get_slot_info(slot: int) -> Dictionary:
 		"stage_id": config.get_value(section, "stage_id", "room"),
 		"timestamp": config.get_value(section, "timestamp", ""),
 		"age": config.get_value(section, "age", 6),
+		"term": config.get_value(section, "term", 6),
 	}
 
 func get_growth_history_lines(limit: int = 12) -> PackedStringArray:
@@ -555,10 +618,12 @@ func get_growth_history_lines(limit: int = 12) -> PackedStringArray:
 	var start := maxi(0, growth_history.size() - limit)
 	for i in range(growth_history.size() - 1, start - 1, -1):
 		var entry: Dictionary = growth_history[i]
+		var entry_age: int = int(entry.get("age", age))
+		var entry_term: int = int(entry.get("term", 0))
 		lines.append(
-			"%02d学期 | %d歳 | %.1fcm | 前回 %+0.1f | 平均差 %+0.1f" % [
-				int(entry.get("term", 0)) + 1,
-				int(entry.get("age", age)),
+			"%s | %d歳 | %.1fcm | 前回 %+0.1f | 平均差 %+0.1f" % [
+				get_school_term_label(entry_age, entry_term),
+				entry_age,
 				float(entry.get("height", current_params["height"])),
 				float(entry.get("diff_prev", 0.0)),
 				float(entry.get("diff_avg", 0.0))

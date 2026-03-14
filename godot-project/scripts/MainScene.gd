@@ -56,10 +56,23 @@ var _current_dialogue_key: String = ""
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
-# ─── 学期選択 ──────────────────────────────────────────────────
+# ─── 進級選択 ──────────────────────────────────────────────────
 var term_choice_panel: Control
 var term_choice_header_label: Label
 var _term_choice_showing: bool = false
+var _ending_overlay_showing: bool = false
+
+const GRADE_CHOICE_ORDER = ["continue", "ending"]
+const GRADE_CHOICES: Dictionary = {
+	"continue": {
+		"title": "1. 続ける",
+		"summary": "新しい学年で、このまま物語を続ける。"
+	},
+	"ending": {
+		"title": "2. エンディングへ",
+		"summary": "ここで物語を区切り、仮エンディングのあとタイトルへ戻る。"
+	},
+}
 
 const TERM_CHOICE_ORDER = ["home", "school", "station"]
 const TERM_CHOICES: Dictionary = {
@@ -310,10 +323,12 @@ func _setup_appearance_debug(vbox: VBoxContainer) -> void:
 	var hair_opt = OptionButton.new()
 	hair_opt.focus_mode = Control.FOCUS_NONE
 	hair_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var hair_values = ["short", "long"]
+	var hair_values = ["short", "long", "ponytail", "side_tail"]
 	hair_opt.add_item("ショート", 0)
 	hair_opt.add_item("ロング", 1)
-	hair_opt.selected = hair_values.find(Global.current_appearance.get("hair_style", "short"))
+	hair_opt.add_item("ポニーテール", 2)
+	hair_opt.add_item("サイドテール", 3)
+	hair_opt.selected = max(0, hair_values.find(Global.current_appearance.get("hair_style", "short")))
 	hair_opt.item_selected.connect(func(idx: int) -> void:
 		Global.current_appearance["hair_style"] = hair_values[idx]
 		var drawer = player.get_node_or_null("CharacterDrawer")
@@ -488,7 +503,7 @@ func _setup_term_choice_panel() -> void:
 	panel.add_child(vbox)
 
 	var title = Label.new()
-	title.text = "今学期どこで過ごす？"
+	title.text = "進級の節目"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color.WHITE)
@@ -496,28 +511,28 @@ func _setup_term_choice_panel() -> void:
 
 	term_choice_header_label = Label.new()
 	term_choice_header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	term_choice_header_label.add_theme_font_size_override("font_size", 15)
+	term_choice_header_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	term_choice_header_label.custom_minimum_size = Vector2(580, 0)
+	term_choice_header_label.add_theme_font_size_override("font_size", 17)
 	term_choice_header_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.94))
 	vbox.add_child(term_choice_header_label)
 
-	for choice_id: String in TERM_CHOICE_ORDER:
-		var choice: Dictionary = TERM_CHOICES[choice_id]
+	for choice_id: String in GRADE_CHOICE_ORDER:
+		var choice: Dictionary = GRADE_CHOICES[choice_id]
 		var btn = Button.new()
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.custom_minimum_size = Vector2(580, 74)
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.text = "%s\n%s  (stress %s%d)" % [
+		btn.text = "%s\n%s" % [
 			String(choice.get("title", choice_id)),
-			String(choice.get("summary", "")),
-			"+" if int(choice.get("stress_delta", 0)) >= 0 else "",
-			int(choice.get("stress_delta", 0))
+			String(choice.get("summary", ""))
 		]
 		btn.add_theme_font_size_override("font_size", 16)
-		btn.pressed.connect(_on_term_choice_selected.bind(choice_id))
+		btn.pressed.connect(_on_grade_choice_selected.bind(choice_id))
 		vbox.add_child(btn)
 
 	var hint = Label.new()
-	hint.text = "[1][2][3] でも選択できます"
+	hint.text = "[1][2] でも選択できます"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color(0.72, 0.79, 0.86))
@@ -532,11 +547,11 @@ func _show_term_choice_panel() -> void:
 	if not global or not global.pending_term_choice:
 		return
 	_term_choice_showing = true
-	term_choice_header_label.text = "%d歳 / 第%d学期 / stress %d (%s)" % [
+	term_choice_header_label.text = "%s\n%d歳 / %s\n%s" % [
+		_get_grade_transition_title(int(global.age)),
 		int(global.age),
-		int(global.term) + 1,
-		int(global.stress),
-		_get_stress_state_text(int(global.stress))
+		Global.get_school_term_label(int(global.age), int(global.term)),
+		_get_grade_transition_summary(int(global.age))
 	]
 	term_choice_panel.show()
 	get_tree().paused = true
@@ -546,36 +561,196 @@ func _hide_term_choice_panel() -> void:
 	term_choice_panel.hide()
 	get_tree().paused = false
 
-func _on_term_choice_selected(choice_id: String) -> void:
+func _resolve_stage_id(stage_id: String) -> String:
+	var global = get_node_or_null("/root/Global")
+	var age_value: int = int(global.age) if global else 0
+	return StageBuilder.resolve_stage_id(stage_id, age_value)
+
+func _get_stage_uniform_age(stage_id: String) -> int:
+	var global = get_node_or_null("/root/Global")
+	var fallback_age: int = int(global.age) if global else 6
+	if stage_id.ends_with("_elementary"):
+		return 10
+	if stage_id.ends_with("_middle"):
+		return 13
+	if stage_id.ends_with("_high"):
+		return 16
+	return fallback_age
+
+func _get_shoe_color_for_type(shoes_type: String) -> String:
+	match shoes_type:
+		"uwabaki":
+			return "#f7f7f2"
+		"loafer":
+			return "#4b4b52"
+		"socks":
+			return "#f5f4fb"
+		_:
+			return "#f0f0f0"
+
+func _build_stage_shoe_overrides(stage_id: String) -> Dictionary:
+	var shoes_type: String = Global.get_shoes_for_stage(stage_id)
+	return {
+		"shoes_type": shoes_type,
+		"shoes_color": _get_shoe_color_for_type(shoes_type),
+	}
+
+func _build_stage_uniform_appearance(stage_id: String, hair_style: String, hair_color: String) -> Dictionary:
+	var appearance: Dictionary = Global.get_school_uniform(_get_stage_uniform_age(stage_id)).duplicate(true)
+	var shoe_overrides: Dictionary = _build_stage_shoe_overrides(stage_id)
+	appearance["hair_style"] = hair_style
+	appearance["hair_color"] = hair_color
+	for key in shoe_overrides.keys():
+		appearance[key] = shoe_overrides[key]
+	return appearance
+
+func _sync_player_stage_appearance(stage_id: String) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return
-	if not TERM_CHOICES.has(choice_id):
+	var shoes_type: String = Global.get_shoes_for_stage(stage_id)
+	global.current_appearance["shoes_type"] = shoes_type
+	global.current_appearance["shoes_color"] = _get_shoe_color_for_type(shoes_type)
+	var drawer = player.get_node_or_null("CharacterDrawer") if player else null
+	if drawer:
+		drawer.queue_redraw()
+
+func _get_stage_lock_message(stage_id: String) -> String:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return ""
+	var age_value: int = int(global.age)
+	match stage_id:
+		"school_hallway_elementary", "school_elementary":
+			if age_value > 11:
+				return "懐かしいな……。今はもう、このままは入れない。"
+		"school_hallway_middle":
+			if age_value < 12:
+				return "まだこの廊下に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この廊下には入れない。"
+		"school_middle":
+			if age_value < 12:
+				return "まだこの教室に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この教室じゃない。"
+		"infirmary_middle":
+			if age_value < 12:
+				return "まだこの保健室に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この保健室には入れない。"
+		"gymnasium_middle":
+			if age_value < 12:
+				return "まだこの体育館に入る時期じゃない。"
+			if age_value > 14:
+				return "今はもう、この体育館には入れない。"
+		"schoolyard_middle":
+			if age_value < 12:
+				return "まだここには入れない。"
+			if age_value > 14:
+				return "今はもう、この校庭には入れない。"
+		"school_high":
+			if age_value < 15:
+				return "まだこの教室に入るには早い。"
+		"school_hallway_high":
+			if age_value < 15:
+				return "まだこの通学路に向かう時期じゃない。"
+	return ""
+
+func _get_transition_lock_message(door_id: String) -> String:
+	if not door_id.begins_with("door_to_"):
+		return ""
+	var destination: String = door_id.substr("door_to_".length())
+	return _get_stage_lock_message(destination)
+
+func _on_grade_choice_selected(choice_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	if not GRADE_CHOICES.has(choice_id):
 		return
 
-	var choice: Dictionary = TERM_CHOICES[choice_id]
 	global.pending_term_choice = false
-	global.current_term_plan = choice_id
-	var stress_delta: int = int(choice.get("stress_delta", 0))
-	global.add_stress(stress_delta)
-	_show_stress_feedback(stress_delta, String(choice.get("feedback", "")))
-
-	var summer_front: bool = (
-		global.pending_events.size() > 0
-		and String(global.pending_events[0]) == "summer_growth"
-	)
-	if summer_front and choice_id != "home":
-		global.pending_events.pop_front()
-		global.queue_event("summer_growth")
-
-	var event_id: String = String(choice.get("event_id", ""))
-	if event_id != "" and not (choice_id == "home" and summer_front):
-		global.pending_events.push_front(event_id)
-
-	global.current_stage_id = String(choice.get("stage_id", global.current_stage_id))
-	global.save_settings()
+	global.current_term_plan = ""
 	_hide_term_choice_panel()
-	_load_stage()
+	global.save_settings()
+
+	if choice_id == "continue":
+		return
+
+	await _show_temp_ending_and_return_to_title()
+
+func _get_grade_transition_title(age_value: int) -> String:
+	match age_value:
+		9:
+			return "小学4年生になりました"
+		12:
+			return "中学生になりました"
+		15:
+			return "高校生になりました"
+		_:
+			return "新しい学年になりました"
+
+func _get_grade_transition_summary(age_value: int) -> String:
+	if age_value == 12 or age_value == 15:
+		return "制服も通う場所も変わる節目です。ここから先の物語を続けるか選んでください。"
+	if age_value == 9:
+		return "学校生活の景色が少しずつ変わっていきます。ここで物語を区切ることもできます。"
+	return "ここから先の物語を続けるか、いったん区切るか選んでください。"
+
+func _show_temp_ending_and_return_to_title() -> void:
+	_ending_overlay_showing = true
+	get_tree().paused = true
+
+	var overlay = ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 220
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	ui_layer.add_child(overlay)
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.content_margin_left = 32
+	style.content_margin_right = 32
+	style.content_margin_top = 24
+	style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "ここで物語はいったん一区切り"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(0.96, 0.97, 1.0))
+	vbox.add_child(title)
+
+	var body = Label.new()
+	body.text = "エンディング本編は後日実装予定です。\n今回は仮エンディングとして、タイトルへ戻ります。"
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(520, 0)
+	body.add_theme_font_size_override("font_size", 18)
+	body.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92))
+	vbox.add_child(body)
+
+	var tw = overlay.create_tween()
+	tw.tween_property(overlay, "color:a", 1.0, 0.35)
+	await tw.finished
+	await get_tree().create_timer(1.35, true).timeout
+	_ending_overlay_showing = false
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/TitleScene.tscn")
 
 func _is_term_intro_dialogue() -> bool:
 	if _current_dialogue_npc != "player":
@@ -705,7 +880,7 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
 		if String(hotspot_data.get("plan", "")) != String(global.current_term_plan):
 			continue
-		if String(hotspot_data.get("stage_id", "")) != String(global.current_stage_id):
+		if _resolve_stage_id(String(hotspot_data.get("stage_id", ""))) != String(global.current_stage_id):
 			continue
 		var matched: bool = false
 		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
@@ -989,7 +1164,7 @@ func _interact_with_npc(npc: Node) -> void:
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
 		elif npc_id == "haruka":
-			if global and global.current_term_plan == "school" and global.current_stage_id == "school" and not global.has_term_hotspot_done("school_haruka_support"):
+			if global and global.current_term_plan == "school" and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
 				key = "term_school_haruka_support"
 				global.mark_term_hotspot_done("school_haruka_support")
 			elif global and global.is_leg_pain and vball_phase == 3:
@@ -1180,10 +1355,15 @@ func _update_bubble():
 			_nearby_term_hotspot = hotspot_id
 			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
 		elif obs_id.begins_with("door_to_"):
-			_nearby_transition_door = obs_id
+			var lock_message: String = _get_transition_lock_message(String(obs_id))
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
-			bubble_label.text += "\n[Eキーで移動]"
+			if lock_message != "":
+				_nearby_transition_door = ""
+				bubble_label.text = lock_message
+			else:
+				_nearby_transition_door = obs_id
+				bubble_label.text += "\n[Eキーで移動]"
 		elif obs_id == "height_scale":
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
@@ -1419,16 +1599,16 @@ func _setup_pause_menu() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _ending_overlay_showing:
+		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return
 	if _term_choice_showing and event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_1:
-				_on_term_choice_selected("home")
+				_on_grade_choice_selected("continue")
 			KEY_2:
-				_on_term_choice_selected("school")
-			KEY_3:
-				_on_term_choice_selected("station")
+				_on_grade_choice_selected("ending")
 		return
 
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
@@ -1476,7 +1656,7 @@ func _toggle_action_hint() -> void:
 
 func _get_action_hint_text() -> String:
 	if _term_choice_showing:
-		return "[1][2][3] 学期の過ごし方を選ぶ"
+		return "[1][2] 進級後の進み方を選ぶ"
 	if _in_dialogue:
 		return "[E] 次へ"
 	if _measurement_showing:
@@ -1540,10 +1720,9 @@ func _update_ui():
 	var term_val: int = global.term if global else 0
 	var stress_val: int = global.stress if global else 0
 	var term_plan: String = global.current_term_plan if global else ""
-	var school_type: String = StageBuilder.get_stage_name("school", age_val)
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
-	text += "%d歳 / %d学期 (%s)\n" % [age_val, term_val + 1, school_type]
+	text += "%d歳 / %s\n" % [age_val, Global.get_school_term_label(age_val, term_val)]
 	if term_plan != "":
 		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
 		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
@@ -1566,6 +1745,10 @@ func _update_ui():
 func _load_stage():
 	var global = get_node_or_null("/root/Global")
 	var stage_id = global.current_stage_id if global else "room"
+	stage_id = _resolve_stage_id(String(stage_id))
+	if global:
+		global.current_stage_id = stage_id
+	_sync_player_stage_appearance(stage_id)
 	
 	# 床や障害物を生成
 	StageBuilder.build_stage(stage_id, self , p, global.age if global else 0)
@@ -1598,7 +1781,7 @@ func _load_stage():
 	if global:
 		var ev = global.pop_next_event()
 		if ev == "semester_start":
-			if stage_id == "school":
+			if StageBuilder.is_school_classroom_stage(stage_id):
 				await get_tree().create_timer(0.5).timeout
 				_start_dialogue("teacher", "semester_start")
 				# 1学期（初回）のみ先輩招待をキュー
@@ -1608,7 +1791,7 @@ func _load_stage():
 			else:
 				global.pending_events.push_front(ev) # 教室に入るまで保留
 		elif ev == "gym_senior_invite":
-			if stage_id == "gymnasium":
+			if StageBuilder.is_gymnasium_stage(stage_id):
 				await get_tree().create_timer(0.8).timeout
 				_start_dialogue("senior", "first_meet")
 			else:
@@ -1639,7 +1822,7 @@ func _load_stage():
 			else:
 				global.pending_events.push_front(ev) # room に入るまで保留
 		elif ev == "vball_tell_senior":
-			if stage_id == "gymnasium":
+			if StageBuilder.is_gymnasium_stage(stage_id):
 				await get_tree().create_timer(0.8).timeout
 				_start_dialogue("senior", "pain_concern")
 			else:
@@ -1659,6 +1842,27 @@ func _get_entrance_dialogue_key(age: int) -> String:
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
 
+func _spawn_stage_npc(
+	npc_scene: PackedScene,
+	position_cm: float,
+	params: Dictionary = {},
+	app: Dictionary = {},
+	npc_id: String = "",
+	patrol_cm: float = 80.0
+) -> Node:
+	var npc = npc_scene.instantiate()
+	npc.set_meta("is_npc", true)
+	if npc_id != "":
+		npc.npc_id = npc_id
+	if not params.is_empty():
+		npc.custom_params = params
+	if not app.is_empty():
+		npc.custom_appearance = app
+	npc.position = Vector2(position_cm * p, 0)
+	npc.patrol_range = patrol_cm
+	add_child(npc)
+	return npc
+
 func _spawn_npcs(stage_id: String) -> void:
 	var npc_scene = load("res://NPC.tscn")
 	if not npc_scene: return
@@ -1667,28 +1871,40 @@ func _spawn_npcs(stage_id: String) -> void:
 		if child.has_meta("is_npc"):
 			child.queue_free()
 
+	var shoe_overrides: Dictionary = _build_stage_shoe_overrides(stage_id)
+	var hall_student_params := {
+		"elementary": {"height": 132.0, "ratio": 6.0, "legRatio": 43.0, "sex": "female"},
+		"middle": {"height": 149.0, "ratio": 6.4, "legRatio": 44.0, "sex": "female"},
+		"high": {"height": 160.0, "ratio": 6.8, "legRatio": 45.0, "sex": "female"},
+	}
+	var classmate_params := {
+		"elementary": {"height": 128.0, "ratio": 5.9, "legRatio": 43.0, "sex": "female"},
+		"middle": {"height": 147.0, "ratio": 6.3, "legRatio": 44.0, "sex": "female"},
+		"high": {"height": 158.0, "ratio": 6.7, "legRatio": 45.0, "sex": "female"},
+	}
+	var stage_suffix := ""
+	if stage_id.ends_with("_elementary"):
+		stage_suffix = "elementary"
+	elif stage_id.ends_with("_middle"):
+		stage_suffix = "middle"
+	elif stage_id.ends_with("_high"):
+		stage_suffix = "high"
+
 	if stage_id == "outdoor":
-		var npc = npc_scene.instantiate()
-		npc.set_meta("is_npc", true)
-		npc.custom_params = {
+		_spawn_stage_npc(npc_scene, 300.0, {
 			"height": 158.0,
 			"ratio": 7.0,
 			"legRatio": 45.0,
 			"sex": "female"
-		}
-		npc.position = Vector2(300 * p, 0)
-		add_child(npc)
+		}, {}, "", 120.0)
 		
 		# 街にいる小さな子供
-		var kid = npc_scene.instantiate()
-		kid.set_meta("is_npc", true)
-		kid.custom_params = {
+		_spawn_stage_npc(npc_scene, 500.0, {
 			"height": 110.0,
 			"ratio": 5.5,
 			"legRatio": 45.0,
 			"sex": "female"
-		}
-		kid.custom_appearance = {
+		}, {
 			"hair_style": "short",
 			"hair_color": "#885533",
 			"tops_type": "t_shirt",
@@ -1697,158 +1913,56 @@ func _spawn_npcs(stage_id: String) -> void:
 			"bottoms_color": "#33aa33",
 			"shoes_type": "sneakers",
 			"shoes_color": "#ffffff"
-		}
-		kid.position = Vector2(500 * p, 0)
-		add_child(kid)
+		}, "", 90.0)
 
 	elif stage_id == "room":
-		# 母親
-		var mother = npc_scene.instantiate()
-		mother.set_meta("is_npc", true)
-		mother.npc_id = "mother"
-		mother.position = Vector2(400 * p, 0)
-		add_child(mother)
-		# 父親（男性パラメータを事前設定）
-		var father = npc_scene.instantiate()
-		father.set_meta("is_npc", true)
-		father.npc_id = "father"
-		father.custom_params = {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}
-		father.position = Vector2(700 * p, 0)
-		add_child(father)
+		_spawn_stage_npc(npc_scene, 400.0, {}, {}, "mother", 0.0)
+		_spawn_stage_npc(npc_scene, 700.0, {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}, {}, "father", 0.0)
 
-	elif stage_id == "school_hallway":
-		# 先輩（バレー部）
-		var senior = npc_scene.instantiate()
-		senior.set_meta("is_npc", true)
-		senior.npc_id = "senior"
-		senior.custom_params = {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}
-		senior.position = Vector2(1200 * p, 0)
-		add_child(senior)
-		# 廊下にいる生徒
-		var npc_hall = npc_scene.instantiate()
-		npc_hall.set_meta("is_npc", true)
-		npc_hall.custom_params = {
-			"height": 140.0,
-			"ratio": 6.2,
-			"legRatio": 43.0,
-			"sex": "female"
-		}
-		npc_hall.custom_appearance = {
-			"hair_style": "long",
-			"hair_color": "#443322",
-			"tops_type": "blouse",
-			"tops_color": "#ffffff",
-			"bottoms_type": "skirt_short",
-			"bottoms_color": "#111166",
-			"shoes_type": "sneakers",
-			"shoes_color": "#ffffff"
-		}
-		npc_hall.position = Vector2(700 * p, 0) # 掲示板付近
-		add_child(npc_hall)
+	elif StageBuilder.is_school_hallway_stage(stage_id):
+		var hall_student_appearance: Dictionary = _build_stage_uniform_appearance(stage_id, "side_tail", "#5b4334")
+		_spawn_stage_npc(npc_scene, 700.0, hall_student_params.get(stage_suffix, hall_student_params["middle"]), hall_student_appearance, "", 70.0)
+		_spawn_stage_npc(npc_scene, 1180.0 if stage_suffix == "high" else 980.0, {"height": 152.0, "ratio": 6.8, "legRatio": 44.0, "sex": "female"}, {}, "haruka", 55.0)
+		if stage_suffix == "high":
+			_spawn_stage_npc(npc_scene, 1450.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 85.0)
 
-	elif stage_id == "school":
-		# 友人「はるか」
-		var haruka = npc_scene.instantiate()
-		haruka.set_meta("is_npc", true)
-		haruka.npc_id = "haruka"
-		# コアNPC「桐島はるか」
-		haruka.custom_params = {
-			"height": 152.0,
-			"ratio": 6.8,
-			"legRatio": 44.0,
-			"sex": "female"
-		}
-		haruka.custom_appearance = {
-			"hair_style": "long",
-			"hair_color": "#885533",
-			"tops_type": "blouse",
-			"tops_color": "#ffffff",
-			"bottoms_type": "skirt_short",
-			"bottoms_color": "#111166",
-			"shoes_type": "sneakers",
-			"shoes_color": "#ffffff"
-		}
-		haruka.position = Vector2(300 * p, 0)
-		add_child(haruka)
+	elif StageBuilder.is_school_classroom_stage(stage_id):
+		_spawn_stage_npc(npc_scene, 300.0, {"height": 152.0, "ratio": 6.8, "legRatio": 44.0, "sex": "female"}, {}, "haruka", 40.0)
+		var classmate_appearance: Dictionary = _build_stage_uniform_appearance(stage_id, "short", "#553a2b")
+		_spawn_stage_npc(npc_scene, 1120.0, classmate_params.get(stage_suffix, classmate_params["middle"]), classmate_appearance, "", 30.0)
+		if stage_suffix == "high":
+			_spawn_stage_npc(npc_scene, 760.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 45.0)
 
-		# 背の高い男性教師のようなダミー（身長175cm）
-		var npc2 = npc_scene.instantiate()
-		npc2.set_meta("is_npc", true)
-		npc2.custom_params = {
-			"height": 175.0,
-			"ratio": 7.2,
-			"legRatio": 46.0,
-			"sex": "male"
-		}
-		npc2.custom_appearance = {
-			"hair_style": "short",
-			"hair_color": "#111111",
-			"tops_type": "sweater",
-			"tops_color": "#333333",
-			"bottoms_type": "pants",
-			"bottoms_color": "#111111",
-			"shoes_type": "sneakers",
-			"shoes_color": "#000000"
-		}
-		npc2.position = Vector2(900 * p, 0) # 先生の机付近
-		add_child(npc2)
+	elif StageBuilder.is_gymnasium_stage(stage_id):
+		_spawn_stage_npc(npc_scene, 1200.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 90.0)
 
-	elif stage_id == "gymnasium":
-		# バレー部先輩
-		var gym_senior = npc_scene.instantiate()
-		gym_senior.set_meta("is_npc", true)
-		gym_senior.npc_id = "senior"
-		gym_senior.custom_params = {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}
-		gym_senior.position = Vector2(1200 * p, 0)
-		add_child(gym_senior)
-
-	elif stage_id == "infirmary":
+	elif StageBuilder.is_infirmary_stage(stage_id):
 		# 保健室の先生（小柄な女性、机の前に立っている）
-		var nurse = npc_scene.instantiate()
-		nurse.set_meta("is_npc", true)
-		nurse.custom_params = {
-			"height": 155.0,
-			"ratio": 6.8,
-			"legRatio": 44.0,
-			"sex": "female"
-		}
-		nurse.custom_appearance = {
+		var nurse_app: Dictionary = {
 			"hair_style": "short",
 			"hair_color": "#334422",
 			"tops_type": "blouse",
 			"tops_color": "#ffffff",
 			"bottoms_type": "skirt_long",
 			"bottoms_color": "#ffffff",
-			"shoes_type": "sneakers",
-			"shoes_color": "#cccccc"
 		}
-		nurse.npc_id = "nurse"
-		nurse.position = Vector2(680 * p, 0) # 机のそば
-		add_child(nurse)
+		for key in shoe_overrides.keys():
+			nurse_app[key] = shoe_overrides[key]
+		_spawn_stage_npc(npc_scene, 680.0, {
+			"height": 155.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}, nurse_app, "nurse", 0.0)
 		# はるかが追随中なら身長計の横にスポーン
 		var global_inf = get_node_or_null("/root/Global")
 		if global_inf and global_inf.haruka_following:
-			var haruka_inf = npc_scene.instantiate()
-			haruka_inf.set_meta("is_npc", true)
-			haruka_inf.npc_id = "haruka"
-			haruka_inf.custom_params = {
+			_spawn_stage_npc(npc_scene, 350.0, {
 				"height": 152.0,
 				"ratio": 6.8,
 				"legRatio": 44.0,
 				"sex": "female"
-			}
-			haruka_inf.custom_appearance = {
-				"hair_style": "long",
-				"hair_color": "#885533",
-				"tops_type": "sweater",
-				"tops_color": "#ffffff",
-				"bottoms_type": "skirt_long",
-				"bottoms_color": "#333333",
-				"shoes_type": "sneakers",
-				"shoes_color": "#aa3333"
-			}
-			haruka_inf.position = Vector2(350 * p, 0) # 身長計付近
-			add_child(haruka_inf)
+			}, {}, "haruka", 0.0)
 
 func _on_save_pressed() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -1859,6 +1973,11 @@ func _on_save_pressed() -> void:
 func _enter_transition_door() -> void:
 	# "door_to_XXX" → 遷移先ステージID = "XXX"
 	var new_stage_id = _nearby_transition_door.substr("door_to_".length())
+	var lock_message: String = _get_stage_lock_message(new_stage_id)
+	if lock_message != "":
+		_show_bump_alert(lock_message)
+		return
+	new_stage_id = _resolve_stage_id(new_stage_id)
 	if not StageBuilder.STAGES.has(new_stage_id):
 		return
 
@@ -2061,7 +2180,7 @@ func _show_measurement_result() -> void:
 	var diff_prev: float = h - prev_h if prev_h > 0.0 else 0.0
 
 	# 詳細テキスト（後でフェードイン）
-	var detail = "年齢：%d歳  第%d学期\n" % [a, global.term + 1]
+	var detail = "年齢：%d歳  %s\n" % [a, Global.get_school_term_label(a, global.term)]
 	detail += "同学年平均：%.1f cm  （差：%+.1f cm）\n\n" % [avg_h, diff_avg]
 	detail += global.get_measurement_comment(diff_avg)
 	if global.current_term_plan != "":
@@ -2175,7 +2294,7 @@ func _on_next_term_pressed() -> void:
 	# 黒画面中に学期テキストを表示
 	if global:
 		var lbl = Label.new()
-		lbl.text = "第 %d 学期" % (global.term + 1)
+		lbl.text = Global.get_school_term_label(int(global.age), int(global.term))
 		lbl.add_theme_font_size_override("font_size", 36)
 		lbl.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
 		lbl.modulate.a = 0.0
@@ -2274,10 +2393,10 @@ func _toggle_history_panel() -> void:
 	if not global:
 		return
 
-	history_header_label.text = "現在 %.1fcm  /  %d歳  /  第%d学期" % [
+	history_header_label.text = "現在 %.1fcm  /  %d歳  /  %s" % [
 		float(global.current_params["height"]),
 		int(global.age),
-		int(global.term) + 1
+		Global.get_school_term_label(int(global.age), int(global.term))
 	]
 	growth_graph.set_data(global.growth_history)
 

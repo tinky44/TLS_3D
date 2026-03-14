@@ -34,7 +34,7 @@ const STAGES = {
         "ceiling_height": 230,
         "obstacles": [
             {"id": "door_to_station", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
-            {"id": "door_2", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
+            {"id": "door_to_school_hallway_high", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
             {"id": "train_seat_1", "x": 240, "x2": 560, "height": 45, "type": "ground"},
@@ -64,7 +64,7 @@ const STAGES = {
             {"id": "door_to_station", "x": 650, "x2": 750, "height": 200, "type": "overhead"},
             {"id": "car", "x": 760, "x2": 930, "height": 150, "type": "background"},
             {"id": "bus_stop_sign", "x": 940, "x2": 968, "height": 250, "type": "background"},
-            {"id": "door_to_school_hallway", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"}
+            {"id": "door_to_school_hallway_elementary", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"}
         ]
     },
     "school_hallway": {
@@ -152,6 +152,96 @@ const STAGES = {
             {"id": "basketball_board", "x": 3050, "x2": 3150, "height": 350, "type": "background"}
         ]
     },
+    "school_hallway_elementary": {
+        "name": "小学校の廊下",
+        "width": 3000,
+        "ceiling_height": 280,
+        "obstacles": []
+    },
+    "school_hallway_middle": {
+        "name": "中学校の廊下",
+        "width": 3000,
+        "ceiling_height": 280,
+        "obstacles": []
+    },
+    "school_hallway_high": {
+        "name": "高校の廊下",
+        "width": 3000,
+        "ceiling_height": 280,
+        "obstacles": []
+    },
+    "school_elementary": {
+        "name": "小学校",
+        "width": 1600,
+        "ceiling_height": 300,
+        "obstacles": []
+    },
+    "school_middle": {
+        "name": "中学校",
+        "width": 1600,
+        "ceiling_height": 300,
+        "obstacles": []
+    },
+    "school_high": {
+        "name": "高校",
+        "width": 1600,
+        "ceiling_height": 300,
+        "obstacles": []
+    },
+    "schoolyard_elementary": {
+        "name": "小学校の校庭",
+        "width": 2500,
+        "ceiling_height": null,
+        "obstacles": []
+    },
+    "schoolyard_middle": {
+        "name": "中学校の校庭",
+        "width": 2500,
+        "ceiling_height": null,
+        "obstacles": []
+    },
+    "schoolyard_high": {
+        "name": "高校の校庭",
+        "width": 2500,
+        "ceiling_height": null,
+        "obstacles": []
+    },
+    "infirmary_elementary": {
+        "name": "小学校の保健室",
+        "width": 1400,
+        "ceiling_height": 270,
+        "obstacles": []
+    },
+    "infirmary_middle": {
+        "name": "中学校の保健室",
+        "width": 1400,
+        "ceiling_height": 270,
+        "obstacles": []
+    },
+    "infirmary_high": {
+        "name": "高校の保健室",
+        "width": 1400,
+        "ceiling_height": 270,
+        "obstacles": []
+    },
+    "gymnasium_elementary": {
+        "name": "小学校の体育館",
+        "width": 3200,
+        "ceiling_height": 800,
+        "obstacles": []
+    },
+    "gymnasium_middle": {
+        "name": "中学校の体育館",
+        "width": 3200,
+        "ceiling_height": 800,
+        "obstacles": []
+    },
+    "gymnasium_high": {
+        "name": "高校の体育館",
+        "width": 3200,
+        "ceiling_height": 800,
+        "obstacles": []
+    },
     "station": {
         "name": "駅",
         "width": 2200,
@@ -168,6 +258,7 @@ const STAGES = {
 }
 
 static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, age: int = 0) -> void:
+    stage_id = resolve_stage_id(stage_id, age)
     if not STAGES.has(stage_id):
         push_error("Stage not found: " + stage_id)
         return
@@ -192,16 +283,18 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
     
     # 床の描画 (フローリング風の少し落ち着いた茶色)
     var floor_rect = ColorRect.new()
-    if stage_id == "room" or stage_id == "myroom" or stage_id == "school":
+    if stage_id == "room" or stage_id == "myroom" or is_school_classroom_stage(stage_id):
         floor_rect.color = Color(0.45, 0.35, 0.25) # フローリング風
-    elif stage_id == "school_hallway":
+    elif is_school_hallway_stage(stage_id):
         floor_rect.color = Color(0.50, 0.55, 0.50) # リノリウム風グレーグリーン
-    elif stage_id == "infirmary":
+    elif is_infirmary_stage(stage_id):
         floor_rect.color = Color(0.82, 0.88, 0.82) # 明るい薄緑（保健室リノリウム）
     elif stage_id == "outdoor":
         floor_rect.color = Color(0.55, 0.53, 0.50) # アスファルト
-    elif stage_id == "schoolyard":
+    elif is_schoolyard_stage(stage_id):
         floor_rect.color = Color(0.68, 0.62, 0.48) # 砂地（校庭）
+    elif is_gymnasium_stage(stage_id):
+        floor_rect.color = Color(0.66, 0.49, 0.29) # 体育館フロア
     elif stage_id == "station":
         floor_rect.color = Color(0.58, 0.57, 0.55) # コンクリート（駅）
     else: # train
@@ -464,27 +557,39 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         parent_node.add_child(out_bg)
 
     # 学校ステージ: 廊下背景
-    elif stage_id == "school_hallway" and stage_data.get("ceiling_height") != null:
+    elif is_school_hallway_stage(stage_id) and stage_data.get("ceiling_height") != null:
         var hw_bg = Node2D.new()
         hw_bg.set_meta("is_stage_obj", true)
         hw_bg.z_index = -5
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
+        var hallway_suffix = _get_stage_suffix_from_stage_id(stage_id)
+        var hall_top_col = Color(0.95, 0.93, 0.88)
+        var hall_bottom_col = Color(0.70, 0.65, 0.55)
+        var hall_mold_col = Color(0.45, 0.40, 0.33)
+        if hallway_suffix == "middle":
+            hall_top_col = Color(0.92, 0.92, 0.90)
+            hall_bottom_col = Color(0.60, 0.65, 0.72)
+            hall_mold_col = Color(0.36, 0.40, 0.48)
+        elif hallway_suffix == "high":
+            hall_top_col = Color(0.90, 0.91, 0.93)
+            hall_bottom_col = Color(0.58, 0.60, 0.66)
+            hall_mold_col = Color(0.30, 0.34, 0.42)
         # 壁（上部 オフホワイト）
         var hw_top = ColorRect.new()
-        hw_top.color = Color(0.95, 0.93, 0.88)
+        hw_top.color = hall_top_col
         hw_top.position = Vector2(0, -ceil_h_px)
         hw_top.size = Vector2(stage_w_px, ceil_h_px * 0.55)
         hw_bg.add_child(hw_top)
         # 腰壁（やや暗めの木目調またはアイボリー）
         var hw_btm = ColorRect.new()
-        hw_btm.color = Color(0.70, 0.65, 0.55)
+        hw_btm.color = hall_bottom_col
         hw_btm.position = Vector2(0, -ceil_h_px * 0.45)
         hw_btm.size = Vector2(stage_w_px, ceil_h_px * 0.45)
         hw_bg.add_child(hw_btm)
         # 見切り材
         var hw_mold = ColorRect.new()
-        hw_mold.color = Color(0.45, 0.40, 0.33)
+        hw_mold.color = hall_mold_col
         hw_mold.position = Vector2(0, -ceil_h_px * 0.45 - 5)
         hw_mold.size = Vector2(stage_w_px, 10)
         hw_bg.add_child(hw_mold)
@@ -524,28 +629,29 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         parent_node.add_child(hw_bg)
 
     # 学校ステージ: 教室背景（年齢で小/中/高を切り替え）
-    elif stage_id == "school" and stage_data.get("ceiling_height") != null:
+    elif is_school_classroom_stage(stage_id) and stage_data.get("ceiling_height") != null:
         var sch_bg = Node2D.new()
         sch_bg.set_meta("is_stage_obj", true)
         sch_bg.z_index = -5
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
+        var classroom_suffix = _get_stage_suffix_from_stage_id(stage_id)
         # 年齢別の壁色
         var wall_top_col: Color
         var wall_btm_col: Color
         var mold_col: Color
         var base_col: Color
-        if age <= 11:  # 小学校: 暖かみのある明るいクリーム + 鮮やかグリーン
+        if classroom_suffix == "elementary":
             wall_top_col = Color(0.97, 0.95, 0.84)
             wall_btm_col = Color(0.55, 0.78, 0.45)
             mold_col     = Color(0.40, 0.62, 0.32)
             base_col     = Color(0.35, 0.25, 0.15)
-        elif age <= 14:  # 中学校: 落ち着いたクリーム + ブルーグレー
+        elif classroom_suffix == "middle":
             wall_top_col = Color(0.91, 0.91, 0.88)
             wall_btm_col = Color(0.42, 0.55, 0.70)
             mold_col     = Color(0.32, 0.42, 0.55)
             base_col     = Color(0.28, 0.28, 0.35)
-        else:  # 高校: クールなグレー + ダークグレー
+        else:
             wall_top_col = Color(0.88, 0.88, 0.88)
             wall_btm_col = Color(0.55, 0.55, 0.58)
             mold_col     = Color(0.40, 0.40, 0.42)
@@ -571,7 +677,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         sw_base.size = Vector2(stage_w_px, 15)
         sch_bg.add_child(sw_base)
         # 小学校: 掲示板（カラフルな装飾帯）
-        if age <= 11:
+        if classroom_suffix == "elementary":
             var disp = ColorRect.new()
             disp.color = Color(0.95, 0.85, 0.30, 0.70)
             disp.position = Vector2(stage_w_px * 0.55, -ceil_h_px * 0.85)
@@ -605,33 +711,45 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         parent_node.add_child(sch_bg)
 
     # 保健室ステージ: 白い壁と清潔感のある背景
-    elif stage_id == "infirmary" and stage_data.get("ceiling_height") != null:
+    elif is_infirmary_stage(stage_id) and stage_data.get("ceiling_height") != null:
         var inf_bg = Node2D.new()
         inf_bg.set_meta("is_stage_obj", true)
         inf_bg.z_index = -5
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
+        var infirmary_suffix = _get_stage_suffix_from_stage_id(stage_id)
+        var inf_wall_col = Color(0.96, 0.97, 0.95)
+        var inf_lower_col = Color(0.78, 0.90, 0.78)
+        var inf_mold_col = Color(0.55, 0.70, 0.55)
+        if infirmary_suffix == "middle":
+            inf_wall_col = Color(0.94, 0.96, 0.97)
+            inf_lower_col = Color(0.74, 0.84, 0.88)
+            inf_mold_col = Color(0.48, 0.60, 0.68)
+        elif infirmary_suffix == "high":
+            inf_wall_col = Color(0.95, 0.95, 0.97)
+            inf_lower_col = Color(0.80, 0.84, 0.90)
+            inf_mold_col = Color(0.50, 0.56, 0.66)
         # 壁（白系）
         var iw_top = ColorRect.new()
-        iw_top.color = Color(0.96, 0.97, 0.95)
+        iw_top.color = inf_wall_col
         iw_top.position = Vector2(0, -ceil_h_px)
         iw_top.size = Vector2(stage_w_px, ceil_h_px)
         inf_bg.add_child(iw_top)
         # 腰壁（薄い緑）
         var iw_btm = ColorRect.new()
-        iw_btm.color = Color(0.78, 0.90, 0.78)
+        iw_btm.color = inf_lower_col
         iw_btm.position = Vector2(0, -ceil_h_px * 0.40)
         iw_btm.size = Vector2(stage_w_px, ceil_h_px * 0.40)
         inf_bg.add_child(iw_btm)
         # 見切り材
         var iw_mold = ColorRect.new()
-        iw_mold.color = Color(0.55, 0.70, 0.55)
+        iw_mold.color = inf_mold_col
         iw_mold.position = Vector2(0, -ceil_h_px * 0.40 - 5)
         iw_mold.size = Vector2(stage_w_px, 10)
         inf_bg.add_child(iw_mold)
         # 巾木
         var iw_base = ColorRect.new()
-        iw_base.color = Color(0.55, 0.72, 0.55)
+        iw_base.color = inf_mold_col
         iw_base.position = Vector2(0, -15)
         iw_base.size = Vector2(stage_w_px, 15)
         inf_bg.add_child(iw_base)
@@ -666,19 +784,31 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         parent_node.add_child(inf_bg)
 
     # 校庭ステージ: 空と砂地と学校外観の背景
-    elif stage_id == "schoolyard":
+    elif is_schoolyard_stage(stage_id):
         var sy_bg = Node2D.new()
         sy_bg.set_meta("is_stage_obj", true)
         sy_bg.z_index = -10
         var stage_w_px = stage_data["width"] * cm_to_px
+        var yard_suffix = _get_stage_suffix_from_stage_id(stage_id)
+        var yard_sky = Color(0.48, 0.72, 0.98)
+        var yard_ground = Color(0.65, 0.84, 0.99)
+        var yard_building = Color(0.82, 0.80, 0.72)
+        if yard_suffix == "middle":
+            yard_sky = Color(0.45, 0.68, 0.95)
+            yard_ground = Color(0.61, 0.79, 0.94)
+            yard_building = Color(0.76, 0.78, 0.82)
+        elif yard_suffix == "high":
+            yard_sky = Color(0.42, 0.64, 0.92)
+            yard_ground = Color(0.58, 0.76, 0.92)
+            yard_building = Color(0.72, 0.74, 0.80)
         # 空（上）
         var sy_sky = ColorRect.new()
-        sy_sky.color = Color(0.48, 0.72, 0.98)
+        sy_sky.color = yard_sky
         sy_sky.position = Vector2(0, -600 * cm_to_px)
         sy_sky.size = Vector2(stage_w_px, 400 * cm_to_px)
         sy_bg.add_child(sy_sky)
         var sy_sky_btm = ColorRect.new()
-        sy_sky_btm.color = Color(0.65, 0.84, 0.99)
+        sy_sky_btm.color = yard_ground
         sy_sky_btm.position = Vector2(0, -200 * cm_to_px)
         sy_sky_btm.size = Vector2(stage_w_px, 200 * cm_to_px)
         sy_bg.add_child(sy_sky_btm)
@@ -687,7 +817,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         var sc_w = 260 * cm_to_px
         var sc_h = 320 * cm_to_px
         var sc_wall = ColorRect.new()
-        sc_wall.color = Color(0.82, 0.80, 0.72)
+        sc_wall.color = yard_building
         sc_wall.position = Vector2(sc_x, -sc_h)
         sc_wall.size = Vector2(sc_w, sc_h)
         sy_bg.add_child(sc_wall)
@@ -963,7 +1093,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
                 gask.size = Vector2(3, h_px)
                 gask.z_index = -1
                 node.add_child(gask)
-        elif stage_id == "school":
+        elif is_school_classroom_stage(stage_id):
             # 学校の出口ドア（ガラス入り引き戸）
             var d_frame2 = ColorRect.new()
             d_frame2.color = Color(0.28, 0.20, 0.14)
@@ -1101,7 +1231,31 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
                 cr.add_child(frame)
                 
     elif o_id == "bulletin_board":
-        cr.color = Color(0.35, 0.55, 0.35) # グリーン系
+        var board_suffix = _get_stage_suffix_from_stage_id(stage_id)
+        var board_color = Color(0.35, 0.55, 0.35)
+        var paper_palette = [
+            Color(0.95, 0.95, 0.90),
+            Color(0.98, 0.88, 0.64),
+            Color(0.86, 0.94, 0.72),
+            Color(0.92, 0.84, 0.96),
+        ]
+        if board_suffix == "middle":
+            board_color = Color(0.34, 0.44, 0.56)
+            paper_palette = [
+                Color(0.96, 0.96, 0.92),
+                Color(0.88, 0.92, 0.98),
+                Color(0.92, 0.90, 0.82),
+                Color(0.94, 0.88, 0.88),
+            ]
+        elif board_suffix == "high":
+            board_color = Color(0.30, 0.34, 0.42)
+            paper_palette = [
+                Color(0.95, 0.95, 0.95),
+                Color(0.90, 0.93, 0.98),
+                Color(0.96, 0.90, 0.82),
+                Color(0.92, 0.92, 0.86),
+            ]
+        cr.color = board_color
         var frame = ReferenceRect.new()
         frame.editor_only = false
         frame.border_color = Color(0.6, 0.45, 0.25)
@@ -1111,7 +1265,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         cr.add_child(frame)
         for i in range(4):
             var paper = ColorRect.new()
-            paper.color = Color(0.95, 0.95, 0.9)
+            paper.color = paper_palette[i % paper_palette.size()]
             paper.position = Vector2(20 + i * (w_px / 4.0), 20 + (i % 2) * 10)
             paper.size = Vector2((w_px - 40) / 4.0 - 10, h_draw_px * 0.7)
             cr.add_child(paper)
@@ -1885,6 +2039,19 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         chalk_tray.position = Vector2(cr.position.x - 4, cr.position.y + cr.size.y)
         chalk_tray.size = Vector2(cr.size.x + 8, 6)
         node.add_child(chalk_tray)
+        var board_suffix = _get_stage_suffix_from_stage_id(stage_id)
+        var board_text = "がんばろう！"
+        if board_suffix == "middle":
+            board_text = "今日の目標"
+        elif board_suffix == "high":
+            board_text = "○日 センター試験"
+        var board_label = Label.new()
+        board_label.text = board_text
+        board_label.add_theme_font_size_override("font_size", 18)
+        board_label.add_theme_color_override("font_color", Color(0.88, 0.94, 0.88))
+        board_label.position = Vector2(cr.position.x + 18, cr.position.y + 18)
+        board_label.size = Vector2(cr.size.x - 36, 28)
+        node.add_child(board_label)
 
     elif o_id == "desk_myroom":
         cr.color = Color(0, 0, 0, 0)
@@ -2515,6 +2682,26 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
     parent.add_child(node)
 
 static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
+    if obs_id.begins_with("door_to_school_hallway"):
+        if h > oh:
+            return "学校の廊下への入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+        return "学校の廊下へ続く入口（%dcm）。" % oh
+    if obs_id.begins_with("door_to_schoolyard_"):
+        if h > oh:
+            return "校庭への出口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+        return "校庭への出口（%dcm）。外で遊びましょう！" % oh
+    if obs_id.begins_with("door_to_infirmary_"):
+        if h > oh:
+            return "保健室への入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+        return "保健室への入口（%dcm）。少し休んでいけそうです。" % oh
+    if obs_id.begins_with("door_to_gymnasium_"):
+        if h > oh:
+            return "体育館への入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+        return "体育館への入口（%dcm）。" % oh
+    if obs_id.begins_with("door_to_school_"):
+        if h > oh:
+            return "教室の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+        return "教室の入口（%dcm）。" % oh
     match obs_id:
         "door_to_outdoor":
             if h > oh:
@@ -2536,7 +2723,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "学校の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "学校の入口（%dcm）。いってらっしゃい！" % oh
-        "door_left", "door_right", "side_door", "door_2", "door_3", "door_4", "door_to_myroom":
+        "door_left", "door_right", "side_door", "door_3", "door_4", "door_to_myroom", "door_to_school_hallway_high":
             if h > oh:
                 return "ドア（高さ%dcm）。あなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
@@ -2737,6 +2924,14 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
     return "オブジェクト（高さ%dcm）。" % oh
 
 static func get_head_bump_comment(obs_id: String, obs_height_cm: float) -> String:
+    if (
+        obs_id.begins_with("door_to_school_hallway")
+        or obs_id.begins_with("door_to_school_")
+        or obs_id.begins_with("door_to_schoolyard_")
+        or obs_id.begins_with("door_to_infirmary_")
+        or obs_id.begins_with("door_to_gymnasium_")
+    ):
+        return "頭上注意。もっとかがまないと通れない。"
     match obs_id:
         "door_to_train":
             return "電車のドア上に頭が当たった。少しかがまないと危ない。"
@@ -2744,7 +2939,7 @@ static func get_head_bump_comment(obs_id: String, obs_height_cm: float) -> Strin
             return "駅の入口は低い。頭を下げて抜けたい。"
         "door_to_school", "door_to_schoolyard", "door_to_infirmary", "door_to_outdoor", "door_to_room", "door_to_myroom":
             return "頭上注意。もっとかがまないと通れない。"
-        "door_left", "door_right", "side_door", "door_2", "door_3", "door_4":
+        "door_left", "door_right", "side_door", "door_3", "door_4", "door_to_school_hallway_high":
             return "低いドア枠に頭をぶつけた。"
         "bathroom_ceiling":
             return "浴室の天井が近い。立つとすぐ頭が当たる。"
@@ -2769,77 +2964,170 @@ static func math_round(val: float) -> int:
 # ─── 年齢別ステージ名・障害物 ──────────────────────────────────────
 
 static func get_stage_name(stage_id: String, age: int) -> String:
-    if stage_id == "school":
-        if age <= 11: return "小学校"
-        elif age <= 14: return "中学校"
-        else: return "高校"
+    var resolved_stage_id = resolve_stage_id(stage_id, age)
+    if STAGES.has(resolved_stage_id):
+        return STAGES[resolved_stage_id]["name"]
     return STAGES.get(stage_id, {}).get("name", "Unknown")
 
-static func get_obstacles(stage_id: String, age: int) -> Array:
+static func resolve_stage_id(stage_id: String, age: int) -> String:
     match stage_id:
-        "school":         return _school_obstacles(age)
-        "outdoor":        return _outdoor_obstacles(age)
-        "station":        return _station_obstacles(age)
-        "school_hallway": return _school_hallway_obstacles(age)
+        "school", "school_hallway", "schoolyard", "infirmary", "gymnasium":
+            return "%s_%s" % [stage_id, _get_school_stage_suffix(age)]
         _:
-            return STAGES[stage_id]["obstacles"] if STAGES.has(stage_id) else []
+            return stage_id
 
-static func _school_obstacles(age: int) -> Array:
-    if age <= 11:  # 小学校: JIS1-4号机(60cm)、低い黒板
-        return [
-            {"id": "door_to_school_hallway", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
-            {"id": "blackboard", "x": 300, "x2": 800, "height": 190, "type": "background"},
-            {"id": "teacher_desk", "x": 840, "x2": 990, "height": 85, "type": "ground"},
-            {"id": "display_board", "x": 1010, "x2": 1070, "height": 185, "type": "background"},
-            {"id": "desk_1", "x": 1100, "x2": 1160, "height": 60, "type": "ground"},
-            {"id": "student_chair_1", "x": 1180, "x2": 1220, "height": 38, "type": "ground"},
-            {"id": "desk_2", "x": 1350, "x2": 1410, "height": 60, "type": "ground"},
-            {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": 38, "type": "ground"},
-        ]
-    elif age <= 14:  # 中学校: JIS4-6号机(70cm)、ロッカー
-        return [
-            {"id": "door_to_school_hallway", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
-            {"id": "blackboard", "x": 300, "x2": 800, "height": 210, "type": "background"},
-            {"id": "teacher_desk", "x": 840, "x2": 990, "height": 100, "type": "ground"},
-            {"id": "locker", "x": 1010, "x2": 1080, "height": 180, "type": "background"},
-            {"id": "desk_1", "x": 1100, "x2": 1160, "height": 70, "type": "ground"},
-            {"id": "student_chair_1", "x": 1180, "x2": 1220, "height": 43, "type": "ground"},
-            {"id": "desk_2", "x": 1350, "x2": 1410, "height": 70, "type": "ground"},
-            {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": 43, "type": "ground"},
-        ]
-    else:  # 高校: JIS5-6号机(76cm)、高いロッカー、窓
-        return [
-            {"id": "door_to_school_hallway", "x": 100, "x2": 240, "height": 200, "type": "overhead"},
-            {"id": "blackboard", "x": 300, "x2": 800, "height": 210, "type": "background"},
-            {"id": "teacher_desk", "x": 840, "x2": 990, "height": 100, "type": "ground"},
-            {"id": "locker_high", "x": 1010, "x2": 1080, "height": 185, "type": "background"},
-            {"id": "desk_1", "x": 1100, "x2": 1160, "height": 76, "type": "ground"},
-            {"id": "student_chair_1", "x": 1180, "x2": 1220, "height": 45, "type": "ground"},
-            {"id": "desk_2", "x": 1350, "x2": 1410, "height": 76, "type": "ground"},
-            {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": 45, "type": "ground"},
-            {"id": "window_back", "x": 1490, "x2": 1580, "height": 200, "type": "background"},
-        ]
+static func is_school_hallway_stage(stage_id: String) -> bool:
+    return stage_id.begins_with("school_hallway_")
 
-static func _outdoor_obstacles(age: int) -> Array:
-    # 中学以降は直接学校へ行かず、駅経由になるので door_to_school_hallway を除外
-    var base: Array = STAGES["outdoor"]["obstacles"].duplicate()
-    if age >= 12:
-        base = base.filter(func(o: Dictionary) -> bool: return o["id"] != "door_to_school_hallway")
-    return base
+static func is_school_classroom_stage(stage_id: String) -> bool:
+    return stage_id.begins_with("school_") and not is_school_hallway_stage(stage_id) and not stage_id.begins_with("schoolyard_")
+
+static func is_schoolyard_stage(stage_id: String) -> bool:
+    return stage_id.begins_with("schoolyard_")
+
+static func is_infirmary_stage(stage_id: String) -> bool:
+    return stage_id.begins_with("infirmary_")
+
+static func is_gymnasium_stage(stage_id: String) -> bool:
+    return stage_id.begins_with("gymnasium_")
+
+static func get_obstacles(stage_id: String, age: int) -> Array:
+    var resolved_stage_id = resolve_stage_id(stage_id, age)
+    match resolved_stage_id:
+        "outdoor":
+            return _outdoor_obstacles()
+        "station":
+            return _station_obstacles(age)
+        "school_elementary", "school_middle", "school_high":
+            return _school_obstacles(resolved_stage_id)
+        "school_hallway_elementary", "school_hallway_middle", "school_hallway_high":
+            return _school_hallway_obstacles(resolved_stage_id)
+        "schoolyard_elementary", "schoolyard_middle", "schoolyard_high":
+            return _schoolyard_obstacles(resolved_stage_id)
+        "infirmary_elementary", "infirmary_middle", "infirmary_high":
+            return _infirmary_obstacles(resolved_stage_id)
+        "gymnasium_elementary", "gymnasium_middle", "gymnasium_high":
+            return _gymnasium_obstacles(resolved_stage_id)
+        _:
+            return STAGES[resolved_stage_id]["obstacles"].duplicate(true) if STAGES.has(resolved_stage_id) else []
+
+static func _outdoor_obstacles() -> Array:
+    return STAGES["outdoor"]["obstacles"].duplicate(true)
 
 static func _station_obstacles(age: int) -> Array:
-    var base: Array = STAGES["station"]["obstacles"].duplicate()
+    var base: Array = STAGES["station"]["obstacles"].duplicate(true)
     if age >= 12:
-        # 駅から学校の廊下へ向かうドアを追加
-        base.append({"id": "door_to_school_hallway", "x": 1650, "x2": 1800, "height": 200, "type": "overhead"})
+        base.append({"id": "door_to_school_hallway_middle", "x": 1650, "x2": 1800, "height": 200, "type": "overhead"})
     return base
 
-static func _school_hallway_obstacles(age: int) -> Array:
-    var result: Array = []
-    for o: Dictionary in STAGES["school_hallway"]["obstacles"]:
-        if age >= 12 and o["id"] == "door_to_outdoor":
-            # 中学以降: 廊下の外出口を「駅へ戻る」ドアに差し替え
-            result.append({"id": "door_to_station", "x": o["x"], "x2": o["x2"], "height": o["height"], "type": o["type"]})
-        else:
-            result.append(o)
-    return result
+static func _school_obstacles(stage_id: String) -> Array:
+    var suffix = _get_stage_suffix_from_stage_id(stage_id)
+    var desk_h = 60
+    var chair_h = 38
+    var board_h = 190
+    var feature_id = "display_board"
+    var feature_height = 185
+    if suffix == "middle":
+        desk_h = 70
+        chair_h = 43
+        board_h = 210
+        feature_id = "locker"
+        feature_height = 180
+    elif suffix == "high":
+        desk_h = 70
+        chair_h = 45
+        board_h = 210
+        feature_id = "locker_high"
+        feature_height = 185
+    var obstacles: Array = [
+        {"id": "door_to_%s" % _school_stage_id("school_hallway", suffix), "x": 100, "x2": 240, "height": 200, "type": "overhead"},
+        {"id": "blackboard", "x": 300, "x2": 800, "height": board_h, "type": "background"},
+        {"id": "teacher_desk", "x": 840, "x2": 990, "height": 85 if suffix == "elementary" else 100, "type": "ground"},
+        {"id": feature_id, "x": 1010, "x2": 1080 if suffix != "elementary" else 1070, "height": feature_height, "type": "background"},
+        {"id": "desk_1", "x": 1100, "x2": 1160, "height": desk_h, "type": "ground"},
+        {"id": "student_chair_1", "x": 1180, "x2": 1220, "height": chair_h, "type": "ground"},
+        {"id": "desk_2", "x": 1350, "x2": 1410, "height": desk_h, "type": "ground"},
+        {"id": "student_chair_2", "x": 1430, "x2": 1470, "height": chair_h, "type": "ground"},
+    ]
+    if suffix == "high":
+        obstacles.append({"id": "window_back", "x": 1490, "x2": 1580, "height": 200, "type": "background"})
+    return obstacles
+
+static func _school_hallway_obstacles(stage_id: String) -> Array:
+    var suffix = _get_stage_suffix_from_stage_id(stage_id)
+    var entry_door = "door_to_outdoor"
+    if suffix == "middle":
+        entry_door = "door_to_station"
+    elif suffix == "high":
+        entry_door = "door_to_train"
+    return [
+        {"id": entry_door, "x": 100, "x2": 240, "height": 200, "type": "overhead"},
+        {"id": "shoes_locker", "x": 350, "x2": 550, "height": 180, "type": "background"},
+        {"id": "bulletin_board", "x": 800, "x2": 1050, "height": 180, "type": "background"},
+        {"id": "door_to_%s" % _school_stage_id("school", suffix), "x": 1300, "x2": 1440, "height": 200, "type": "overhead"},
+        {"id": "fire_hydrant", "x": 1800, "x2": 1860, "height": 120, "type": "background"},
+        {"id": "door_to_%s" % _school_stage_id("schoolyard", suffix), "x": 1950, "x2": 2090, "height": 200, "type": "overhead"},
+        {"id": "door_to_%s" % _school_stage_id("infirmary", suffix), "x": 2200, "x2": 2340, "height": 200, "type": "overhead"},
+        {"id": "door_to_%s" % _school_stage_id("gymnasium", suffix), "x": 2600, "x2": 2740, "height": 200, "type": "overhead"},
+    ]
+
+static func _schoolyard_obstacles(stage_id: String) -> Array:
+    var suffix = _get_stage_suffix_from_stage_id(stage_id)
+    var obstacles: Array = [
+        {"id": "door_to_%s" % _school_stage_id("school_hallway", suffix), "x": 80, "x2": 220, "height": 200, "type": "overhead"},
+        {"id": "basketball_hoop", "x": 1350, "x2": 1415, "height": 260, "type": "background"},
+        {"id": "soccer_goal_post", "x": 2000, "x2": 2200, "height": 244, "type": "background"},
+    ]
+    if suffix == "elementary":
+        obstacles.append({"id": "horizontal_bar_low", "x": 500, "x2": 535, "height": 130, "type": "overhead"})
+        obstacles.append({"id": "horizontal_bar_high", "x": 640, "x2": 675, "height": 150, "type": "overhead"})
+        obstacles.append({"id": "jungle_gym", "x": 900, "x2": 1100, "height": 200, "type": "background"})
+    elif suffix == "middle":
+        obstacles.append({"id": "horizontal_bar_high", "x": 700, "x2": 735, "height": 150, "type": "overhead"})
+    else:
+        obstacles.append({"id": "gym_bench", "x": 900, "x2": 1160, "height": 42, "type": "ground"})
+    return obstacles
+
+static func _infirmary_obstacles(stage_id: String) -> Array:
+    var suffix = _get_stage_suffix_from_stage_id(stage_id)
+    return [
+        {"id": "door_to_%s" % _school_stage_id("school_hallway", suffix), "x": 80, "x2": 220, "height": 200, "type": "overhead"},
+        {"id": "medicine_cabinet", "x": 280, "x2": 420, "height": 200, "type": "background"},
+        {"id": "height_scale", "x": 500, "x2": 560, "height": 220, "type": "background"},
+        {"id": "weight_scale", "x": 580, "x2": 640, "height": 10, "type": "ground"},
+        {"id": "infirmary_desk", "x": 730, "x2": 900, "height": 72, "type": "ground"},
+        {"id": "infirmary_bed", "x": 1000, "x2": 1280, "height": 60, "type": "ground"},
+        {"id": "infirmary_curtain", "x": 980, "x2": 1000, "height": 220, "type": "background"}
+    ]
+
+static func _gymnasium_obstacles(stage_id: String) -> Array:
+    var suffix = _get_stage_suffix_from_stage_id(stage_id)
+    var net_x = 1450 if suffix == "elementary" else (1550 if suffix == "middle" else 1650)
+    return [
+        {"id": "door_to_%s" % _school_stage_id("school_hallway", suffix), "x": 80, "x2": 220, "height": 200, "type": "overhead"},
+        {"id": "gym_storage", "x": 280, "x2": 450, "height": 200, "type": "background"},
+        {"id": "volleyball_net", "x": net_x, "x2": net_x + 100, "height": 243, "type": "overhead"},
+        {"id": "gym_bench", "x": 2200, "x2": 2500, "height": 42, "type": "ground"},
+        {"id": "gym_window_1", "x": 600, "x2": 780, "height": 500, "type": "background"},
+        {"id": "gym_window_2", "x": 900, "x2": 1080, "height": 500, "type": "background"},
+        {"id": "basketball_board", "x": 3050, "x2": 3150, "height": 350, "type": "background"}
+    ]
+
+static func _get_school_stage_suffix(age: int) -> String:
+    if age <= 11:
+        return "elementary"
+    elif age <= 14:
+        return "middle"
+    return "high"
+
+static func _get_stage_suffix_from_stage_id(stage_id: String) -> String:
+    if stage_id.ends_with("_elementary"):
+        return "elementary"
+    if stage_id.ends_with("_middle"):
+        return "middle"
+    if stage_id.ends_with("_high"):
+        return "high"
+    return ""
+
+static func _school_stage_id(base_id: String, suffix: String) -> String:
+    return "%s_%s" % [base_id, suffix]

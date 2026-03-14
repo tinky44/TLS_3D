@@ -39,6 +39,7 @@ var is_skirt: bool
 # 髪・靴・帽子
 var hair_style: String
 var hair_color: Color
+var shoes_type: String
 var shoe_color: Color
 var hat_type: String
 var hat_color: Color

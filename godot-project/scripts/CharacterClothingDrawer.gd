@@ -354,12 +354,13 @@ static func draw_sailor_side(ctx: DrawContext, sx: float, sy: float, navel_y: fl
 
 	# セーラーカラーの大きな三角形フラップ（背中から肩に）
 	var p_sh_back = Vector2(sx, sy) - fwd * half_t * 0.95
+	var p_collar_tail = p_sh_back + torso_down_s * 0.28
 
 	var collar_pts = PackedVector2Array([
 		p_sh_back,
 		p_nk_front,
 		v_bottom,
-		Vector2(sx, sy) - fwd * half_t * 0.2,
+		p_collar_tail,
 	])
 	ctx.canvas.draw_polygon(collar_pts, PackedColorArray([sailor_color]))
 
