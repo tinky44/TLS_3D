@@ -110,6 +110,8 @@ static func draw(ctx: DrawContext) -> void:
 
 	# 4. 頭 + 髪
 	var head_w = (m["headWidth"] if m.has("headWidth") else m["head"] * 0.702) * p
+	if facing == "front" and hair_style == "long":
+		_draw_mouth_front(ctx, d["front_hx"], d["front_hy"], head_w, stress_ratio)
 	CharacterHairDrawer.draw_hair(ctx, Vector2(d["front_hx"], d["front_hy"]), head_r, head_w, hair_style, hair_color, skin_color, facing)
 
 	# 4.2 帽子
@@ -138,15 +140,21 @@ static func draw(ctx: DrawContext) -> void:
 		ctx.canvas.draw_circle(Vector2(hx - eye_off_x, eye_y), 2.5, Color("#333333"))
 		ctx.canvas.draw_circle(Vector2(hx + eye_off_x, eye_y), 2.5, Color("#333333"))
 
-		var mouth_y = hy + (d["head_h"] * 0.25) + look_pitch # 目と顎の中間
-		var m_pts = PackedVector2Array()
-		for i in range(11):
-			var t = float(i) / 10.0
-			var xx = lerp(-head_w * 0.15, head_w * 0.15, t)
-			var yy = mouth_y + sin(t * PI) * 3.0
-			m_pts.append(Vector2(hx + xx, yy))
-		for i in range(m_pts.size() - 1):
-			ctx.canvas.draw_line(m_pts[i], m_pts[i + 1], Color("#c07070"), 2.0)
+		if hair_style != "long":
+			_draw_mouth_front(ctx, hx, hy, head_w, stress_ratio)
+
+static func _draw_mouth_front(ctx: DrawContext, hx: float, hy: float, head_w: float, stress_ratio: float) -> void:
+	var d = ctx.d
+	var look_pitch = ctx.look_pitch + stress_ratio * 5.0
+	var mouth_y = hy + (d["head_h"] * 0.25) + look_pitch
+	var m_pts = PackedVector2Array()
+	for i in range(11):
+		var t = float(i) / 10.0
+		var xx = lerp(-head_w * 0.15, head_w * 0.15, t)
+		var yy = mouth_y + sin(t * PI) * 3.0
+		m_pts.append(Vector2(hx + xx, yy))
+	for i in range(m_pts.size() - 1):
+		ctx.canvas.draw_line(m_pts[i], m_pts[i + 1], Color("#c07070"), 2.0)
 
 static func _draw_legwear_front(ctx: DrawContext, ankle: Vector2, knee: Vector2, foot_w: float, foot_h: float, shoe_tint: float = 0.0) -> void:
 	var sock_h = foot_h * 0.55

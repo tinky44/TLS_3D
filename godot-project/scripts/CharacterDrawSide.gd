@@ -103,6 +103,8 @@ static func draw(ctx: DrawContext) -> void:
 	var head_r = ctx.head_r
 	var hair_style = ctx.hair_style
 	var hair_color = ctx.hair_color
+	if hair_style == "long":
+		_draw_mouth_side(ctx, hx, hy, head_r, head_angle)
 	CharacterHairDrawer.draw_hair(ctx, Vector2(hx, hy), head_r, head_w, hair_style, hair_color, skin_color, "side", head_angle)
 
 	# 6.2 帽子
@@ -115,10 +117,8 @@ static func draw(ctx: DrawContext) -> void:
 	var rot_eye = Vector2(eye_offset.x * cos(head_angle) - eye_offset.y * sin(head_angle), eye_offset.x * sin(head_angle) + eye_offset.y * cos(head_angle))
 	ctx.canvas.draw_circle(Vector2(hx, hy) + rot_eye, 2.5, Color("#333333"))
 
-	var mouth_offset = Vector2(head_r * 0.5, head_r * 0.5)
-	var rot_mouth = Vector2(mouth_offset.x * cos(head_angle) - mouth_offset.y * sin(head_angle), mouth_offset.x * sin(head_angle) + mouth_offset.y * cos(head_angle))
-	var mouth_center = Vector2(hx, hy) + rot_mouth
-	ctx.canvas.draw_line(mouth_center - Vector2(2, 0), mouth_center + Vector2(5, 2), Color("#c07070"), 2.0)
+	if hair_style != "long":
+		_draw_mouth_side(ctx, hx, hy, head_r, head_angle)
 
 	# 7. 手前の腕（台形袖の描画）
 	var p_elb_r = CharacterPoseCalculator.rotated_point(p_arm_shoulder.x, p_arm_shoulder.y, u_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2)
@@ -126,6 +126,12 @@ static func draw(ctx: DrawContext) -> void:
 
 	var s_arm_r_ang = d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
 	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true)
+
+static func _draw_mouth_side(ctx: DrawContext, hx: float, hy: float, head_r: float, head_angle: float) -> void:
+	var mouth_offset = Vector2(head_r * 0.5, head_r * 0.5)
+	var rot_mouth = Vector2(mouth_offset.x * cos(head_angle) - mouth_offset.y * sin(head_angle), mouth_offset.x * sin(head_angle) + mouth_offset.y * cos(head_angle))
+	var mouth_center = Vector2(hx, hy) + rot_mouth
+	ctx.canvas.draw_line(mouth_center - Vector2(2, 0), mouth_center + Vector2(5, 2), Color("#c07070"), 2.0)
 
 static func _draw_legwear_side(ctx: DrawContext, ankle: Vector2, knee: Vector2, shin_w: float, foot_w: float, foot_h: float, shoe_tint: float = 0.0) -> void:
 	var sock_h = foot_h * 0.55
