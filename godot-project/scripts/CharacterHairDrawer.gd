@@ -194,11 +194,12 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		var min_ang = asin(cut_dist / R)
 
 		if hair_style == "ponytail" or hair_style == "side_tail":
-			# ポニテ・サイドテール: 頭の円弧に沿った後ろ髪（弓形ポリゴン）
+			# ポニテ・サイドテール: 頭の円弧に沿った後ろ髪（扇形ポリゴン）
 			# 角度系: 0=真上, PI/2=後頭部（真後ろ）, PI=真下
 			# 【調整用】弧の終端角。PI/2 = 後頭部。より下に伸ばすには値を大きくする（例: PI*0.6）
-			var arc_end_ang = PI *(1.0)
+			var arc_end_ang = PI *(0.9)
 			var arc_full_steps = 20
+			hair_pts.append(dome_center) # 扇形の中心
 			for i in range(arc_full_steps + 1):
 				var t = float(i) / arc_full_steps
 				var ang = lerp(min_ang, arc_end_ang, t)
@@ -276,7 +277,7 @@ static func draw_hair(ctx: DrawContext, head_center: Vector2, head_r: float, hea
 		var ear_ry = hr * 0.32
 		# TODO: 位置確認用の赤色。確認後 skin_color に戻す
 		CharacterDrawUtils.draw_ellipse(ctx.canvas, ear_center, ear_rx, ear_ry, skin_color)
-		ctx.canvas.draw_circle(ear_center + fwd_dir * hr * 0.03, hr * 0.12, Color("#ccb79d"))
+		ctx.canvas.draw_circle(ear_center + fwd_dir * hr * 0.03, hr * 0.12,skin_color.darkened(0.2))
 
 		# 6. 耳の前に垂れる髪（ポニテ・サイドテールのみ）
 		# 上端が目のあたり、下端が顎より少し上
