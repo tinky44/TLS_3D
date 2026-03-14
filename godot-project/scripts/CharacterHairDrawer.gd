@@ -25,7 +25,7 @@ static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r:
 		# ポニテ・サイドテール: 下端を横幅いっぱいの半楕円で丸めた形状
 		# 半楕円の最下点 = hair_bottom_y（顎の位置）になる
 		# 【調整用】下端の楕円の縦半径。大きいほど丸みが深くなる。hair_bottom_y から上に食い込む量
-		var eh = hr * 0.3
+		var eh = hr * 0.5
 		# 楕円の中心Y（ここから eh 下が hair_bottom_y になる）
 		var arc_center_y = hair_bottom_y - eh
 		var rnd_pts = PackedVector2Array([
@@ -39,6 +39,14 @@ static func draw_hair_base_layer(ctx: DrawContext, head_center: Vector2, head_r:
 			# X: 横幅いっぱい(hair_outer_w)、Y: 縦の丸み(eh) の半楕円
 			rnd_pts.append(Vector2(head_center.x + hair_outer_w * cos(a), arc_center_y + eh * sin(a)))
 		ctx.canvas.draw_polygon(rnd_pts, PackedColorArray([hair_color]))
+		if hair_style == "ponytail":
+			# 生え際マーカー（後頭部の中心、髪が一点に集まる位置）
+			# 【調整用】マーカーの縦位置。_draw_back_tail の tie_center(hr*0.55) - 根元上端(hr*0.02) に合わせた値
+			var hairline_pos = head_center + Vector2(0, hr * 0.43) # 尾の生え際の少し上
+			# 【調整用】マーカーの色（赤系）
+			var hairline_color = Color(0.85, 0.15, 0.10)
+			# 【調整用】マーカーの半径
+			ctx.canvas.draw_circle(hairline_pos, hr * 0.15, hairline_color)
 	else:
 		var back_pts = PackedVector2Array([
 			Vector2(head_center.x - hair_outer_w, head_center.y),
@@ -340,6 +348,14 @@ static func _draw_back_tail(ctx: DrawContext, head_center: Vector2, hr: float, h
 			tie_center + Vector2(-hr * 0.32, hr * 2.15),
 		])
 		ctx.canvas.draw_polygon(tail_pts, PackedColorArray([hair_color]))
+		# 尾のアウトライン
+		# 【調整用】尾の輪郭の色。darkened(0.45) を変えると濃さが変わる
+		var tail_outline_color = hair_color.darkened(0.45)
+		# 【調整用】尾の輪郭の太さ
+		var tail_outline_w = hr * 0.02
+		var tail_outline_pts = tail_pts.duplicate()
+		tail_outline_pts.append(tail_pts[0]) # 閉じる
+		ctx.canvas.draw_polyline(tail_outline_pts, tail_outline_color, tail_outline_w, true)
 	elif hair_style == "side_tail":
 		# 【調整用】サイドテールの結び目位置。X を大きくすると外側、Y を大きくすると下
 		var tie_side = head_center + Vector2(hr * 0.72, hr * 0.18)
