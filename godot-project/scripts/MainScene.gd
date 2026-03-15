@@ -15,6 +15,7 @@ var bubble_label: Label
 var minimap_bg: ColorRect
 var minimap_player: ColorRect
 var action_label: Label
+var stage_title_label: Label
 
 # ポーズメニュー用
 var pause_menu: Control
@@ -1686,6 +1687,19 @@ func _setup_ui():
 	action_label.add_theme_constant_override("outline_size", 4)
 	ui_layer.add_child(action_label)
 
+	stage_title_label = Label.new()
+	stage_title_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	stage_title_label.offset_left = 240
+	stage_title_label.offset_top = 10
+	stage_title_label.offset_right = -240
+	stage_title_label.offset_bottom = 40
+	stage_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage_title_label.add_theme_font_size_override("font_size", 18)
+	stage_title_label.add_theme_color_override("font_color", Color(0.98, 0.99, 1.0))
+	stage_title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.88))
+	stage_title_label.add_theme_constant_override("outline_size", 4)
+	ui_layer.add_child(stage_title_label)
+
 	add_child(ui_layer)
 	# ui_layer は _setup_ui() で add_child 済み。_setup_bubble() / _setup_pause_menu() はその後に呼ぶ
 
@@ -2054,6 +2068,8 @@ func _update_ui():
 	var global = get_node_or_null("/root/Global")
 	var stage_id: String = global.current_stage_id if global else "room"
 	var stage_name: String = StageBuilder.get_stage_name(stage_id, global.age if global else 0)
+	if stage_title_label:
+		stage_title_label.text = stage_name
 	var m = player.get("m")
 	if not m: return
 	
