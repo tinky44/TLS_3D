@@ -9,15 +9,293 @@
 | 優先 | タスク | 規模 |
 |---|---|---|
 | ★★★ | セーブ/ロード非保存フラグ修正 | 小〜中 |
+| ★★★ | ステージ追加・接続修正（ホーム・学園前・学園街・隣町） | 大 |
+| ★★★ | ゲーム進行システム見直し（日単位ループ・就寝・スキップ） | 大 |
 | ★★☆ | `current_term_plan` 削除 → 全ホットスポット常時解放 | 中 |
 | ★★☆ | ホットスポットにポーズ変更を追加（椅子・バスケゴール等） | 中 |
 | ★★☆ | NPC自動声かけ → 身長マイルストーンのみダイアログ格上げ | 中 |
 | ★★☆ | 会話トーン改善（ポジティブ台詞追加） | 小 |
 
 > **既実装メモ**
-> - `"chair_sit"` / `"taiiku_suwari"` ポーズ → `CharacterPoseCalculator.gd` に実装済み。`player.pose` に文字列を代入するだけで切り替わる。
-> - NPC 頭上テキスト受動発話 → `SkeletalNPC.gd` 実装済み。未実装はダイアログパネルへの格上げ。
-> - `visited_stages` / `experienced_events` → `Global.gd` に実装済み。
+> - `"chair_sit"` / `"taiiku_suwari"` ポーズ → `CharacterPoseCalculator.gd` 実装済み
+> - NPC 頭上テキスト受動発話 → `SkeletalNPC.gd` 実装済み
+> - `visited_stages` / `experienced_events` → `Global.gd` 実装済み
+
+---
+
+## ★★★ ステージ追加・接続修正
+
+### 現状の問題
+
+| 場所 | 現在の接続（誤り） | 問題 |
+|---|---|---|
+| `station` | → `train` | OK（駅→電車は正しい） |
+| `train` | → `school_hallway_high` | 電車から直接高校に入れる（ホームがない） |
+| `outdoor` | → `school_hallway_*`（年齢解決） | 中高生も屋外から直接学校に入れる |
+
+### 追加するステージ一覧
+
+| ステージID | 名前 | 説明 |
+|---|---|---|
+| `platform` | ホーム（地元側） | 地元の駅のホーム。`station` と `train` をつなぐ |
+| `gakuenmae` | 学園前駅 | 学校側のホーム。`train` と `school_area` をつなぐ |
+| `school_area` | 学園街 | 学校周辺の商店街。中高の学校へのエントランス |
+| `adjacent_town` | 隣町 | 電車でさらに先の町。`train` の逆方向出口から |
+
+### 修正後のステージ接続マップ
+
+```
+myroom ↔ room ↔ outdoor
+                  ↕
+              station ← 地元の駅
+                  ↕
+              platform ← ホーム（新設）
+                  ↕
+               train ← 電車内
+              ↙       ↘
+        gakuenmae    adjacent_town
+（学園前駅・新設）       （隣町・新設）
+            ↕
+        school_area
+       （学園街・新設）
+            ↕
+     school_hallway_* ← 年齢で suffix 解決
+```
+
+**小学校**: `outdoor → school_hallway_elementary` のまま変更なし（徒歩圏内）
+
+**中学・高校**: `outdoor → station → platform → train → gakuenmae → school_area → school_hallway_middle/high`
+
+### StageBuilder.gd の変更点
+
+#### 既存接続の変更
+
+```gdscript
+# 変更前（train のドア定義）
+{"id": "door_to_school_hallway_high", ...}   # ← 削除
+
+# 変更後（train のドア定義）
+{"id": "door_to_platform",    ...}   # 地元側に戻る
+{"id": "door_to_gakuenmae",   ...}   # 学園前駅へ（右出口）
+{"id": "door_to_adjacent_town", ...} # 隣町へ（電車の別方向出口・右端）
+```
+
+```gdscript
+# 変更前（station のドア定義）
+{"id": "door_to_train", ...}    # ← platform 経由に変更
+
+# 変更後
+{"id": "door_to_platform", ...} # ← ホームへ（platform が train の手前に入る）
+```
+
+```gdscript
+# 変更前（outdoor のドア定義）
+{"id": "door_to_school_hallway", ...}  # 中高生も直接入れた ← 削除
+
+# 変更後: 中高生の school へのドアは school_area に移す
+# outdoor は station のみに繋がる（中高生の学校ルートは電車経由）
+```
+
+#### 新ステージの build_stage() 分岐追加
+
+`build_stage(stage_id)` の `match` 文に以下を追加：
+
+```gdscript
+"platform":
+    # ホームの視覚的要素（屋根・柱・黄色い点字ブロック）
+    # ドア: door_to_station（改札方向）, door_to_train（電車乗降口）
+
+"gakuenmae":
+    # 学園前駅ホーム（シンプルな屋外ホーム）
+    # ドア: door_to_train, door_to_school_area
+
+"school_area":
+    # 学園街（自販機・NPC・掲示板など）
+    # ドア: door_to_gakuenmae（駅方向）, door_to_school_hallway（学校）
+    # school_hallway への接続は _resolve_stage_id() で suffix を付与
+
+"adjacent_town":
+    # 隣町（商店・見知らぬNPC）
+    # ドア: door_to_train（帰る）
+    # 高校生以降解放（_get_stage_lock_message() でアクセス制限）
+```
+
+#### `_get_stage_lock_message()` に追加
+
+```gdscript
+"adjacent_town":
+    if global.age < 15:
+        return "電車でもう少し先まで行くのは、高校生になってからにしよう。"
+```
+
+### 各ステージのビジュアル・NPC配置
+
+| ステージ | 背景イメージ | 配置するNPC |
+|---|---|---|
+| `platform` | 駅ホーム（屋根・柱・線路）、電車ドアが右端 | 通勤客（汎用） |
+| `gakuenmae` | 小さな無人ホーム風、看板「学園前」 | 生徒（汎用） |
+| `school_area` | 商店街・掲示板・制服の生徒が行き交う | 生徒・店員（汎用） |
+| `adjacent_town` | 知らない街並み、少し洗練された商店 | 見知らぬ大人（汎用） |
+
+---
+
+## ★★★ ゲーム進行システム見直し
+
+### 現状（as-is）のループ
+
+```
+1. myroom でスタート
+2. 自由に移動（ほぼ学校一択）
+3. 保健室の身長計に触れて E → 測定パネル
+4. 「次の学期へ」ボタン → advance_term() → myroom へ
+5. 1 に戻る
+```
+
+問題: 1ターン=1学期で単調。受動的イベントが少ない。測定が「作業」になっている。
+
+### 目標（to-be）のループ
+
+```
+[朝] myroom でスタート (actions_today = 0, day表示リセット)
+    ↓
+[行動] ステージ移動・NPC・ホットスポット探索
+    各ステージ遷移で actions_today++
+    ↓
+[夜] actions_today >= max_actions_per_day になると
+    バブル: 「もう夕方だ。今日はどうする？」
+    ↓ ベッドに近づいて E
+[就寝メニュー]
+    ├── 「今日を終える」　　　　 → day_in_term++, 翌朝へ
+    └── 「学期末まで一気に進める」→ day_in_term = term_total_days, 測定イベント発火
+    ↓
+[学期末チェック] day_in_term >= term_total_days になったとき
+    → 「身体測定の日です」強制イベント
+    → 測定パネル表示（既存の演出を流用）
+    → advance_term() → 新学期へ
+```
+
+### 新規変数（Global.gd に追加）
+
+```gdscript
+var day_in_term: int = 1           # 学期内の経過日数（1 スタート）
+var actions_today: int = 0         # 今日の行動済み回数
+var max_actions_per_day: int = 3   # 1日の最大行動回数
+var term_total_days: int = 30      # 1学期の日数
+```
+
+セーブ/ロード対象に追加：
+
+```gdscript
+# save_slot()
+data["day_in_term"]    = day_in_term
+data["actions_today"]  = actions_today
+
+# load_slot()
+day_in_term   = data.get("day_in_term", 1)
+actions_today = data.get("actions_today", 0)
+```
+
+`advance_term()` で以下を追加：
+
+```gdscript
+day_in_term = 1
+actions_today = 0
+```
+
+### 就寝ホットスポット（myroom の bed）
+
+`TERM_HOTSPOTS` に追加 **しない**（何度でも使えるため）。代わりに専用の処理を設ける。
+
+`_trigger_bed_interaction()` を新規追加（MainScene.gd）：
+
+```gdscript
+func _trigger_bed_interaction() -> void:
+    # 就寝メニューを表示
+    var opts = ["今日を終える"]
+    if day_in_term < term_total_days - 2:
+        opts.append("学期末まで一気に進める")
+    _show_sleep_menu(opts)
+
+func _on_sleep_menu_selected(choice: String) -> void:
+    match choice:
+        "今日を終える":
+            Global.day_in_term += 1
+            Global.actions_today = 0
+            _do_fade_to_myroom()
+            # 学期末到達チェック
+            if Global.day_in_term >= Global.term_total_days:
+                Global.queue_event("term_end_measurement")
+        "学期末まで一気に進める":
+            Global.day_in_term = Global.term_total_days
+            Global.actions_today = 0
+            _do_fade_to_myroom()
+            Global.queue_event("term_end_measurement")
+```
+
+### 学期末強制測定イベント（`term_end_measurement`）
+
+`_load_stage()` のイベント処理に追加：
+
+```gdscript
+"term_end_measurement":
+    if StageBuilder.resolve_stage_id("infirmary", Global.age) == Global.current_stage_id:
+        # 保健室なら即発火
+        _show_measurement_result()
+    else:
+        # 保健室以外なら誘導
+        _start_dialogue("nurse", "measurement_notice")
+        # dialogue 終了後に infirmary へ自動遷移
+```
+
+`DialogueDatabase.gd` に追加：
+
+```gdscript
+"nurse": {
+    "measurement_notice": [
+        {"speaker": "保健の先生", "text": "そろそろ身体測定の時期ね。保健室においで。"},
+    ]
+}
+```
+
+### アクション消費の実装（MainScene.gd）
+
+`_enter_transition_door()` のステージ遷移時に追加：
+
+```gdscript
+func _enter_transition_door(door_id: String) -> void:
+    ...
+    # アクション消費
+    Global.actions_today += 1
+    _update_actions_hud()
+    ...
+```
+
+行動上限 UI（HUD に追加）：
+
+```gdscript
+func _update_actions_hud() -> void:
+    var remaining = Global.max_actions_per_day - Global.actions_today
+    action_label.text = "行動 %d/%d" % [Global.actions_today, Global.max_actions_per_day]
+    if remaining <= 0:
+        # ベッドを強調 + バブル表示
+        _show_player_bubble("もう夕方だ。今日を終えよう。")
+```
+
+### 実装フェーズ
+
+| Phase | 内容 | 規模 |
+|---|---|---|
+| **1** | ステージ追加・接続修正（本セクション上部） | 大 |
+| **2** | `day_in_term` 変数追加 + 就寝ホットスポット + スキップ機能 | 中 |
+| **3** | アクション制限 + 行動上限 HUD + 夜バブル演出 | 中 |
+
+Phase 1 と 2 は独立して実装可能。Phase 3 は 2 の後。
+
+### 保健室任意測定の扱い
+
+現在の「身長計に触れてEキー」は**そのまま残す**。
+学期末より早く測りたい・確認したいプレイヤー向け。
+ただし任意測定では `advance_term()` は呼ばれない（記録のみ）。
 
 ---
 
@@ -27,10 +305,8 @@
 
 ### 前提確認（実装前に要確認）
 
-問題が「スロットロード時」に起きているか「アプリ再起動時（タイトルから再起動）」に起きているかで修正箇所が変わる。
-
 - **スロットロード時** → `save_slot()` / `load_slot()` に追加すれば解決
-- **アプリ再起動時** → 起動パスは `Global._ready() → load_settings()`。`settings.cfg` 側の保存対象も整理が必要
+- **アプリ再起動時** → 起動パスは `Global._ready() → load_settings()`。`settings.cfg` 側も整理が必要
 
 両方対応するのが安全。
 
@@ -47,11 +323,11 @@
 | `is_leg_pain` | bool | 脚痛フラグリセット |
 | `pending_events` | Array | キュー済みイベント消失 |
 | `visited_stages` | Dictionary | 初訪問判定リセット |
-
-### 実装（save_slot / load_slot に追記）
+| `day_in_term` | int | 日数リセット |
+| `actions_today` | int | 行動回数リセット |
 
 ```gdscript
-# save_slot() の data dict に追加
+# save_slot()
 data["met_npcs"]                 = met_npcs
 data["haruka_invited_this_term"] = haruka_invited_this_term
 data["haruka_following"]         = haruka_following
@@ -61,8 +337,10 @@ data["vball_joined"]             = vball_joined
 data["is_leg_pain"]              = is_leg_pain
 data["pending_events"]           = pending_events.duplicate()
 data["visited_stages"]           = visited_stages.duplicate()
+data["day_in_term"]              = day_in_term
+data["actions_today"]            = actions_today
 
-# load_slot() に追加
+# load_slot()
 met_npcs                 = data.get("met_npcs", {})
 haruka_invited_this_term = data.get("haruka_invited_this_term", false)
 haruka_following         = data.get("haruka_following", false)
@@ -72,31 +350,24 @@ vball_joined             = data.get("vball_joined", false)
 is_leg_pain              = data.get("is_leg_pain", false)
 pending_events           = data.get("pending_events", [])
 visited_stages           = data.get("visited_stages", {})
+day_in_term              = data.get("day_in_term", 1)
+actions_today            = data.get("actions_today", 0)
 ```
 
 ---
 
 ## ★★☆ `current_term_plan` 削除 → 全ホットスポット常時解放
 
-### 背景
-
-ルート選択（学校・家・駅）はゲームとしてルーティーン化するため廃止。
-どのステージにいても全ホットスポットがインタラクション可能になる。
-
 ### 削除方針
 
-- `term_home` / `term_station` イベント → 発火元がないためデッドコード、削除
+- `term_home` / `term_station` イベント → デッドコード、削除
 - `TERM_CHOICES` / `TERM_CHOICE_ORDER` → 丸ごと削除
-- ホットスポット会話（`term_home_mirror`, `term_home_table`, `term_station_bench`, `term_station_vending` 等）→ **再利用対象として残す**（`"plan"` キーを外すだけ）
-- `current_term_plan` にぶら下がる表示文言・保存処理・スモーク初期化・キャラメイク初期化 → まとめて削除
+- ホットスポット会話（`term_home_mirror`, `term_home_table` 等）→ `"plan"` キーを外すだけで再利用
+- `current_term_plan` にぶら下がる表示文言・保存処理・スモーク初期化 → まとめて削除
 
 ### 削除・変更箇所（全ファイル）
 
-**Global.gd:**
-- `var current_term_plan: String` を削除
-- `var DEFAULT_TERM_PLAN: String` を削除
-- `save_slot()` / `load_slot()` の `current_term_plan` 保存処理を削除
-- `save_settings()` / `load_settings()` の `current_term_plan` 保存処理を削除
+**Global.gd:** `current_term_plan`, `DEFAULT_TERM_PLAN` を削除。`save_slot/load_slot/save_settings/load_settings` の保存処理も削除。
 
 **MainScene.gd（参照11箇所）:**
 
@@ -105,248 +376,135 @@ visited_stages           = data.get("visited_stages", {})
 | 675 | 初期化 `current_term_plan = DEFAULT_TERM_PLAN` | 削除 |
 | 812,859 | `plan_id` でモノローグ・反省文取得 | 削除（`stress` 帯で代替） |
 | 823 | `match current_term_plan` | 削除 |
-| 882 | `TERM_HOTSPOTS` の `plan` フィルター | **この行を削除**（フィルターをなくす） |
+| 882 | `TERM_HOTSPOTS` の `plan` フィルター | **この行を削除** |
 | 1085,1102 | `plan == "school"` 判定 | ステージIDが教室かどうかで代替 |
 | 1270 | はるかキー選択での `plan == "school"` 条件 | 同上 |
 | 1827 | デバッグテキスト | 削除 |
 | 2292,2293 | `TERM_CHOICES.get(plan)` | `TERM_CHOICES` ごと削除 |
 
-**CharacterCreatorScene.gd:**
-- `current_term_plan` の初期化処理を削除
-
-**CodexSmokeRunner.gd:**
-- `current_term_plan` のスモーク初期化処理を削除
-
-**TERM_HOTSPOTS の `"plan"` キー:**
-各ホットスポット定義から `"plan": "..."` を削除するだけで全プランで有効になる。
-
-### ホットスポットの条件代替（任意）
-
-プラン削除後、`stress` 帯を使って差別化できる（複雑化を避けるなら条件なしでも十分）。
-
-```gdscript
-"home_mirror": {
-    "stage_id": "room",
-    "stress_min": 30,    # ストレスがある程度溜まっている時だけ出る
-    ...
-}
-```
+**CharacterCreatorScene.gd / CodexSmokeRunner.gd:** それぞれの `current_term_plan` 初期化処理を削除。
 
 ---
 
 ## ★★☆ ホットスポットにポーズ変更を追加
 
-### 現状
-
-`_trigger_term_hotspot()` はストレス更新 → ダイアログ開始のみ。ポーズ変更なし。
-
 ### 設計
 
-`TERM_HOTSPOTS` に `"pose"` フィールドを追加し、`_trigger_term_hotspot()` でダイアログ前後にポーズを切り替える。
+`TERM_HOTSPOTS` に `"pose"` フィールドを追加。`_trigger_term_hotspot()` でダイアログ前後にポーズを切り替える。
 
 ```gdscript
 func _trigger_term_hotspot(hotspot_id: String) -> void:
     ...
-    # ダイアログ開始前にポーズ変更
     var pose_name: String = hotspot_data.get("pose", "")
     if pose_name != "" and player:
         player.pose = pose_name
-
     _start_dialogue(...)
 
-# _end_dialogue() にポーズ戻しを追加
 func _end_dialogue() -> void:
     ...
     if player and player.pose != "normal":
         player.pose = "normal"
 ```
 
-### 各ホットスポットのポーズ対応表
+### ホットスポット別ポーズ
 
-| ホットスポット | オブジェクト | ポーズ | 備考 |
-|---|---|---|---|
-| `school_seat` | 教室の椅子 | `"chair_sit"` | 実装済みポーズ |
-| `home_table` | 食卓の椅子 | `"chair_sit"` | 実装済みポーズ |
-| `school_infirmary` | 保健室のベッド | `"taiiku_suwari"` | 実装済みポーズ（代用） |
-| `station_bench` | 駅ベンチ | `"chair_sit"` | 実装済みポーズ |
-| `station_vending` | 自販機 | `"reach_low"` | **新規ポーズが必要** |
-| `gymnasium_basket` | バスケゴール | `"reach_up"` | **新規ポーズが必要** |
+| ホットスポット | ポーズ | 備考 |
+|---|---|---|
+| `school_seat`, `home_table`, `station_bench` | `"chair_sit"` | 実装済みポーズ |
+| `school_infirmary` | `"taiiku_suwari"` | 実装済みポーズ（代用） |
+| `station_vending` | `"reach_low"` | **新規ポーズが必要** |
+| `gymnasium_basket` | `"reach_up"` | **新規ポーズが必要** |
 
-### 新規ポーズの追加（CharacterPoseCalculator.gd）
+### 新規ポーズ（CharacterPoseCalculator.gd）
 
-現行実装は `calculate_pose_data()` 内でローカル変数（`arm_r_angle` 等）を直接更新して最後に Dictionary を返す構造。
-`d["arm_r_angle"] = ...` のような直接代入ではなく、**既存の他ポーズ分岐（`chair_sit` 等）と同じ書き方**に合わせること。
+現行実装はローカル変数（`arm_r_angle` 等）を直接更新して返す構造。
+**既存の `chair_sit` 分岐と同じ書き方**に合わせること（`d["key"] = ...` 形式ではない）。
 
-**`"reach_low"`（自販機・低いボタンに手を伸ばす）**
-- 体は直立、わずかに前傾
-- 利き腕を斜め前下方（約-45度）に伸ばす
-- 「大きい体で低いボタンに手を伸ばす」違和感を表現
+- **`"reach_low"`**: 体直立、利き腕を斜め前下方（約-45度）に伸ばす。低いボタンに手を伸ばす違和感を表現。
+- **`"reach_up"`**: 体直立、利き腕を真上（約+90度）に伸ばす。
 
-**`"reach_up"`（バスケゴールに手を伸ばす）**
-- 体は直立〜わずかに爪先立ち
-- 利き腕を真上（約+90度）に伸ばす
-
-### 新規干渉ホットスポット候補
+### 新規ホットスポット候補
 
 ```gdscript
-"station_vending": {
-    "stage_id": "station",
-    "obs_id": "station_vending",
-    "pose": "reach_low",
-    "prompt": "自販機の前に立つ",
-    "dialogue_npc": "player",
-    "dialogue_key": "term_station_vending",
-    "stress_delta": 3,
-    "memory_note": "ボタンが低くて少し腰をかがめないといけなかった。"
-},
-"gymnasium_basket": {
-    "stage_id": "gymnasium",
-    "obs_id": "basket_goal",
-    "pose": "reach_up",
-    "height_min": 185,
-    "prompt": "バスケゴールに手を伸ばす",
-    "dialogue_npc": "player",
-    "dialogue_key": "gymnasium_basket_reach",
-    "stress_delta": -5,
-    "memory_note": "ゴールのリングに、指先が触れそうになった。"
-},
+"station_vending": { "pose": "reach_low", "height_min": 0, "stage_id": "station", ... },
+"gymnasium_basket": { "pose": "reach_up", "height_min": 185, "stage_id": "gymnasium", ... },
 ```
 
-`"height_min"` の判定は `_trigger_term_hotspot()` か `_check_nearby_hotspot()` で追加：
+`"height_min"` 判定は `_trigger_term_hotspot()` で：
 
 ```gdscript
-var height_min: float = float(hotspot_data.get("height_min", 0.0))
+var height_min := float(hotspot_data.get("height_min", 0.0))
 if height_min > 0.0 and Global.current_params["height"] < height_min:
-    return  # 身長不足なら発火しない
+    return
 ```
 
 ---
 
 ## ★★☆ NPC自動声かけ → 身長マイルストーンのみダイアログ格上げ
 
-### 声かけの2種類を使い分ける
-
-**全ての自動声かけをダイアログ化するわけではない。** 以下の基準で使い分ける。
+### 使い分け基準
 
 | | 頭上テキスト（現状維持） | ダイアログパネル（今回追加） |
 |---|---|---|
-| 発火頻度 | 毎回近づくたびに | ゲーム全体でそれぞれ1回だけ |
-| ゲームへの介入 | 歩きながら読める・止まらない | 一時停止・Eキーで進める |
+| 発火頻度 | 毎回近づくたびに | ゲーム全体で各1回のみ |
+| ゲームへの介入 | 止まらない | 一時停止・Eキーで進める |
 | ステータス変化 | なし | stress / confidence に影響 |
 | 選択肢 | なし | あり |
-| 意味 | 環境リアクション（背景音的） | 記憶に残る出来事（節目） |
 
-**ダイアログ化するのは「身長マイルストーン初回突破」のみ。**
-170cm・180cm・190cm を初めて超えた際の1回限りのイベント。
-通常の近接リアクション（「背高いね」等）は頭上テキストのまま。
+**ダイアログ化するのは「身長マイルストーン初回突破」のみ**（170・180・190cm）。
 
-### 設計方針
+### 実装上の注意点
 
-`pending_events` キュー方式（既存の `semester_start` と同じ仕組み）で実現。
+**① `queue_event()` の位置**: `_load_stage()` は先に `pop_next_event()` を消化する。末尾で `queue_event()` すると次回のステージ遷移まで眠る。→ キュー投入は `pop_next_event()` より**前**に行う。
 
-#### トリガー条件（ゲーム全体で各1回）
-
-| イベントID | 条件 | ステージ |
-|---|---|---|
-| `"npc_talk_tall"` | 身長が初めて ≥ 170cm に達した学期 | 学校系ステージ |
-| `"npc_talk_huge"` | 身長が初めて ≥ 180cm に達した学期 | 駅・ショッピングモール等 |
-| `"npc_talk_veryhuge"` | 身長が初めて ≥ 190cm に達した学期 | どのステージでも |
-| `"npc_firstvisit_<stage_id>"` | ステージ初訪問 | ステージ固有 |
-
-#### 実装上の注意点
-
-**① `queue_event()` の位置（重要）**
-
-`_load_stage()` は先に `pop_next_event()` でキューを消化してからステージを構築する。
-末尾で `queue_event()` しても**その場では発火せず、次回ステージ遷移まで眠る**。
-
-対応案: 身長チェックと `queue_event()` を `pop_next_event()` の処理より**前に**行うか、投入後に即処理する導線を作る。
-
-**② `is_first_visit()` の判定順（重要）**
-
-`_load_stage()` の冒頭ですでに `record_stage_visit()` が呼ばれている場合、
-その後に `is_first_visit()` を呼ぶと常に `false` になる。
-
-対応: `is_first_visit()` の結果を先に変数へ退避してから `record_stage_visit()` を呼ぶ。
+**② `is_first_visit()` の判定順**: `record_stage_visit()` を先に呼ぶと `is_first_visit()` が常に false になる。
 
 ```gdscript
-# 正しい実装
 var was_first_visit := Global.is_first_visit(stage_id)
-Global.record_stage_visit(stage_id)   # ← ここで記録
+Global.record_stage_visit(stage_id)
 if was_first_visit:
     Global.queue_event("npc_firstvisit_" + stage_id)
 ```
 
-**③ `StageBuilder.is_school_stage()` は存在しない**
+**③ `StageBuilder.is_school_stage()` は存在しない**: 既存の `is_school_classroom_stage()` / `is_school_hallway_stage()` / `is_schoolyard_stage()` の OR で代替、または新規追加。
 
-既存の helper を使うか、新しく追加する。
+### トリガー条件
 
-```
-既存:
-  StageBuilder.is_school_classroom_stage(id)
-  StageBuilder.is_school_hallway_stage(id)
-  StageBuilder.is_schoolyard_stage(id)
+| イベントID | 条件 | ステージ |
+|---|---|---|
+| `"npc_talk_tall"` | 身長が初めて ≥ 170cm | 学校系 |
+| `"npc_talk_huge"` | 身長が初めて ≥ 180cm | 駅・商店街等 |
+| `"npc_talk_veryhuge"` | 身長が初めて ≥ 190cm | どこでも |
+| `"npc_firstvisit_<stage_id>"` | ステージ初訪問 | ステージ固有 |
 
-対応案A: 上記3つの OR で判定する
-対応案B: StageBuilder に is_school_stage() を新規追加する
-```
-
-#### `_load_stage()` のイベント処理に追加（既存の `semester_start` パターン流用）
+### 台詞（DialogueDatabase.gd に追加）
 
 ```gdscript
-"npc_talk_tall":
-    Global.mark_term_hotspot_done("npc_talk_tall")
-    _start_dialogue("generic", "npc_talk_tall")
-"npc_talk_huge":
-    Global.mark_term_hotspot_done("npc_talk_huge")
-    _start_dialogue("generic", "npc_talk_huge")
-"npc_firstvisit_gymnasium_middle":
-    _start_dialogue("generic", "npc_firstvisit_gymnasium")
-```
-
-#### `DialogueDatabase.gd` に台詞を追加
-
-```gdscript
-"generic": {
-    "npc_talk_tall": [
-        {"speaker": "同級生", "text": "ねえ、バスケ部入ってるの？ 絶対向いてるって！"},
-        {"speaker": "同級生", "text": "上の棚取ってくれる？",
-         "action": "stress:-5"},
-    ],
-    "npc_talk_huge": [
-        {"speaker": "通行人", "text": "……モデルさんですか？"},
-        {"speaker": "主人公", "text": "…（なんて答えればいいんだろう）",
-         "choices": [
-             {"label": "笑って「違います」と言う", "action": "confidence:+1"},
-             {"label": "目をそらす",               "action": "stress:+5"},
-         ]},
-    ],
-    "npc_firstvisit_gymnasium": [
-        {"speaker": "体育教師", "text": "おっ、新しい顔か。君、バレー部に向いてそうだな。"},
-    ],
-}
+"npc_talk_tall": [
+    {"speaker": "同級生", "text": "ねえ、バスケ部入ってるの？ 絶対向いてるって！"},
+    {"speaker": "同級生", "text": "上の棚取ってくれる？", "action": "stress:-5"},
+],
+"npc_talk_huge": [
+    {"speaker": "通行人", "text": "……モデルさんですか？"},
+    {"speaker": "主人公", "text": "…（なんて答えればいいんだろう）",
+     "choices": [
+         {"label": "笑って「違います」と言う", "action": "confidence:+1"},
+         {"label": "目をそらす",               "action": "stress:+5"},
+     ]},
+],
 ```
 
 ---
 
 ## ★★☆ 会話トーン改善
 
-### 追加対象
+### DialogueDatabase.gd に追加
 
-`DialogueDatabase.gd` の以下キーにポジティブ・ユーモラスなバリエーションを追加。
+- `generic/tall`: 「背高いね。バスケ向いてそう！」「ちょっと棚の上の荷物取ってくれる？」
+- `generic/huge`: 「モデルさんみたい！」「天井、頭届きそう？」
+- `generic/default`: 「今日もすっきりしてるね。」
 
-#### `generic / tall`（170〜179cm帯）
-- 「背高いね。バスケ向いてそう！」
-- 「ちょっと棚の上の荷物取ってくれる？」
-
-#### `generic / huge`（180〜189cm帯）
-- 「モデルさんみたい！」
-- 「天井、頭届きそう？」
-
-#### `generic / default`（身長差なし）
-- 「今日もすっきりしてるね。」
-
-#### `SkeletalNPC.gd` の受動発話テキストに追加
+### SkeletalNPC.gd の受動発話テキストに追加
 
 ```gdscript
 "school/tall":  ["一番後ろの席、ぴったりだね。", "掲示物、上まで見えていいな。"],
