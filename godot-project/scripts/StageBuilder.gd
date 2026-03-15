@@ -732,7 +732,7 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         # ===== 電車（右側に停車）=====
         var tr_x = 1600 * cm_to_px
         var tr_w = platform_w_px - tr_x
-        var tr_h = 320 * cm_to_px
+        var tr_h = 230 * cm_to_px
         # 車体メイン（シルバーホワイト）
         var tr_body = ColorRect.new()
         tr_body.color = Color(0.88, 0.88, 0.90)
