@@ -1931,17 +1931,19 @@ func _on_sleep_menu_selected(choice: String) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return
+	global.day_in_term = clampi(int(global.day_in_term), 1, int(global.term_total_days))
 	_hide_sleep_menu()
 	match choice:
 		"今日を終える":
-			global.day_in_term += 1
+			global.day_in_term = mini(int(global.day_in_term) + 1, int(global.term_total_days))
 		"学期末まで一気に進める":
 			global.day_in_term = global.term_total_days
 		_:
 			return
 	global.actions_today = 0
 	if int(global.day_in_term) >= int(global.term_total_days):
-		global.queue_event("term_end_measurement")
+		if not global.has_pending_event("term_end_measurement"):
+			global.queue_event("term_end_measurement")
 	call_deferred("_run_sleep_transition")
 
 func _run_sleep_transition() -> void:
@@ -2097,7 +2099,7 @@ func _on_title_pressed() -> void:
 
 func _on_quit_pressed() -> void:
 	if OS.has_feature("web"):
-		JavaScriptBridge.eval("window.location.href = 'index.html';")
+		JavaScriptBridge.eval("window.location.replace(new URL('./', window.location.href).toString());")
 	else:
 		get_tree().quit()
 
@@ -2198,9 +2200,14 @@ func _queue_stage_arrival_events(global: Node, stage_id: String, was_first_visit
 	if height_cm >= 190.0:
 		_queue_dialogue_event_once(global, "npc_talk_veryhuge", "generic", "npc_talk_veryhuge")
 
-func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> void:
+func _defer_pending_stage_event(global: Node, ev: String) -> void:
 	if global == null or ev == "":
 		return
+	global.pending_events.push_back(ev)
+
+func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> bool:
+	if global == null or ev == "":
+		return false
 	if ev == "semester_start":
 		if StageBuilder.is_school_classroom_stage(stage_id):
 			await get_tree().create_timer(0.5).timeout
@@ -2208,37 +2215,49 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			if not global.senior_gym_invited:
 				global.senior_gym_invited = true
 				global.queue_event("gym_senior_invite")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "gym_senior_invite":
 		if StageBuilder.is_gymnasium_stage(stage_id):
 			await get_tree().create_timer(0.8).timeout
 			_start_dialogue("senior", "first_meet")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "npc_talk_tall":
 		if StageBuilder.is_school_stage(stage_id):
 			await get_tree().create_timer(0.45).timeout
 			_start_dialogue("generic", "npc_talk_tall")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "npc_talk_huge":
 		if _is_public_milestone_stage(stage_id):
 			await get_tree().create_timer(0.45).timeout
 			_start_dialogue("generic", "npc_talk_huge")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "npc_talk_veryhuge":
 		await get_tree().create_timer(0.35).timeout
 		_start_dialogue("generic", "npc_talk_veryhuge")
+		return true
 	elif ev.begins_with("npc_firstvisit_"):
 		if ev == "npc_firstvisit_%s" % stage_id:
 			var first_visit_key: String = _get_first_visit_dialogue_key(stage_id)
 			if first_visit_key != "":
 				await get_tree().create_timer(0.45).timeout
 				_start_dialogue("generic", first_visit_key)
+				return true
+			return false
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "summer_growth":
 		if stage_id == "room":
 			await get_tree().create_timer(0.8).timeout
@@ -2248,20 +2267,26 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			_start_dialogue("player", summer_key)
 			if global.vball_story_phase >= 2 and global.vball_story_phase < 6:
 				global.vball_story_phase = 6
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "vball_tell_senior":
 		if StageBuilder.is_gymnasium_stage(stage_id):
 			await get_tree().create_timer(0.8).timeout
 			_start_dialogue("senior", "pain_concern")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "entrance_ceremony":
 		if stage_id == "myroom":
 			await get_tree().create_timer(1.2).timeout
-			_start_dialogue("player", _get_entrance_dialogue_key(global.age))
+			_start_dialogue("player", _get_term_intro_dialogue_key(int(global.age), int(global.term)))
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "term_end_measurement":
 		if stage_id == "myroom":
 			await get_tree().create_timer(0.4).timeout
@@ -2269,8 +2294,11 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			if player and player.has_method("update_measurements"):
 				player.call("update_measurements")
 			_show_measurement_result(true)
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
+	return false
 
 func _load_stage():
 	var global = get_node_or_null("/root/Global")
@@ -2307,7 +2335,14 @@ func _load_stage():
 			player.connect("head_bump", bump_handler)
 
 	if global:
-		await _handle_pending_stage_event(global, stage_id, global.pop_next_event())
+		var pending_count := int(global.pending_events.size())
+		for _event_index in range(pending_count):
+			var next_event: String = global.pop_next_event()
+			if next_event == "":
+				break
+			var handled: bool = await _handle_pending_stage_event(global, stage_id, next_event)
+			if handled:
+				break
 		_update_actions_hud()
 		if global.current_slot >= 1:
 			global.save_slot(global.current_slot)
@@ -2358,6 +2393,16 @@ func _get_entrance_dialogue_key(age: int) -> String:
 	if age <= 12:
 		return "entrance_middle"
 	return "entrance_high"
+
+func _is_entrance_term(age: int, term_value: int) -> bool:
+	if not age in [6, 12, 15]:
+		return false
+	return Global.get_term_in_school_year(age, term_value) == 1
+
+func _get_term_intro_dialogue_key(age: int, term_value: int) -> String:
+	if _is_entrance_term(age, term_value):
+		return _get_entrance_dialogue_key(age)
+	return "new_semester"
 
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
@@ -2741,6 +2786,7 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 
 	var h: float = global.current_params["height"]
 	var prev_h: float = global.prev_height
+	var animate_growth: bool = return_to_myroom and prev_h > 0.0 and absf(h - prev_h) > 0.01
 	var a: int = global.age
 	var avg_h: float = global.get_avg_height(a)
 	var diff_avg: float = h - avg_h
@@ -2760,28 +2806,31 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 
 	# 前回比ラベル
 	if prev_h > 0.0:
-		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev
+		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev if return_to_myroom else "現在値（前回比 %+.1f cm）" % diff_prev
 	else:
 		_meas_diff_label.text = "はじめての測定"
 
 	# 初期状態リセット
-	_meas_height_label.text = "%.1f cm" % (prev_h if prev_h > 0.0 else h)
+	_meas_height_label.text = "%.1f cm" % (prev_h if animate_growth else h)
 	_meas_diff_label.modulate.a = 0.0
 	measurement_content_label.modulate.a = 0.0
 	_meas_btn_row.modulate.a = 0.0
 	_meas_diff_label.scale = Vector2(0.7, 0.7)
-	_update_mini_avatar(prev_h if prev_h > 0.0 else h)
+	_update_mini_avatar(prev_h if animate_growth else h)
 
-	# グラフに「現在測定中」のプレビューデータをセット（最新点を末尾に追加）
+	# 学期末測定のみ成長演出。任意測定は現在値をそのまま表示する。
 	if _meas_graph:
-		var preview = global.growth_history.duplicate()
-		preview.append({
-			"height": h, "avg_height": avg_h,
-			"age": a, "term": global.term,
-			"diff_prev": diff_prev, "diff_avg": diff_avg,
-		})
-		_meas_graph.set_data(preview)
-		_meas_graph.animate_new_point(1.4) # カウントアップ(1.4秒)と同期
+		if animate_growth:
+			var preview = global.growth_history.duplicate()
+			preview.append({
+				"height": h, "avg_height": avg_h,
+				"age": a, "term": global.term,
+				"diff_prev": diff_prev, "diff_avg": diff_avg,
+			})
+			_meas_graph.set_data(preview)
+			_meas_graph.animate_new_point(1.4) # カウントアップ(1.4秒)と同期
+		else:
+			_meas_graph.set_data(global.growth_history)
 
 	_measurement_returns_to_myroom = return_to_myroom
 	_measurement_showing = true
@@ -2792,14 +2841,14 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 	var tween = create_tween()
 	tween.tween_property(measurement_panel, "color", Color(0, 0, 0, 0.75), 0.4)
 
-	# 身長カウントアップ（前回値 → 現在値）＋アバターがリアルタイムで成長
-	if prev_h > 0.0:
+	# 学期末測定のみ、前回値から現在値へカウントアップする
+	if animate_growth:
 		tween.tween_method(func(v: float):
 			_meas_height_label.text = "%.1f cm" % v
 			_update_mini_avatar(v)
 		, prev_h, h, 1.4)
 	else:
-		tween.tween_interval(0.5)
+		tween.tween_interval(0.25)
 
 	# 前回比ポップアップ
 	tween.tween_property(_meas_diff_label, "modulate:a", 1.0, 0.2)
@@ -2904,8 +2953,8 @@ func _on_next_term_pressed() -> void:
 	# 少し歩き込んでから主人公モノローグ（入学年は入学式セリフ）
 	await get_tree().create_timer(1.8).timeout
 	var mono_key = "new_semester"
-	if global and global.age in [12, 15]:
-		mono_key = _get_entrance_dialogue_key(global.age)
+	if global:
+		mono_key = _get_term_intro_dialogue_key(int(global.age), int(global.term))
 	_start_dialogue("player", mono_key)
 
 func _setup_history_panel() -> void:
