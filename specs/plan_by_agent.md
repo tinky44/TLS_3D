@@ -290,7 +290,16 @@ Phase 1 と 2 は独立して実装可能。Phase 3 は 2 の後。
 
 現在の「身長計に触れてEキー」は**そのまま残す**。
 学期末より早く測りたい・確認したいプレイヤー向け。
-ただし任意測定では `advance_term()` は呼ばれない（記録のみ）。
+
+- **任意測定**: `advance_term()` を呼ばない → 現在の身長をそのまま表示するだけ（学期中に身長が変わるのはおかしいため）
+- **学期末強制測定** (`term_end_measurement`): `advance_term()` を呼んで**成長させてから**パネルを表示する → 成長はここでのみ発生
+
+```gdscript
+# term_end_measurement イベントの処理
+"term_end_measurement":
+    Global.advance_term()   # ← 先に成長させる
+    _show_measurement_result()  # ← 成長後の身長を表示
+```
 
 ---
 
