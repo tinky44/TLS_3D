@@ -34,6 +34,8 @@ const POSE_ALIASES := {
 	"gym_sit": "taiiku_suwari",
 	"chair_sit": "chair_sit",
 	"chair": "chair_sit",
+	"reach_low": "reach_low",
+	"reach_up": "reach_up",
 	"sleep": "sleep",
 }
 const FACING_ALIASES := {
@@ -90,7 +92,6 @@ func _prepare_global_state(global, options: Dictionary) -> void:
 	global.current_slot = -1
 	global.pending_events = []
 	global.pending_term_choice = false
-	global.current_term_plan = Global.DEFAULT_TERM_PLAN
 	global.term_hotspot_flags = {}
 	global.term_memory_note = ""
 	global.current_stage_id = String(options.get("stage", DEFAULT_STAGE_ID))

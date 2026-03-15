@@ -4,7 +4,6 @@ signal screenshot_saved(result: Dictionary)
 signal screenshot_failed(result: Dictionary)
 
 const CM_TO_PX: float = 2.0
-const DEFAULT_TERM_PLAN: String = "school"
 
 # プレイヤーの身体パラメータ (初期値として「高身長女性」を設定)
 var current_params: Dictionary = {
@@ -33,7 +32,7 @@ var system_settings: Dictionary = {
 	"move_speed": 250.0
 }
 
-var current_stage_id: String = "room"
+var current_stage_id: String = "myroom"
 var current_slot: int = -1 # 現在使用中のスロット番号 (-1 = 未選択)
 var slot_select_mode: String = "save" # "save" or "load"
 var _screenshot_in_progress: bool = false
@@ -41,6 +40,10 @@ var _screenshot_in_progress: bool = false
 # 成長パラメータ（term=6 が小学1年・6歳のスタート）
 var age: int = 6
 var term: int = 6
+var day_in_term: int = 1
+var actions_today: int = 0
+var max_actions_per_day: int = 3
+var term_total_days: int = 3 # 一学期当たりのアクション回数。これを超えると強制学期進行
 var growth_factor: float = 1.0
 var growth_type: String = "normal" # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
@@ -62,7 +65,6 @@ var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた�
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
 var stress: int = 0 # 今学期の生活で溜まるしんどさ
 var pending_term_choice: bool = false # 進級時の続行/終了選択が必要か
-var current_term_plan: String = DEFAULT_TERM_PLAN # "home" / "school" / "station"
 var term_hotspot_flags: Dictionary = {} # 今学期に体験済みのホットスポット
 var term_memory_note: String = "" # 今学期の印象的な出来事メモ
 
@@ -205,6 +207,9 @@ func lock_initial_state() -> void:
 func record_stage_visit(stage_id: String) -> void:
 	visited_stages[stage_id] = true
 
+func is_first_visit(stage_id: String) -> bool:
+	return not visited_stages.has(stage_id)
+
 func record_event(event_id: String) -> void:
 	if not event_id in experienced_events:
 		experienced_events.append(event_id)
@@ -238,6 +243,12 @@ func queue_event(event_id: String) -> void:
 func pop_next_event() -> String:
 	if pending_events.is_empty(): return ""
 	return pending_events.pop_front()
+
+func has_pending_event(event_id: String) -> bool:
+	return pending_events.has(event_id)
+
+func has_experienced_event(event_id: String) -> bool:
+	return experienced_events.has(event_id)
 
 func add_stress(amount: int) -> void:
 	stress = int(clamp(stress + amount, 0, 100))
@@ -331,6 +342,8 @@ func advance_term() -> void:
 	var prev_age: int = age
 	var prev_school_level: int = _school_level_from_age(prev_age)
 	term += 1
+	day_in_term = 1
+	actions_today = 0
 	age = term_to_age(term)
 	var school_level: int = _school_level_from_age(age)
 	current_params["height"] += calc_growth()
@@ -356,7 +369,6 @@ func advance_term() -> void:
 		(school_level >= 1 and school_level <= 3) or  # 小4進級 / 中学 / 高校 への進学
 		(prev_school_level == 3 and school_level == 4) # 高校卒業
 	)
-	current_term_plan = DEFAULT_TERM_PLAN
 	term_hotspot_flags = {}
 	term_memory_note = ""
 
@@ -516,18 +528,31 @@ func load_settings():
 		current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
 		age = config.get_value("Player", "age", age)
 		term = config.get_value("Player", "term", term)
+		day_in_term = int(config.get_value("Player", "day_in_term", day_in_term))
+		actions_today = int(config.get_value("Player", "actions_today", actions_today))
 		growth_factor = config.get_value("Player", "growth_factor", growth_factor)
 		growth_type = config.get_value("Player", "growth_type", growth_type)
 		self_confidence = int(config.get_value("Player", "self_confidence", self_confidence))
 		self_complex = int(config.get_value("Player", "self_complex", self_complex))
 		stress = int(config.get_value("Player", "stress", stress))
 		pending_term_choice = bool(config.get_value("Player", "pending_term_choice", pending_term_choice))
-		current_term_plan = String(config.get_value("Player", "current_term_plan", current_term_plan))
-		if current_term_plan == "":
-			current_term_plan = DEFAULT_TERM_PLAN
 		var hotspot_value: Variant = config.get_value("Player", "term_hotspot_flags", term_hotspot_flags)
 		term_hotspot_flags = hotspot_value if hotspot_value is Dictionary else {}
 		term_memory_note = String(config.get_value("Player", "term_memory_note", term_memory_note))
+		var met_npcs_value: Variant = config.get_value("Player", "met_npcs", met_npcs)
+		met_npcs = met_npcs_value if met_npcs_value is Array else []
+		haruka_invited_this_term = bool(config.get_value("Player", "haruka_invited_this_term", haruka_invited_this_term))
+		haruka_following = bool(config.get_value("Player", "haruka_following", haruka_following))
+		senior_gym_invited = bool(config.get_value("Player", "senior_gym_invited", senior_gym_invited))
+		vball_story_phase = int(config.get_value("Player", "vball_story_phase", vball_story_phase))
+		vball_joined = bool(config.get_value("Player", "vball_joined", vball_joined))
+		is_leg_pain = bool(config.get_value("Player", "is_leg_pain", is_leg_pain))
+		var pending_events_value: Variant = config.get_value("Player", "pending_events", pending_events)
+		pending_events = pending_events_value if pending_events_value is Array else []
+		var visited_stages_value: Variant = config.get_value("Player", "visited_stages", visited_stages)
+		visited_stages = visited_stages_value if visited_stages_value is Dictionary else {}
+		var experienced_events_value: Variant = config.get_value("Player", "experienced_events", experienced_events)
+		experienced_events = experienced_events_value if experienced_events_value is Array else []
 		for key in current_appearance.keys():
 			current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
 		for key in system_settings.keys():
@@ -541,15 +566,26 @@ func save_settings():
 	config.set_value("Player", "sex", current_params["sex"])
 	config.set_value("Player", "age", age)
 	config.set_value("Player", "term", term)
+	config.set_value("Player", "day_in_term", day_in_term)
+	config.set_value("Player", "actions_today", actions_today)
 	config.set_value("Player", "growth_factor", growth_factor)
 	config.set_value("Player", "growth_type", growth_type)
 	config.set_value("Player", "self_confidence", self_confidence)
 	config.set_value("Player", "self_complex", self_complex)
 	config.set_value("Player", "stress", stress)
 	config.set_value("Player", "pending_term_choice", pending_term_choice)
-	config.set_value("Player", "current_term_plan", current_term_plan)
 	config.set_value("Player", "term_hotspot_flags", term_hotspot_flags)
 	config.set_value("Player", "term_memory_note", term_memory_note)
+	config.set_value("Player", "met_npcs", met_npcs.duplicate())
+	config.set_value("Player", "haruka_invited_this_term", haruka_invited_this_term)
+	config.set_value("Player", "haruka_following", haruka_following)
+	config.set_value("Player", "senior_gym_invited", senior_gym_invited)
+	config.set_value("Player", "vball_story_phase", vball_story_phase)
+	config.set_value("Player", "vball_joined", vball_joined)
+	config.set_value("Player", "is_leg_pain", is_leg_pain)
+	config.set_value("Player", "pending_events", pending_events.duplicate())
+	config.set_value("Player", "visited_stages", visited_stages.duplicate(true))
+	config.set_value("Player", "experienced_events", experienced_events.duplicate())
 	for key in current_appearance.keys():
 		config.set_value("Appearance", key, current_appearance[key])
 	for key in system_settings.keys():
@@ -568,6 +604,8 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "stage_id", current_stage_id)
 	config.set_value(section, "age", age)
 	config.set_value(section, "term", term)
+	config.set_value(section, "day_in_term", day_in_term)
+	config.set_value(section, "actions_today", actions_today)
 	config.set_value(section, "prev_height", prev_height)
 	config.set_value(section, "growth_factor", growth_factor)
 	config.set_value(section, "growth_type", growth_type)
@@ -576,9 +614,16 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "self_complex", self_complex)
 	config.set_value(section, "stress", stress)
 	config.set_value(section, "pending_term_choice", pending_term_choice)
-	config.set_value(section, "current_term_plan", current_term_plan)
 	config.set_value(section, "term_hotspot_flags", term_hotspot_flags)
 	config.set_value(section, "term_memory_note", term_memory_note)
+	config.set_value(section, "met_npcs", met_npcs.duplicate())
+	config.set_value(section, "haruka_invited_this_term", haruka_invited_this_term)
+	config.set_value(section, "haruka_following", haruka_following)
+	config.set_value(section, "senior_gym_invited", senior_gym_invited)
+	config.set_value(section, "vball_story_phase", vball_story_phase)
+	config.set_value(section, "vball_joined", vball_joined)
+	config.set_value(section, "is_leg_pain", is_leg_pain)
+	config.set_value(section, "pending_events", pending_events.duplicate())
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
@@ -604,9 +649,11 @@ func load_slot(slot: int) -> bool:
 	current_params["ratio"] = config.get_value(section, "ratio", 7.5)
 	current_params["legRatio"] = config.get_value(section, "legRatio", 48.0)
 	current_params["sex"] = config.get_value(section, "sex", "female")
-	current_stage_id = config.get_value(section, "stage_id", "room")
+	current_stage_id = config.get_value(section, "stage_id", "myroom")
 	age = config.get_value(section, "age", 6)
 	term = config.get_value(section, "term", 6)
+	day_in_term = int(config.get_value(section, "day_in_term", 1))
+	actions_today = int(config.get_value(section, "actions_today", 0))
 	prev_height = config.get_value(section, "prev_height", 0.0)
 	growth_factor = config.get_value(section, "growth_factor", 1.0)
 	growth_type = config.get_value(section, "growth_type", "normal")
@@ -615,12 +662,19 @@ func load_slot(slot: int) -> bool:
 	self_complex = int(config.get_value(section, "self_complex", 0))
 	stress = int(config.get_value(section, "stress", 0))
 	pending_term_choice = bool(config.get_value(section, "pending_term_choice", false))
-	current_term_plan = String(config.get_value(section, "current_term_plan", DEFAULT_TERM_PLAN))
-	if current_term_plan == "":
-		current_term_plan = DEFAULT_TERM_PLAN
 	var hotspot_slot_value: Variant = config.get_value(section, "term_hotspot_flags", {})
 	term_hotspot_flags = hotspot_slot_value if hotspot_slot_value is Dictionary else {}
 	term_memory_note = String(config.get_value(section, "term_memory_note", ""))
+	var met_npcs_value: Variant = config.get_value(section, "met_npcs", [])
+	met_npcs = met_npcs_value if met_npcs_value is Array else []
+	haruka_invited_this_term = bool(config.get_value(section, "haruka_invited_this_term", false))
+	haruka_following = bool(config.get_value(section, "haruka_following", false))
+	senior_gym_invited = bool(config.get_value(section, "senior_gym_invited", false))
+	vball_story_phase = int(config.get_value(section, "vball_story_phase", 0))
+	vball_joined = bool(config.get_value(section, "vball_joined", false))
+	is_leg_pain = bool(config.get_value(section, "is_leg_pain", false))
+	var pending_events_value: Variant = config.get_value(section, "pending_events", [])
+	pending_events = pending_events_value if pending_events_value is Array else []
 	# 旧セーブデータのマイグレーション（age=0 or term=0 の不整合を修正）
 	if age <= 0 or term == 0:
 		age = 6
@@ -653,7 +707,7 @@ func get_slot_info(slot: int) -> Dictionary:
 		return {}
 	return {
 		"height": config.get_value(section, "height", 180.0),
-		"stage_id": config.get_value(section, "stage_id", "room"),
+		"stage_id": config.get_value(section, "stage_id", "myroom"),
 		"timestamp": config.get_value(section, "timestamp", ""),
 		"age": config.get_value(section, "age", 6),
 		"term": config.get_value(section, "term", 6),

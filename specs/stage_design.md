@@ -1,268 +1,237 @@
-# ステージ設計書
+# ステージ設計（現行実装ベース）
 
-## 設計思想
+このドキュメントは `godot-project/scripts/StageBuilder.gd` と `godot-project/scripts/MainScene.gd` の現行実装を基準に整理したものです。  
+特に、以下を実装準拠でまとめ直しています。
 
-### 2つの軸
+- どの時点でアクセス可能か
+- どのステージとどうつながっているか
+- 身長比較の対象になる主なオブジェクト
+- `E` キーでインタラクトできる対象
+- 各ステージにいる NPC の特徴
 
-ステージは **「場所（どこ）」×「年齢（いつ）」** の2軸で構成する。
+## 1. 共通ルール
 
-- **横軸（場所）**: 家 / 街 / 学校 / 駅 など
-- **縦軸（年齢）**: 保育園期(3-5) / 小学校期(6-12) / 中学校期(13-15) / 高校期(16-18)
+### 1-1. 年齢で解決されるベースステージ ID
 
-**同じ「場所」でも年齢によって中身（オブジェクト）が変わる。**
-特に学校は保育園→小学校→中学校→高校と切り替わる。
+学校系の一部ステージは、内部ではベース ID を年齢で実ステージ ID に解決します。
 
-**家は全年齢で変わらない。** 不変の基準点だからこそ、キャラの成長が最もダイレクトに感じられる。
+| ベースID | 11歳以下 | 12〜14歳 | 15歳以上 |
+| --- | --- | --- | --- |
+| `school_hallway` | `school_hallway_elementary` | `school_hallway_middle` | `school_hallway_high` |
+| `school` | `school_elementary` | `school_middle` | `school_high` |
+| `schoolyard` | `schoolyard_elementary` | `schoolyard_middle` | `schoolyard_high` |
+| `infirmary` | `infirmary_elementary` | `infirmary_middle` | `infirmary_high` |
+| `gymnasium` | `gymnasium_elementary` | `gymnasium_middle` | `gymnasium_high` |
 
----
+### 1-2. 移動と進行
 
-## ステージ解放タイムライン
+- `door_to_*` のドア移動は 1 行動消費する
+- 画面端移動は現在 `outdoor -> adjacent_town` と `adjacent_town -> outdoor` のみで、これも 1 行動消費する
+- `myroom` の `bed` は特別インタラクトで、その日の終了か学期末までスキップを選べる
+- `height_scale` に触れると身体測定結果パネルを開く
+- NPC 会話、term hotspot、身体測定そのものは現状では行動消費しない
+- `actions_today >= max_actions_per_day(=3)` になると警告は出るが、移動自体は止まらない
 
-```
-年齢    解放されるステージ
-────────────────────────────────────────────────
-  3歳   🏠 家  →  🏙️ 街  →  🏫 保育園(教室+園庭)
-  6歳                         🏫 小学校(教室+校庭) + 🏥 保健室
- 13歳                         🏫 中学校(教室+校庭) + 🚉 駅
- 16歳                         🏫 高校(教室)
-```
+### 1-3. ロックの考え方
 
----
+年齢制限は主に `MainScene.gd` のドアロックで管理されています。
 
-## 各ステージ詳細
+| 対象 | 実装上のアクセス条件 |
+| --- | --- |
+| `school_hallway_elementary`, `school_elementary` | 11歳以下のみ |
+| `school_hallway_middle`, `school_middle`, `schoolyard_middle`, `infirmary_middle`, `gymnasium_middle` | 12〜14歳のみ |
+| `school_hallway_high`, `school_high` | 15歳以上のみ |
+| `schoolyard_elementary`, `infirmary_elementary`, `gymnasium_elementary` | 明示ロックはないが、小学校廊下経由なので実質 11歳以下 |
+| `schoolyard_high`, `infirmary_high`, `gymnasium_high` | 明示ロックはないが、高校廊下経由なので実質 15歳以上 |
 
----
+### 1-4. インタラクトの種類
 
-### 🏠 家ステージ（全年齢共通・不変）
+| 種類 | 対象 | 内容 |
+| --- | --- | --- |
+| ドア移動 | `door_to_*` | ステージ移動。ロック時はメッセージのみ表示 |
+| 画面端移動 | edge trigger | `outdoor` と `adjacent_town` の相互移動 |
+| 休む | `myroom` の `bed` | 日送り / 学期末送り |
+| 身体測定 | `height_scale` | 測定結果パネルを開く |
+| term hotspot | 特定障害物 | 学期ごとの一回イベント |
+| NPC 会話 | NPC | 固有会話か汎用会話を再生 |
 
-フェチ的に **最も重要なステージ**。
-家は変わらないから、キャラの成長が最もダイレクトに感じられる。
+## 2. 全体接続
 
-#### レイアウト
+### 2-1. ワールド全体の導線
 
-```
-  玄関        風呂場       リビング         キッチン          自室
-  ┌──┐    ┌────────┐    ┌──────────────┐   ┌──────────┐   ┌──────┐
-  │  │    │シャワー│    │ ソファ  TV  │   │レンジフード│   │ ベッド│
-  │ドア│    │ 鏡    │    │   机 椅子   │   │ シンク    │   │ 勉強机│
-  │  │    │  浴槽  │    │             │   │コンロ     │   │      │
-  └──┘    └────────┘    └──────────────┘   └──────────┘   └──────┘
-  
-  ← 2Dスクロールで左右移動 →
-```
-
-#### オブジェクトと閾値
-
-| 部屋     | オブジェクト   | 高さ(cm)   | 変化の閾値・フェチポイント                              |
-| -------- | -------------- | ---------- | ------------------------------------------------------- |
-| 玄関     | ドア           | 200        | 200cm超で屈む。**毎日通る場所**だから変化に気づく       |
-| 風呂場   | シャワーヘッド | 190        | 190cm超で腰をかがめる。「体を洗うのが大変」感           |
-| 風呂場   | 鏡             | 170(中心)  | 映る範囲が顔→首→胸に下がる。鏡との対比は視覚的に強い    |
-| 風呂場   | 浴槽           | 60(深さ)   | 足を伸ばせなくなる → 膝が出る。「お風呂に入りきれない」 |
-| リビング | ソファ         | 40(座面)   | 座ると膝が飛び出す。座り方が変わる                      |
-| リビング | TV             | 100(中心)  | 座って見る → 見下ろすようになる                         |
-| キッチン | シンク         | 85         | 腰を曲げないと使えない。日常動作の困難さ                |
-| キッチン | レンジフード   | 170        | 頭がぶつかる → かがむ。料理中の不便                     |
-| 自室     | ベッド         | 200(長さ)  | 足がはみ出す。寝る場所の問題                            |
-| 自室     | 勉強机         | 76(JIS6号) | 椅子に座れない → 床座り。学習環境の変化                 |
-
-#### StageBuilder ID
-
-`home`（全年齢共通、1つだけ作ればよい）
-
----
-
-### 🏫 学校ステージ — 教室（年齢で切り替え）
-
-教室は年齢によって **机のサイズ・天井高・配置物** が変わる。
-StageBuilder 上はテンプレート1つで、パラメータを年齢で切り替える。
-
-#### 時期別パラメータ
-
-| 時期   | ステージID        | 天井高(cm) | 机(JIS号)            | 主な比較オブジェクト                    |
-| ------ | ----------------- | ---------- | -------------------- | --------------------------------------- |
-| 保育園 | `nursery_room`    | 260        | なし(低テーブル45cm) | ロッカー(120cm)・先生(160cm)の背比べ    |
-| 小学校 | `elementary_room` | 300        | 1〜4号(46〜64cm)     | 黒板(下端90cm)・教壇(15cm)・ドア(200cm) |
-| 中学校 | `juniorhigh_room` | 300        | 4〜6号(58〜76cm)     | ロッカー(180cm)・引き戸ドア(200cm)・窓  |
-| 高校   | `highschool_room` | 300        | 5〜6号(70〜76cm)     | 窓・特注椅子イベント                    |
-
-#### 教室の共通レイアウト
-
-```
-  ドア    ロッカー     机が並ぶエリア        黒板        教壇
-  ┌──┐   ┌─────┐   ┌─┐┌─┐┌─┐┌─┐      ┌─────────┐   ┌──┐
-  │  │   │     │   │ ││ ││ ││ │      │         │   │  │
-  │  │   │     │   └─┘└─┘└─┘└─┘      │         │   │  │
-  └──┘   └─────┘                       └─────────┘   └──┘
+```text
+myroom
+  ↕
+room
+  ↕
+outdoor ──↔ station ──↔ platform ──↔ train ──↔ gakuenmae ──↔ gakuenmachi ──→ school_hallway_high
+  │                                                        （15歳未満は高校廊下でロック）
+  ├──→ school_hallway_elementary
+  │   （12歳以降はロック）
+  └── 右端 ↔ adjacent_town ──→ school_hallway_middle
+      （12〜14歳のみ中学廊下へ入れる）
 ```
 
-#### フェチポイント
+### 2-2. 学校内部の導線
 
-- 保育園：「先生より背が高い園児」
-- 小学校：「机に膝が入らなくなった」
-- 中学校：「ロッカーの上に手が届く。というか頭が超えた」
-- 高校：「教室のドアをくぐるのに毎回かがむ」
+すべての学校ルートは以下の構造です。
 
----
-
-### 🏫 学校ステージ — 校庭（年齢で切り替え）
-
-#### 時期別オブジェクト
-
-| 時期       | ステージID        | 主な比較オブジェクト                                                       |
-| ---------- | ----------------- | -------------------------------------------------------------------------- |
-| 保育園     | `nursery_yard`    | 滑り台(150cm)・ジャングルジム(200cm)・ブランコ(200cm)                      |
-| 小学校     | `elementary_yard` | 鉄棒(低130/高150cm)・うんてい(200cm)・サッカーゴール(244cm)                |
-| 中学〜高校 | `school_yard`     | バスケゴール・ジュニア(260cm)/一般(305cm)・バレーネット(女子224/男子243cm) |
-
-#### フェチポイント
-
-- 保育園：「ジャングルジムと同じ高さ」
-- 小学校：「鉄棒に掴まらなくても鉄棒より高い」「うんていの上から顔が出る」
-- 中学〜：「バスケゴールのリングに手が届く」「ネットを見下ろす」
-
----
-
-### 🏥 保健室ステージ（身体測定専用）
-
-全学校共通。年3回（4月・9月・1月）の身体測定イベントで使用。
-
-#### レイアウト
-
-```
-  身長計       体重計       保健室の先生
-  ┌─┐        ┌──┐        
-  │ │        │  │         👩‍⚕️
-  │ │目盛り   └──┘         (160cm固定)
-  │ │
-  └─┘
+```text
+school_hallway_* ↔ school_*
+school_hallway_* ↔ schoolyard_*
+school_hallway_* ↔ infirmary_*
+school_hallway_* ↔ gymnasium_*
 ```
 
-#### オブジェクト
+学校の入口だけが年齢で変わります。
 
-| オブジェクト | 高さ(cm)              | フェチポイント                                           |
-| ------------ | --------------------- | -------------------------------------------------------- |
-| 身長計       | 200(通常) / 250(特注) | 上限を超えたら「特別な身長計」イベント                   |
-| 体重計       | -                     | 体重データの蓄積                                         |
-| 保健室の先生 | 160(固定)             | 毎回の身長差比較。最初は見上げていた先生をやがて見下ろす |
+- 小学校: `outdoor -> school_hallway_elementary`
+- 中学校: `adjacent_town -> school_hallway_middle`
+- 高校: `gakuenmachi -> school_hallway_high`
 
-#### 身体測定イベント表示例
+### 2-3. 年齢ごとの実質アクセス範囲
 
-```
-╔══════════════════════════════════════╗
-║         🏥 身体測定結果              ║
-║                                      ║
-║  名前：○○ △△（12歳・小学6年）       ║
-║                                      ║
-║  ┌────────────────────────────┐      ║
-║  │  身長：  178.4 cm          │      ║
-║  │  前回比：+3.2 cm（1ヶ月）  │      ║
-║  │  成長速度：3.2 cm/月       │      ║
-║  │                            │      ║
-║  │  ⚡ 成長加速中！            │      ║
-║  └────────────────────────────┘      ║
-║                                      ║
-║  同学年 平均身長：148.3 cm           ║
-║  差：    +30.1cm（学年1位）          ║
-║                                      ║
-║  💬「え、また伸びてる……？            ║
-║     先月測ったばかりなのに」         ║
-║                                      ║
-║        [閉じる]  [成長グラフ]        ║
-╚══════════════════════════════════════╝
-```
+| 年齢帯 | 学校入口 | 通学ルート | 備考 |
+| --- | --- | --- | --- |
+| 11歳以下 | `school_hallway_elementary` | `outdoor` から直接入る | `adjacent_town` と `gakuenmachi` 自体は見に行けるが学校ドアは通れない |
+| 12〜14歳 | `school_hallway_middle` | `outdoor` 右端 -> `adjacent_town` | 小学校入口はロックされる |
+| 15歳以上 | `school_hallway_high` | `station -> platform -> train -> gakuenmae -> gakuenmachi` | 中学校入口はロックされる |
 
----
+## 3. ステージ詳細
 
-### 🚉 駅ステージ（中学〜解放）
+### 3-1. 家まわり
 
-電車通学が始まる中学から解放。tinky44 小説で頻出する「社会との摩擦」の集約地点。
+| Stage ID | 表示名 | アクセス可能時期 | 主な接続 | 主な比較対象（ドア以外） | `E` でできること | NPC |
+| --- | --- | --- | --- | --- | --- | --- |
+| `myroom` | 自分の部屋 | 常時 | `door_to_room` | `bed`, `window_myroom`, `bookshelf`, `desk_myroom`, `randoseru` | `bed` で休む、ドア移動 | なし |
+| `room` | 家の中 | 常時 | `door_to_outdoor`, `door_to_myroom` | `ceiling_light`, `refrigerator`, `kitchen_cabinet`, `kitchen_counter`, `range_hood`, `table`, `window_1`, `washstand`, `bathtub`, `shower_nozzle` | ドア移動、term hotspot (`washstand`, `table`, `chair`)、母・父と会話 | `mother`, `father` |
+| `outdoor` | 屋外 | 常時 | `door_to_room`, `door_to_station`, `door_to_school_hallway_elementary`, 右端で `adjacent_town` | `mailbox`, `traffic_signal`, `vending_machine`, `car`, `bus_stop_sign` | ドア移動、右端移動、汎用NPCと会話 | 通行人1人、子ども1人 |
 
-#### レイアウト
+補足:
 
-```
-  改札エリア       ホーム          電車内
-  ┌──────┐    ┌──────────┐    ┌────────────────┐
-  │自動改札│    │ ベンチ   │    │ つり革 ドア   │
-  │       │    │ 時刻表   │    │ 座席  窓     │
-  │       │    │ 自販機   │    │ 天井         │
-  └──────┘    └──────────┘    └────────────────┘
-```
+- `myroom` の `bed` だけが進行システムに直結する特別インタラクト
+- `room` の `washstand` と `table/chair` は学期ごとに一度だけ触れられる hotspot
+- `outdoor` の `door_to_school_hallway_elementary` は 12歳以降ロックされる
 
-#### オブジェクト
+### 3-2. 駅・移動系
 
-| オブジェクト | 高さ(cm) | フェチポイント                  |
-| ------------ | -------- | ------------------------------- |
-| 自動改札     | 100      | 腰より下 → 膝位置まで下がる     |
-| 電車のドア   | 180      | 180cm超でかがむ。**毎朝の苦行** |
-| つり革       | 163      | 身長によっては低すぎて掴めない  |
-| 電車の天井   | 230      | 230cm超で頭がつく               |
-| ベンチ       | 42       | 座ると膝が高く突き出る          |
-| 自販機       | 183      | ボタン位置が腰あたりに          |
+| Stage ID | 表示名 | アクセス可能時期 | 主な接続 | 主な比較対象（ドア以外） | `E` でできること | NPC |
+| --- | --- | --- | --- | --- | --- | --- |
+| `station` | 駅 | 常時 | `door_to_outdoor`, `door_to_platform` | `ticket_gate`, `station_bench`, `timetable`, `station_vending` | ドア移動、term hotspot (`station_bench`, `station_vending`) | なし |
+| `platform` | ホーム | 常時 | `door_to_station`, `door_to_train` | `platform_column_1`, `platform_bench`, `platform_column_2` | ドア移動 | 汎用NPC 1人 |
+| `train` | 電車の中 | 常時 | `door_to_platform`, `door_to_gakuenmae` | `train_seat_1..3`, `strap_1..10` | ドア移動 | なし |
+| `gakuenmae` | 学園前駅 | 常時 | `door_to_train`, `door_to_gakuenmachi` | `station_sign_gakuenmae`, `platform_bench_small` | ドア移動 | 高校生風の汎用NPC 1人 |
+| `gakuenmachi` | 学園街 | 常時 | `door_to_gakuenmae`, `door_to_school_hallway_high` | `shop_awning`, `notice_board_town`, `school_gate_high` | ドア移動。高校廊下へのドアは 15歳未満ロック | 高校生風の汎用NPC 1人、街の住人風NPC 1人 |
+| `adjacent_town` | 隣町 | 常時 | 左端で `outdoor`, `door_to_school_hallway_middle` | `town_tree`, `town_bench`, `school_gate_middle` | 左端移動、ドア移動。中学廊下へのドアは 12〜14歳のみ | 中学生風の汎用NPC 1人、住人風NPC 1人 |
 
----
+補足:
 
-### 🏙️ 街ステージ（移動路・全年齢共通）
+- `station -> train` の直通はなくなり、必ず `platform` を経由する
+- 高校ルートは `train -> gakuenmae -> gakuenmachi -> school_hallway_high`
+- 中学校ルートは駅経由ではなく、`outdoor` 右端から `adjacent_town` を経由する
+- `adjacent_town` と `gakuenmachi` 自体には年齢制限がない
 
-ステージ間を移動する「道路」としても機能する。
+### 3-3. 小学校ルート（11歳以下）
 
-#### レイアウト
+| Stage ID | 表示名 | 主な接続 | 主な比較対象（ドア以外） | `E` でできること | NPC |
+| --- | --- | --- | --- | --- | --- |
+| `school_hallway_elementary` | 小学校の廊下 | `door_to_outdoor`, `door_to_school_elementary`, `door_to_schoolyard_elementary`, `door_to_infirmary_elementary`, `door_to_gymnasium_elementary` | `shoes_locker`, `bulletin_board`, `fire_hydrant` | 各部屋へ移動、会話 | 汎用生徒 1人、`haruka` |
+| `school_elementary` | 小学校 | `door_to_school_hallway_elementary` | `blackboard`, `teacher_desk`, `display_board`, `desk_1`, `desk_2`, `student_chair_1`, `student_chair_2` | 教室出入り、term hotspot (`desk_*`, `student_chair_*`)、会話 | `haruka`, 汎用クラスメイト 1人 |
+| `schoolyard_elementary` | 小学校の校庭 | `door_to_school_hallway_elementary` | `horizontal_bar_low`, `horizontal_bar_high`, `jungle_gym`, `basketball_hoop`, `soccer_goal_post` | 廊下へ戻る | なし |
+| `infirmary_elementary` | 小学校の保健室 | `door_to_school_hallway_elementary` | `medicine_cabinet`, `height_scale`, `weight_scale`, `infirmary_desk`, `infirmary_bed`, `infirmary_curtain` | 廊下へ戻る、身体測定、term hotspot (`infirmary_bed`)、会話 | `nurse`、状況次第で `haruka` |
+| `gymnasium_elementary` | 小学校の体育館 | `door_to_school_hallway_elementary` | `gym_storage`, `volleyball_net`, `gym_bench`, `gym_window_1`, `gym_window_2`, `basketball_board` | 廊下へ戻る、term hotspot (`basketball_board`, 身長185cm以上)、会話 | `senior` |
 
-```
-  家の前 →→→ 横断歩道 →→→ 商店街 →→→ 学校前
-  
-  [郵便ポスト] [信号機] [自販機] [標識] [車] [バス停/バス]
-```
+補足:
 
-#### オブジェクト
+- 小学校教室の比較物は `display_board` が特徴
+- 校庭は遊具がもっとも多く、身長比較用の見せ場が強い
+- `senior` は現状 `gymnasium_*` 全域に配置されている
 
-| オブジェクト       | 高さ(cm) | フェチポイント                  |
-| ------------------ | -------- | ------------------------------- |
-| 郵便ポスト         | 119      | 小学生の時は目線 → やがて膝上   |
-| 信号機（歩行者用） | 250      | 「信号を見下ろす日が来るとは」  |
-| カーブミラー       | 230      | 「ミラーの高さに顔が映ってる…」 |
-| 自動販売機         | 183      | ボタン位置が腰あたりに          |
-| 標識               | 250      | 標識と同じ目線                  |
-| 軽自動車の屋根     | 150      | 「車の屋根より高い」の衝撃      |
-| バス入口           | 190      | かがまないと乗れない            |
+### 3-4. 中学校ルート（12〜14歳）
 
----
+| Stage ID | 表示名 | 主な接続 | 主な比較対象（ドア以外） | `E` でできること | NPC |
+| --- | --- | --- | --- | --- | --- |
+| `school_hallway_middle` | 中学校の廊下 | `door_to_adjacent_town`, `door_to_school_middle`, `door_to_schoolyard_middle`, `door_to_infirmary_middle`, `door_to_gymnasium_middle` | `shoes_locker`, `bulletin_board`, `fire_hydrant` | 各部屋へ移動、会話 | 汎用生徒 1人、`haruka` |
+| `school_middle` | 中学校 | `door_to_school_hallway_middle` | `blackboard`, `teacher_desk`, `locker`, `desk_1`, `desk_2`, `student_chair_1`, `student_chair_2` | 教室出入り、term hotspot (`desk_*`, `student_chair_*`)、会話 | `haruka`, 汎用クラスメイト 1人 |
+| `schoolyard_middle` | 中学校の校庭 | `door_to_school_hallway_middle` | `horizontal_bar_high`, `basketball_hoop`, `soccer_goal_post` | 廊下へ戻る | なし |
+| `infirmary_middle` | 中学校の保健室 | `door_to_school_hallway_middle` | `medicine_cabinet`, `height_scale`, `weight_scale`, `infirmary_desk`, `infirmary_bed`, `infirmary_curtain` | 廊下へ戻る、身体測定、term hotspot (`infirmary_bed`)、会話 | `nurse`、状況次第で `haruka` |
+| `gymnasium_middle` | 中学校の体育館 | `door_to_school_hallway_middle` | `gym_storage`, `volleyball_net`, `gym_bench`, `gym_window_1`, `gym_window_2`, `basketball_board` | 廊下へ戻る、term hotspot (`basketball_board`, 身長185cm以上)、会話 | `senior` |
 
-## 実装方針
+補足:
 
-### StageBuilder のステージデータ構成
+- 中学校教室は `locker` が小学校との差分
+- 中学校校庭は `jungle_gym` がなくなり、比較対象が絞られる
+- 中学校ルートの入口は `adjacent_town` 固定
 
-```
-ステージID           内容                       備考
-─────────────────────────────────────────────────────────────
-"home"              家（全年齢共通）             1つ作ればいい
-"classroom"         教室（テンプレート）         年齢パラメータで机・天井高を切替
-"schoolyard"        校庭（テンプレート）         年齢パラメータで遊具リストを切替
-"infirmary"         保健室（全年齢共通）         身体測定イベント専用
-"street"            街（全年齢共通）             移動路としても機能
-"station"           駅（中学以降解放）           改札・ホーム・電車内
-```
+### 3-5. 高校ルート（15歳以上）
 
-### テンプレート切替の仕組み
+| Stage ID | 表示名 | 主な接続 | 主な比較対象（ドア以外） | `E` でできること | NPC |
+| --- | --- | --- | --- | --- | --- |
+| `school_hallway_high` | 高校の廊下 | `door_to_gakuenmachi`, `door_to_school_high`, `door_to_schoolyard_high`, `door_to_infirmary_high`, `door_to_gymnasium_high` | `shoes_locker`, `bulletin_board`, `fire_hydrant` | 各部屋へ移動、会話 | 汎用生徒 1人、`haruka`, `senior` |
+| `school_high` | 高校 | `door_to_school_hallway_high` | `blackboard`, `teacher_desk`, `locker_high`, `desk_1`, `desk_2`, `student_chair_1`, `student_chair_2`, `window_back` | 教室出入り、term hotspot (`desk_*`, `student_chair_*`)、会話 | `haruka`, 汎用クラスメイト 1人, `senior` |
+| `schoolyard_high` | 高校の校庭 | `door_to_school_hallway_high` | `gym_bench`, `basketball_hoop`, `soccer_goal_post` | 廊下へ戻る | なし |
+| `infirmary_high` | 高校の保健室 | `door_to_school_hallway_high` | `medicine_cabinet`, `height_scale`, `weight_scale`, `infirmary_desk`, `infirmary_bed`, `infirmary_curtain` | 廊下へ戻る、身体測定、term hotspot (`infirmary_bed`)、会話 | `nurse`、状況次第で `haruka` |
+| `gymnasium_high` | 高校の体育館 | `door_to_school_hallway_high` | `gym_storage`, `volleyball_net`, `gym_bench`, `gym_window_1`, `gym_window_2`, `basketball_board` | 廊下へ戻る、term hotspot (`basketball_board`, 身長185cm以上)、会話 | `senior` |
 
-教室や校庭は StageBuilder の STAGES 辞書にテンプレートを1つ定義し、
-年齢に応じて `obstacles` リストを差し替える方式で実装する。
+補足:
 
-```
-例: classroom テンプレート
-  → 保育園(3-5): obstacles = [低テーブル, ロッカー, ...]
-  → 小学校(6-12): obstacles = [JIS1-4号机, 黒板, 教壇, ...]
-  → 中学校(13-15): obstacles = [JIS4-6号机, ロッカー, ...]
-  → 高校(16-18): obstacles = [JIS5-6号机, 窓, ...]
-```
+- 高校教室は `locker_high` と `window_back` が追加差分
+- 高校廊下と高校教室には `senior` が常駐し、バレー部まわりの会話導線が発生する
+- 高校ルートへ入るには `gakuenmachi` を経由する
 
-### 実装優先度
+## 4. 学期イベント hotspot 一覧
 
-| 優先度 | ステージ           | 理由                               |
-| ------ | ------------------ | ---------------------------------- |
-| ⭐⭐⭐    | 家 (home)          | コア体験。既存実装の拡張で対応可能 |
-| ⭐⭐⭐    | 保健室 (infirmary) | 身体測定＝ゲームの中核イベント     |
-| ⭐⭐     | 教室 (classroom)   | 年齢切替テンプレートの基盤を作る   |
-| ⭐⭐     | 街 (street)        | 既存 outdoor の拡張                |
-| ⭐      | 校庭 (schoolyard)  | 遊具の追加は後からでもOK           |
-| ⭐      | 駅 (station)       | 中学以降なので後回し可             |
+学期 hotspot は 1 学期に 1 回だけ発火する、障害物ベースのイベントです。
+
+| hotspot ID | 実際の設置ステージ | 対象オブジェクト | 条件 | 内容 |
+| --- | --- | --- | --- | --- |
+| `home_mirror` | `room` | `washstand` | なし | 鏡を見る。ストレス軽減 |
+| `home_table` | `room` | `table`, `chair` | なし | 食卓で一息つく |
+| `school_seat` | `school_*` | `desk_1`, `desk_2`, `student_chair_1`, `student_chair_2` | なし | 自分の席に座る |
+| `school_infirmary` | `infirmary_*` | `infirmary_bed` | なし | 保健室で相談する |
+| `station_bench` | `station` | `station_bench` | なし | ベンチで一息つく |
+| `station_vending` | `station` | `station_vending` | なし | 自販機の前で立ち止まる |
+| `gymnasium_basket` | `gymnasium_*` | `basketball_board` | 身長 185cm 以上 | バスケゴールに手を伸ばす |
+
+補足:
+
+- `school_*`, `infirmary_*`, `gymnasium_*` は現在年齢に応じた実ステージへ解決される
+- hotspot は会話とメモ追記に寄っており、移動とは別レイヤーの進行要素
+
+## 5. NPC の特徴まとめ
+
+### 5-1. 固有 NPC
+
+| NPC ID | 主な出現場所 | 役割 / 特徴 |
+| --- | --- | --- |
+| `mother` | `room` | 家で話せる保護者。ストレス状態に応じた反応がある |
+| `father` | `room` | 家で話せる保護者。`check` 分岐あり |
+| `haruka` | `school_hallway_*`, `school_*`, 条件次第で `infirmary_*` | 学校導線の中心人物。初対面、支援、測定への誘導、脚の痛み相談などの分岐を持つ |
+| `nurse` | `infirmary_*` | 保健室の先生。測定・相談まわりの会話担当 |
+| `senior` | `school_hallway_high`, `school_high`, `gymnasium_*` | バレー部まわりの先輩。加入誘導や痛みイベントの分岐を持つ |
+
+### 5-2. 汎用 NPC
+
+固有 ID を持たない NPC は `generic` 扱いです。
+
+- `outdoor`: 大人 1 人、子ども 1 人
+- `adjacent_town`: 中学生風の通行人 1 人、住人風 1 人
+- `platform`: 通勤客風 1 人
+- `gakuenmae`: 高校生風 1 人
+- `gakuenmachi`: 高校生風 1 人、街の住人風 1 人
+- `school_hallway_*`: 制服姿の生徒 1 人
+- `school_*`: クラスメイト 1 人
+
+汎用 NPC の会話仕様:
+
+- 毎回「初対面扱い」で話す
+- プレイヤーとの身長差で `default / tall / huge` の会話に分岐する
+- ステージごとに服装・髪型だけ変えて、世界観の役割を表現している
+
+## 6. 現行実装の注意点
+
+- `adjacent_town` と `gakuenmachi` はハブとして常時入れるが、その先の学校ドアに年齢ロックがある
+- 中学校導線は「駅から学校へ」ではなく、`outdoor` の右端スクロールで入る
+- 高校導線は `station -> platform -> train -> gakuenmae -> gakuenmachi` と段階的に長くなっている
+- `station`, `train`, `schoolyard_*` には現状固有 NPC がいない
+- `myroom` は生活進行専用の部屋で、比較物は少ないが進行上の重要度は高い

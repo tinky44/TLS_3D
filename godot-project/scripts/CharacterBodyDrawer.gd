@@ -142,13 +142,25 @@ static func get_front_garment_waist_pos(ctx: DrawContext) -> Vector2:
 	var t = clamp(u_arm / chest_l, 0.0, 1.0)
 	return shoulder.lerp(navel, t)
 
+static func _get_deep_seated_factor(d: Dictionary) -> float:
+	var knee_fold = max(float(d.get("knee_l", 0.0)), float(d.get("knee_r", 0.0)))
+	var thigh_raise = max(-float(d.get("leg_l_angle", 0.0)), -float(d.get("leg_r_angle", 0.0)))
+	var seated_blend = clamp((knee_fold - PI * 0.58) / (PI * 0.18), 0.0, 1.0)
+	seated_blend *= clamp((thigh_raise - 105.0) / 30.0, 0.0, 1.0)
+	return seated_blend
+
 # セーラースカートの側面上端位置。
 # 下胴の中心線（へそ→股）上で合わせ、屈み時にトップス下端とのずれを抑える。
 static func get_side_sailor_waist_pos(ctx: DrawContext) -> Vector2:
 	var d = ctx.d
 	var p_waist = Vector2(d["navel_x"], d["navel_y"])
 	var p_crotch = Vector2(d["cx"], d["cy"])
-	return p_waist.lerp(p_crotch, 0.5)
+	var anchor = p_waist.lerp(p_crotch, 0.5)
+	var garment_anchor = get_side_garment_waist_pos(ctx)
+	var seated_blend = _get_deep_seated_factor(d)
+	if seated_blend > 0.0:
+		anchor = anchor.lerp(garment_anchor, seated_blend)
+	return anchor
 
 static func _normalized_or(v: Vector2, fallback: Vector2) -> Vector2:
 	if v.length() > 0.01:
@@ -357,6 +369,7 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 
 	# 側面では脚の動きに合わせて前後に傾け、裾を広げる
 	if facing == "side":
+		var seated_factor = _get_deep_seated_factor(d)
 		var avg_leg_ang = (d["leg_l_angle"] + d["leg_r_angle"]) / 2.0
 		# スカートは布のため重力で多少下に向くので、脚の角度を完全に追うのではなく軽減(0.7倍)
 		var skirt_ang = (avg_leg_ang * 0.7) * PI / 180.0 + PI / 2.0
@@ -439,7 +452,8 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 		peak_candidates.append(knee_l)
 		peak_candidates.append(knee_r)
 
-		var front_pick = _pick_side_outer_candidate(outer_candidates, waist_pos, belt_front, front_side, torso_u, skirt_length)
+		var front_min_axis = lerp(-12.0, -max(18.0, skirt_length * 0.2), seated_factor)
+		var front_pick = _pick_side_outer_candidate(outer_candidates, waist_pos, belt_front, front_side, torso_u, skirt_length, front_min_axis)
 		var back_pick = _pick_side_outer_candidate(outer_candidates, waist_pos, belt_back, back_side, torso_u, skirt_length)
 
 		var use_legacy_side = (not bool(front_pick["found"])) or (not bool(back_pick["found"]))
@@ -463,11 +477,13 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 
 			front_outer = front_candidate if _side_proj(front_candidate, waist_pos, front_side) > _side_proj(front_base_at_pick, waist_pos, front_side) else front_base_at_pick
 			back_outer = back_candidate if _side_proj(back_candidate, waist_pos, back_side) > _side_proj(back_base_at_pick, waist_pos, back_side) else back_base_at_pick
-			front_peak = belt_front.lerp(front_outer, 0.35)
+			front_peak = belt_front.lerp(front_outer, lerp(0.35, 0.26, seated_factor))
 			if bool(front_peak_pick["found"]):
 				var front_peak_candidate: Vector2 = front_peak_pick["pos"]
-				front_peak.x = clamp(front_peak_candidate.x, belt_front.x + 2.0, front_outer.x + ctx.shin_w * 0.35)
-				front_peak.y = min(front_peak_candidate.y, front_outer.y - 2.0)
+				var peak_max_x = max(belt_front.x + 2.0, front_outer.x + lerp(ctx.shin_w * 0.35, -ctx.shin_w * 0.1, seated_factor))
+				var peak_gap_y = lerp(2.0, max(ctx.thigh_w * 0.55, 10.0), seated_factor)
+				front_peak.x = clamp(front_peak_candidate.x, belt_front.x + 2.0, peak_max_x)
+				front_peak.y = min(front_peak_candidate.y, front_outer.y - peak_gap_y)
 
 			var front_seg1 = belt_front.distance_to(front_outer)
 			var back_seg1 = belt_back.distance_to(back_outer)
@@ -483,7 +499,7 @@ static func draw_skirt(ctx: DrawContext, bottoms_type: String, bottoms_color: Co
 				front_lower = front_outer.lerp(front_hem, 0.45)
 				back_lower = back_outer.lerp(back_hem, 0.45)
 
-				var front_lower_pick = _pick_side_outer_candidate(lower_candidates, waist_pos, front_outer, front_side, torso_u, skirt_length)
+				var front_lower_pick = _pick_side_outer_candidate(lower_candidates, waist_pos, front_outer, front_side, torso_u, skirt_length, front_min_axis)
 				var back_lower_pick = _pick_side_outer_candidate(lower_candidates, waist_pos, back_outer, back_side, torso_u, skirt_length)
 				if bool(front_lower_pick["found"]):
 					var front_lower_candidate: Vector2 = front_lower_pick["pos"]

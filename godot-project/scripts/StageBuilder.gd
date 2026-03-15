@@ -33,8 +33,8 @@ const STAGES = {
         "width": 2000,
         "ceiling_height": 230,
         "obstacles": [
-            {"id": "door_to_station", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
-            {"id": "door_to_school_hallway_high", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
+            {"id": "door_to_platform", "x": 50, "x2": 230, "height": 185, "type": "overhead"},
+            {"id": "door_to_gakuenmae", "x": 580, "x2": 760, "height": 185, "type": "overhead"},
             {"id": "door_3", "x": 1220, "x2": 1400, "height": 185, "type": "overhead"},
             {"id": "door_4", "x": 1770, "x2": 1950, "height": 185, "type": "overhead"},
             {"id": "train_seat_1", "x": 240, "x2": 560, "height": 45, "type": "ground"},
@@ -52,9 +52,55 @@ const STAGES = {
             {"id": "strap_10", "x": 1680, "x2": 1720, "height": 163, "type": "background"}
         ]
     },
+    "platform": {
+        "name": "ホーム",
+        "width": 2200,
+        "ceiling_height": null,
+        "obstacles": [
+            {"id": "door_to_station", "x": 80, "x2": 220, "height": 190, "type": "overhead"},
+            {"id": "platform_column_1", "x": 520, "x2": 575, "height": 250, "type": "background"},
+            {"id": "platform_bench", "x": 860, "x2": 1060, "height": 42, "type": "ground"},
+            {"id": "platform_column_2", "x": 1340, "x2": 1395, "height": 250, "type": "background"},
+            {"id": "door_to_train", "x": 1880, "x2": 2060, "height": 185, "type": "overhead"}
+        ]
+    },
+    "gakuenmae": {
+        "name": "学園前駅",
+        "width": 1700,
+        "ceiling_height": null,
+        "obstacles": [
+            {"id": "door_to_train", "x": 70, "x2": 230, "height": 185, "type": "overhead"},
+            {"id": "station_sign_gakuenmae", "x": 520, "x2": 760, "height": 160, "type": "background"},
+            {"id": "platform_bench_small", "x": 940, "x2": 1100, "height": 42, "type": "ground"},
+            {"id": "door_to_gakuenmachi", "x": 1450, "x2": 1600, "height": 190, "type": "overhead"}
+        ]
+    },
+    "gakuenmachi": {
+        "name": "学園街",
+        "width": 2200,
+        "ceiling_height": null,
+        "obstacles": [
+            {"id": "door_to_gakuenmae", "x": 80, "x2": 220, "height": 200, "type": "overhead"},
+            {"id": "shop_awning", "x": 520, "x2": 760, "height": 200, "type": "background"},
+            {"id": "notice_board_town", "x": 980, "x2": 1130, "height": 180, "type": "background"},
+            {"id": "school_gate_high", "x": 1820, "x2": 1980, "height": 210, "type": "background"},
+            {"id": "door_to_school_hallway_high", "x": 1980, "x2": 2140, "height": 200, "type": "overhead"}
+        ]
+    },
+    "adjacent_town": {
+        "name": "隣町",
+        "width": 1500,
+        "ceiling_height": null,
+        "obstacles": [
+            {"id": "town_tree", "x": 260, "x2": 340, "height": 220, "type": "background"},
+            {"id": "town_bench", "x": 620, "x2": 800, "height": 42, "type": "ground"},
+            {"id": "school_gate_middle", "x": 1120, "x2": 1260, "height": 210, "type": "background"},
+            {"id": "door_to_school_hallway_middle", "x": 1260, "x2": 1410, "height": 200, "type": "overhead"}
+        ]
+    },
     "outdoor": {
         "name": "屋外",
-        "width": 1200,
+        "width": 1500,
         "ceiling_height": null,
         "obstacles": [
             {"id": "door_to_room", "x": 50, "x2": 130, "height": 200, "type": "overhead"},
@@ -252,7 +298,7 @@ const STAGES = {
             {"id": "station_bench", "x": 900, "x2": 1100, "height": 42, "type": "ground"},
             {"id": "timetable", "x": 1150, "x2": 1250, "height": 200, "type": "background"},
             {"id": "station_vending", "x": 1380, "x2": 1460, "height": 183, "type": "ground"},
-            {"id": "door_to_train", "x": 2000, "x2": 2150, "height": 185, "type": "overhead"}
+            {"id": "door_to_platform", "x": 2000, "x2": 2150, "height": 185, "type": "overhead"}
         ]
     }
 }
@@ -289,13 +335,13 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         floor_rect.color = Color(0.50, 0.55, 0.50) # リノリウム風グレーグリーン
     elif is_infirmary_stage(stage_id):
         floor_rect.color = Color(0.82, 0.88, 0.82) # 明るい薄緑（保健室リノリウム）
-    elif stage_id == "outdoor":
+    elif stage_id == "outdoor" or stage_id == "adjacent_town" or stage_id == "gakuenmachi":
         floor_rect.color = Color(0.55, 0.53, 0.50) # アスファルト
     elif is_schoolyard_stage(stage_id):
         floor_rect.color = Color(0.68, 0.62, 0.48) # 砂地（校庭）
     elif is_gymnasium_stage(stage_id):
         floor_rect.color = Color(0.66, 0.49, 0.29) # 体育館フロア
-    elif stage_id == "station":
+    elif stage_id == "station" or stage_id == "platform" or stage_id == "gakuenmae":
         floor_rect.color = Color(0.58, 0.57, 0.55) # コンクリート（駅）
     else: # train
         floor_rect.color = Color(0.32, 0.32, 0.35) # 電車の床
@@ -307,7 +353,12 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
 
     # 左右の見えない壁（ステージ端から落ちないようにする）
     var _edge_w_px: float = stage_data["width"] * cm_to_px
-    for wall_x in [0.0, _edge_w_px]:
+    var wall_positions: Array[float] = []
+    if stage_id != "adjacent_town":
+        wall_positions.append(0.0)
+    if stage_id != "outdoor":
+        wall_positions.append(_edge_w_px)
+    for wall_x in wall_positions:
         var wall_body = StaticBody2D.new()
         wall_body.set_meta("is_stage_obj", true)
         var wall_shape = CollisionShape2D.new()
@@ -317,6 +368,10 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         wall_shape.position = Vector2(wall_x, -500)
         wall_body.add_child(wall_shape)
         parent_node.add_child(wall_body)
+    if stage_id == "outdoor":
+        _add_edge_trigger(parent_node, "RightEdgeTrigger", _edge_w_px, "adjacent_town")
+    elif stage_id == "adjacent_town":
+        _add_edge_trigger(parent_node, "LeftEdgeTrigger", 0.0, "outdoor")
 
     # 部屋系ステージの場合、背景を壁紙風にする
     if (stage_id == "room" or stage_id == "myroom") and stage_data.get("ceiling_height") != null:
@@ -538,8 +593,8 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
             stw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
             out_bg.add_child(stw)
         # ===== 学校（door_to_school の背後） =====
-        var sc_x = 1020 * cm_to_px
-        var sc_w = 200 * cm_to_px
+        var sc_x = 980 * cm_to_px
+        var sc_w = 560 * cm_to_px
         var sc_h = 380 * cm_to_px
         var sc_wall = ColorRect.new()
         sc_wall.color = Color(0.82, 0.80, 0.72)
@@ -548,13 +603,166 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         out_bg.add_child(sc_wall)
         # 学校の窓（格子状）
         for row in range(3):
-            for col in range(2):
+            for col in range(4):
                 var scw = ColorRect.new()
                 scw.color = Color(0.58, 0.74, 0.90, 0.78)
-                scw.position = Vector2(sc_x + (18 + col * 90) * cm_to_px, - (sc_h - (30 + row * 110) * cm_to_px))
+                scw.position = Vector2(sc_x + (24 + col * 112) * cm_to_px, - (sc_h - (30 + row * 110) * cm_to_px))
                 scw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
                 out_bg.add_child(scw)
+        var sc_gate = ColorRect.new()
+        sc_gate.color = Color(0.34, 0.40, 0.50)
+        sc_gate.position = Vector2(1200 * cm_to_px, -220 * cm_to_px)
+        sc_gate.size = Vector2(120 * cm_to_px, 220 * cm_to_px)
+        out_bg.add_child(sc_gate)
+        var sc_fence = ColorRect.new()
+        sc_fence.color = Color(0.70, 0.72, 0.76)
+        sc_fence.position = Vector2(1320 * cm_to_px, -120 * cm_to_px)
+        sc_fence.size = Vector2(180 * cm_to_px, 12 * cm_to_px)
+        out_bg.add_child(sc_fence)
         parent_node.add_child(out_bg)
+
+    elif stage_id == "adjacent_town":
+        var town_bg = Node2D.new()
+        town_bg.set_meta("is_stage_obj", true)
+        town_bg.z_index = -10
+        var town_w_px = stage_data["width"] * cm_to_px
+        var town_sky_top = ColorRect.new()
+        town_sky_top.color = Color(0.46, 0.72, 0.98)
+        town_sky_top.position = Vector2(0, -600 * cm_to_px)
+        town_sky_top.size = Vector2(town_w_px, 400 * cm_to_px)
+        town_bg.add_child(town_sky_top)
+        var town_sky_btm = ColorRect.new()
+        town_sky_btm.color = Color(0.67, 0.84, 0.99)
+        town_sky_btm.position = Vector2(0, -200 * cm_to_px)
+        town_sky_btm.size = Vector2(town_w_px, 200 * cm_to_px)
+        town_bg.add_child(town_sky_btm)
+        for house_data in [
+            {"x": 180.0, "w": 220.0, "h": 240.0, "color": Color(0.88, 0.83, 0.76)},
+            {"x": 470.0, "w": 180.0, "h": 210.0, "color": Color(0.80, 0.82, 0.88)},
+        ]:
+            var house = ColorRect.new()
+            house.color = house_data["color"]
+            house.position = Vector2(float(house_data["x"]) * cm_to_px, -float(house_data["h"]) * cm_to_px)
+            house.size = Vector2(float(house_data["w"]) * cm_to_px, float(house_data["h"]) * cm_to_px)
+            town_bg.add_child(house)
+        var school_wall = ColorRect.new()
+        school_wall.color = Color(0.78, 0.80, 0.84)
+        school_wall.position = Vector2(1070 * cm_to_px, -320 * cm_to_px)
+        school_wall.size = Vector2(260 * cm_to_px, 320 * cm_to_px)
+        town_bg.add_child(school_wall)
+        var school_gate = ColorRect.new()
+        school_gate.color = Color(0.32, 0.38, 0.48)
+        school_gate.position = Vector2(1160 * cm_to_px, -220 * cm_to_px)
+        school_gate.size = Vector2(120 * cm_to_px, 220 * cm_to_px)
+        town_bg.add_child(school_gate)
+        parent_node.add_child(town_bg)
+
+    elif stage_id == "platform":
+        var platform_bg = Node2D.new()
+        platform_bg.set_meta("is_stage_obj", true)
+        platform_bg.z_index = -10
+        var platform_w_px = stage_data["width"] * cm_to_px
+        var pf_sky_top = ColorRect.new()
+        pf_sky_top.color = Color(0.42, 0.68, 0.94)
+        pf_sky_top.position = Vector2(0, -600 * cm_to_px)
+        pf_sky_top.size = Vector2(platform_w_px, 400 * cm_to_px)
+        platform_bg.add_child(pf_sky_top)
+        var pf_sky_btm = ColorRect.new()
+        pf_sky_btm.color = Color(0.66, 0.84, 0.98)
+        pf_sky_btm.position = Vector2(0, -200 * cm_to_px)
+        pf_sky_btm.size = Vector2(platform_w_px, 200 * cm_to_px)
+        platform_bg.add_child(pf_sky_btm)
+        var canopy = ColorRect.new()
+        canopy.color = Color(0.72, 0.75, 0.80)
+        canopy.position = Vector2(180 * cm_to_px, -250 * cm_to_px)
+        canopy.size = Vector2(1500 * cm_to_px, 28 * cm_to_px)
+        platform_bg.add_child(canopy)
+        for pillar_x in [260, 720, 1180, 1640]:
+            var pillar = ColorRect.new()
+            pillar.color = Color(0.58, 0.60, 0.64)
+            pillar.position = Vector2(pillar_x * cm_to_px, -250 * cm_to_px)
+            pillar.size = Vector2(20 * cm_to_px, 250 * cm_to_px)
+            platform_bg.add_child(pillar)
+        var rails = ColorRect.new()
+        rails.color = Color(0.28, 0.28, 0.32)
+        rails.position = Vector2(0, 18)
+        rails.size = Vector2(platform_w_px, 18)
+        platform_bg.add_child(rails)
+        var tactile = ColorRect.new()
+        tactile.color = Color(0.92, 0.82, 0.15)
+        tactile.position = Vector2(0, -8)
+        tactile.size = Vector2(platform_w_px, 8)
+        platform_bg.add_child(tactile)
+        parent_node.add_child(platform_bg)
+
+    elif stage_id == "gakuenmae":
+        var gakuenmae_bg = Node2D.new()
+        gakuenmae_bg.set_meta("is_stage_obj", true)
+        gakuenmae_bg.z_index = -10
+        var gakuenmae_w_px = stage_data["width"] * cm_to_px
+        var gm_sky_top = ColorRect.new()
+        gm_sky_top.color = Color(0.44, 0.70, 0.96)
+        gm_sky_top.position = Vector2(0, -600 * cm_to_px)
+        gm_sky_top.size = Vector2(gakuenmae_w_px, 400 * cm_to_px)
+        gakuenmae_bg.add_child(gm_sky_top)
+        var gm_sky_btm = ColorRect.new()
+        gm_sky_btm.color = Color(0.72, 0.88, 0.99)
+        gm_sky_btm.position = Vector2(0, -200 * cm_to_px)
+        gm_sky_btm.size = Vector2(gakuenmae_w_px, 200 * cm_to_px)
+        gakuenmae_bg.add_child(gm_sky_btm)
+        var sign_base = ColorRect.new()
+        sign_base.color = Color(0.12, 0.45, 0.28)
+        sign_base.position = Vector2(520 * cm_to_px, -190 * cm_to_px)
+        sign_base.size = Vector2(260 * cm_to_px, 44 * cm_to_px)
+        gakuenmae_bg.add_child(sign_base)
+        var fence = ColorRect.new()
+        fence.color = Color(0.75, 0.78, 0.82)
+        fence.position = Vector2(1080 * cm_to_px, -120 * cm_to_px)
+        fence.size = Vector2(450 * cm_to_px, 12 * cm_to_px)
+        gakuenmae_bg.add_child(fence)
+        var tactile_small = ColorRect.new()
+        tactile_small.color = Color(0.92, 0.82, 0.15)
+        tactile_small.position = Vector2(0, -8)
+        tactile_small.size = Vector2(gakuenmae_w_px, 8)
+        gakuenmae_bg.add_child(tactile_small)
+        parent_node.add_child(gakuenmae_bg)
+
+    elif stage_id == "gakuenmachi":
+        var town_arcade = Node2D.new()
+        town_arcade.set_meta("is_stage_obj", true)
+        town_arcade.z_index = -10
+        var arcade_w_px = stage_data["width"] * cm_to_px
+        var arcade_sky_top = ColorRect.new()
+        arcade_sky_top.color = Color(0.48, 0.72, 0.96)
+        arcade_sky_top.position = Vector2(0, -600 * cm_to_px)
+        arcade_sky_top.size = Vector2(arcade_w_px, 400 * cm_to_px)
+        town_arcade.add_child(arcade_sky_top)
+        var arcade_sky_btm = ColorRect.new()
+        arcade_sky_btm.color = Color(0.76, 0.89, 0.99)
+        arcade_sky_btm.position = Vector2(0, -200 * cm_to_px)
+        arcade_sky_btm.size = Vector2(arcade_w_px, 200 * cm_to_px)
+        town_arcade.add_child(arcade_sky_btm)
+        for shop in [
+            {"x": 260.0, "w": 280.0, "h": 250.0, "body": Color(0.86, 0.80, 0.74), "awning": Color(0.82, 0.34, 0.26)},
+            {"x": 620.0, "w": 260.0, "h": 230.0, "body": Color(0.78, 0.84, 0.90), "awning": Color(0.26, 0.48, 0.78)},
+            {"x": 980.0, "w": 250.0, "h": 240.0, "body": Color(0.88, 0.84, 0.78), "awning": Color(0.28, 0.60, 0.42)},
+        ]:
+            var shop_body = ColorRect.new()
+            shop_body.color = shop["body"]
+            shop_body.position = Vector2(float(shop["x"]) * cm_to_px, -float(shop["h"]) * cm_to_px)
+            shop_body.size = Vector2(float(shop["w"]) * cm_to_px, float(shop["h"]) * cm_to_px)
+            town_arcade.add_child(shop_body)
+            var awning = ColorRect.new()
+            awning.color = shop["awning"]
+            awning.position = Vector2(float(shop["x"]) * cm_to_px, -(float(shop["h"]) - 32.0) * cm_to_px)
+            awning.size = Vector2(float(shop["w"]) * cm_to_px, 26 * cm_to_px)
+            town_arcade.add_child(awning)
+        var high_gate_bg = ColorRect.new()
+        high_gate_bg.color = Color(0.32, 0.36, 0.46)
+        high_gate_bg.position = Vector2(1810 * cm_to_px, -260 * cm_to_px)
+        high_gate_bg.size = Vector2(140 * cm_to_px, 260 * cm_to_px)
+        town_arcade.add_child(high_gate_bg)
+        parent_node.add_child(town_arcade)
 
     # 学校ステージ: 廊下背景
     elif is_school_hallway_stage(stage_id) and stage_data.get("ceiling_height") != null:
@@ -954,6 +1162,21 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
     # 障害物の生成
     for obs in get_obstacles(stage_id, age):
         _build_obstacle(obs, parent_node, cm_to_px, stage_id)
+
+static func _add_edge_trigger(parent_node: Node2D, trigger_name: String, trigger_x: float, target_stage: String) -> void:
+    var edge_area = Area2D.new()
+    edge_area.name = trigger_name
+    edge_area.set_meta("is_stage_obj", true)
+    edge_area.set_meta("edge_target_stage", target_stage)
+    edge_area.monitoring = true
+    edge_area.monitorable = true
+    var col = CollisionShape2D.new()
+    var rect = RectangleShape2D.new()
+    rect.size = Vector2(24, 2000)
+    col.position = Vector2(trigger_x, -500)
+    col.shape = rect
+    edge_area.add_child(col)
+    parent_node.add_child(edge_area)
 
 static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, stage_id: String = "") -> void:
     var w_cm = obs["x2"] - obs["x"]
@@ -2718,6 +2941,26 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "駅の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
             else:
                 return "駅の入口（%dcm）。電車に乗りましょう。" % oh
+        "door_to_platform":
+            if h > oh:
+                return "ホームへの入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "ホームへの入口（%dcm）。電車が見えてきます。" % oh
+        "door_to_gakuenmae":
+            if h > oh:
+                return "学園前駅への出口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "学園前駅への出口（%dcm）。" % oh
+        "door_to_gakuenmachi":
+            if h > oh:
+                return "学園街への入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "学園街への入口（%dcm）。" % oh
+        "door_to_adjacent_town":
+            if h > oh:
+                return "隣町への入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
+            else:
+                return "隣町への入口（%dcm）。" % oh
         "door_to_school":
             if h > oh:
                 return "学校の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
@@ -2869,6 +3112,8 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
             return "家の食卓（%dcm）。\nここで少し休めば、気持ちがほどけるかもしれません。" % oh
         "station_bench":
             return "ホームのベンチ（%dcm）。\n長身だと膝が高く突き出してしまいますね。" % oh
+        "platform_bench", "platform_bench_small":
+            return "ホームのベンチ（%dcm）。\n電車待ちの時間が少しだけゆっくり流れます。" % oh
         "timetable":
             return "時刻表ボード（%dcm）。\n上の方まで楽々見えますね。" % oh
         "station_vending":
@@ -2876,6 +3121,14 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "駅の自販機（%dcm）より背が高いですね。\nボタンがずいぶん下の方に見えます。" % oh
             else:
                 return "駅の自販機（%dcm）。\n電車を待つ間に一本どうぞ。" % oh
+        "station_sign_gakuenmae":
+            return "駅名看板です。『学園前』の文字が見えます。"
+        "notice_board_town":
+            return "掲示板です。学園祭や部活の張り紙が目に入ります。"
+        "school_gate_middle":
+            return "中学校の校門です。朝の生徒たちが行き交っています。"
+        "school_gate_high":
+            return "高校へ続く門です。制服姿の生徒たちが見えます。"
         "door_to_station":
             if h > oh:
                 return "駅の入口（高さ%dcm）。\nあなた（%dcm）は%dcm頭が当たります！" % [oh, h, round(h - oh)]
@@ -2985,6 +3238,15 @@ static func is_school_classroom_stage(stage_id: String) -> bool:
 static func is_schoolyard_stage(stage_id: String) -> bool:
     return stage_id.begins_with("schoolyard_")
 
+static func is_school_stage(stage_id: String) -> bool:
+    return (
+        is_school_classroom_stage(stage_id)
+        or is_school_hallway_stage(stage_id)
+        or is_schoolyard_stage(stage_id)
+        or is_infirmary_stage(stage_id)
+        or is_gymnasium_stage(stage_id)
+    )
+
 static func is_infirmary_stage(stage_id: String) -> bool:
     return stage_id.begins_with("infirmary_")
 
@@ -3014,11 +3276,8 @@ static func get_obstacles(stage_id: String, age: int) -> Array:
 static func _outdoor_obstacles() -> Array:
     return STAGES["outdoor"]["obstacles"].duplicate(true)
 
-static func _station_obstacles(age: int) -> Array:
-    var base: Array = STAGES["station"]["obstacles"].duplicate(true)
-    if age >= 12:
-        base.append({"id": "door_to_school_hallway_middle", "x": 1650, "x2": 1800, "height": 200, "type": "overhead"})
-    return base
+static func _station_obstacles(_age: int) -> Array:
+    return STAGES["station"]["obstacles"].duplicate(true)
 
 static func _school_obstacles(stage_id: String) -> Array:
     var suffix = _get_stage_suffix_from_stage_id(stage_id)
@@ -3057,9 +3316,9 @@ static func _school_hallway_obstacles(stage_id: String) -> Array:
     var suffix = _get_stage_suffix_from_stage_id(stage_id)
     var entry_door = "door_to_outdoor"
     if suffix == "middle":
-        entry_door = "door_to_station"
+        entry_door = "door_to_adjacent_town"
     elif suffix == "high":
-        entry_door = "door_to_train"
+        entry_door = "door_to_gakuenmachi"
     return [
         {"id": entry_door, "x": 100, "x2": 240, "height": 200, "type": "overhead"},
         {"id": "shoes_locker", "x": 350, "x2": 550, "height": 180, "type": "background"},
