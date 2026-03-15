@@ -207,26 +207,6 @@ const DATA: Dictionary = {
 			{"speaker": "（主人公）", "text": "新学期か……。"},
 			{"speaker": "（主人公）", "text": "また少し背が伸びた気がする。今学期も色々あるんだろうな。"},
 		],
-		"term_home": [
-			{"speaker": "（主人公）", "text": "今学期は、家で過ごす時間を少し増やしてみよう。"},
-			{"speaker": "お母さん", "text": "無理しないのが一番よ。家なら少しは落ち着けるでしょ。"},
-			{
-				"speaker": "（主人公）",
-				"text": "今日は、どんなふうに過ごそう。",
-				"choices": [
-					{"label": "ちゃんと休む", "next": "term_home_rest", "action": "stress:-6"},
-					{"label": "背筋を伸ばしてみる", "next": "term_home_posture", "emotion": "confidence", "action": "stress:-3"},
-				]
-			},
-		],
-		"term_home_rest": [
-			{"speaker": "（主人公）", "text": "深く息をつく。張っていた肩が、少しずつほどけていく。"},
-			{"speaker": "お母さん", "text": "そうそう。そのくらい力を抜いていていいのよ。"},
-		],
-		"term_home_posture": [
-			{"speaker": "（主人公）", "text": "家の中でなら、少しだけ背筋を伸ばせる。"},
-			{"speaker": "（主人公）", "text": "この大きさを、少しずつ自分の形にしていけるかもしれない。"},
-		],
 		"term_home_mirror": [
 			{"speaker": "（主人公）", "text": "洗面台の鏡に、自分の姿がすっぽり映る。"},
 			{"speaker": "（主人公）", "text": "こうして見ると、やっぱり大きい。でも今日は、少しだけ落ち着いて見られた。"},
@@ -291,25 +271,6 @@ const DATA: Dictionary = {
 		"term_school_infirmary_hold": [
 			{"speaker": "（主人公）", "text": "……大丈夫です。ちょっと疲れてるだけ。"},
 			{"speaker": "保健の先生", "text": "そう。でも、つらくなったらまた来ていいからね。"},
-		],
-		"term_station": [
-			{"speaker": "（主人公）", "text": "今学期は、少し外に出てみよう。"},
-			{
-				"speaker": "（主人公）",
-				"text": "駅前は視線が多い。でも、そのぶん自分の大きさを強く意識する。",
-				"choices": [
-					{"label": "この高さも自分の一部だ", "next": "term_station_bold", "emotion": "confidence", "action": "stress:-5"},
-					{"label": "やっぱり早く帰りたい", "next": "term_station_shy", "emotion": "complex", "action": "stress:+5"},
-				]
-			},
-		],
-		"term_station_bold": [
-			{"speaker": "（主人公）", "text": "ざわつきはする。でも、立っているだけで世界の見え方が変わる。"},
-			{"speaker": "（主人公）", "text": "少しだけ、この高さを面白いと思えた。"},
-		],
-		"term_station_shy": [
-			{"speaker": "（主人公）", "text": "視線が集まるたびに、肩がぎゅっと固くなる。"},
-			{"speaker": "（主人公）", "text": "今日はもう、早く帰ってしまいたい。"},
 		],
 		"term_station_bench": [
 			{"speaker": "（主人公）", "text": "ベンチに腰を下ろす。人の流れを見ていると、自分だけ少し別の速さで立っていた気がした。"},
