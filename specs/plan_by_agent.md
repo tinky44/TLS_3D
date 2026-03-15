@@ -13,36 +13,35 @@
 
 ---
 
-## ★★★ デイリーガイド HUD（今日の目標表示）
+## ★★★ デイリーガイド（今日の目標表示）
 
 ### 目的
 
 「今何をすればいいかわからない」を解消する。
-右下の `action_hint_panel`（Eキーヒント）の**上**に、今日のフロー案内を1行表示する。
+**左下**に `Hint: [テキスト]` の形式で1行表示する。
 
 ### 表示仕様
 
 | 条件 | 表示テキスト |
 |---|---|
-| `current_stage_id == "myroom"` かつ `actions_today == 0` | ⏰ 朝だ。学校に向かおう |
-| 学校系ステージ（`is_school_classroom_stage()` == true） | 📚 授業を受けよう |
-| `actions_today >= max_actions_per_day` かつ 学校外 | 🌇 夕方だ。家に帰ろう |
-| `current_stage_id == "myroom"` かつ `actions_today >= max_actions_per_day` | 🛏 今日は終わり。ベッドで休もう |
-| それ以外 | （空欄：表示なし） |
+| `current_stage_id == "myroom"` かつ `actions_today == 0` | Hint: 朝だ。学校に向かおう |
+| 学校系ステージ（`is_school_classroom_stage()` == true） | Hint: 授業を受けよう |
+| `actions_today >= max_actions_per_day` かつ 学校外 | Hint: 夕方だ。家に帰ろう |
+| `current_stage_id == "myroom"` かつ `actions_today >= max_actions_per_day` | Hint: ベッドで休もう |
+| それ以外 | （非表示） |
 
 ### 実装方針
 
-**ノード追加（`_setup_ui` 内、`action_hint_panel` の直上に追加）**
+**ノード追加（`_setup_ui` 内、左下に配置）**
 
 ```gdscript
 # MainScene.gd: _setup_ui() に追加
-var daily_guide_panel = PanelContainer.new()
-daily_guide_panel.name = "daily_guide_panel"
-# 右下に配置（action_hint_panel の上）
 var daily_guide_label = Label.new()
 daily_guide_label.name = "daily_guide_label"
-daily_guide_panel.add_child(daily_guide_label)
-# ui_layer に追加
+daily_guide_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+daily_guide_label.offset_bottom = -8
+daily_guide_label.offset_left = 8
+ui_layer.add_child(daily_guide_label)
 ```
 
 **更新関数**
