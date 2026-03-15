@@ -1504,6 +1504,10 @@ func _check_edge_transition() -> void:
 		# station は右端に見えない壁があるため、少し手前で遷移判定する
 		if player_x_cm >= stage_w - 150.0:
 			_enter_edge_transition("platform")
+	elif stage_id == "platform":
+		# platform は左端に見えない壁があるため、少し手前で遷移判定する
+		if player_x_cm <= 150.0:
+			_enter_edge_transition("station")
 
 func _update_minimap():
 	if not player or not minimap_bg or not minimap_player: return
@@ -2564,7 +2568,9 @@ func _enter_edge_transition(target_stage: String) -> void:
 		if from_stage_id == "adjacent_town" and resolved_target == "outdoor":
 			spawn_x = stage_width - 80.0
 		elif from_stage_id == "station" and resolved_target == "platform":
-			spawn_x = 270.0  # door_to_station(x:80-220)の右隣にスポーン
+			spawn_x = 270.0  # ホーム左側に到着
+		elif from_stage_id == "platform" and resolved_target == "station":
+			spawn_x = stage_width - 260.0  # 駅右側に到着
 		player.position = Vector2(spawn_x * p, 0)
 	_edge_transition_running = false
 
