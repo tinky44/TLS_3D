@@ -1855,6 +1855,40 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         sd_knob.z_index = -1
         node.add_child(sd_knob)
 
+    elif o_id == "door_to_gakuenmae":
+        # 学園街から学園前駅へのガラスドア
+        cr.color = Color(0, 0, 0, 0)
+        var gm_door_x = obs["x"] * cm_to_px
+        # 銀色フレーム
+        var gm_frame = ColorRect.new()
+        gm_frame.color = Color(0.68, 0.70, 0.74)
+        gm_frame.position = Vector2(gm_door_x, -h_px)
+        gm_frame.size = Vector2(w_px, h_px)
+        gm_frame.z_index = -1
+        node.add_child(gm_frame)
+        # ガラス上部（半透明ブルー）
+        var gm_glass_h = h_px * 0.65
+        var gm_glass = ColorRect.new()
+        gm_glass.color = Color(0.60, 0.76, 0.90, 0.55)
+        gm_glass.position = Vector2(gm_door_x + 10, -h_px + 10)
+        gm_glass.size = Vector2(w_px - 20, gm_glass_h - 10)
+        gm_glass.z_index = -1
+        node.add_child(gm_glass)
+        # 下パネル（グレー）
+        var gm_panel = ColorRect.new()
+        gm_panel.color = Color(0.58, 0.60, 0.65)
+        gm_panel.position = Vector2(gm_door_x + 10, -h_px + gm_glass_h)
+        gm_panel.size = Vector2(w_px - 20, h_px - gm_glass_h - 10)
+        gm_panel.z_index = -1
+        node.add_child(gm_panel)
+        # 中央縦線（スライドドア合わせ目）
+        var gm_center = ColorRect.new()
+        gm_center.color = Color(0.50, 0.52, 0.56)
+        gm_center.position = Vector2(gm_door_x + w_px * 0.5 - 2, -h_px)
+        gm_center.size = Vector2(4, h_px)
+        gm_center.z_index = -1
+        node.add_child(gm_center)
+
     elif o_id == "door_to_station":
         # 屋外から見た駅の入口（コンクリートの門＋看板）
         cr.color = Color(0, 0, 0, 0)
