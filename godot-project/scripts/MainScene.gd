@@ -128,7 +128,9 @@ const TERM_HOTSPOTS: Dictionary = {
 		"prompt": "食卓で一息つく",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_home_table",
-		"pose": "chair_sit"
+		"pose": "chair_sit",
+		"seat_height_cm": 45.0,
+		"desk_height_cm": 72.0
 	},
 	"school_seat": {
 		"stage_id": "school",
@@ -158,7 +160,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"pose": "chair_sit",
 		"stress_delta": -4,
 		"feedback": "人波から少し距離を取れた",
-		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。"
+		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。",
+		"seat_height_cm": 45.0
 	},
 	"station_vending": {
 		"stage_id": "station",
@@ -943,6 +946,32 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	var pose_name: String = String(hotspot_data.get("pose", ""))
 	if pose_name != "" and player:
 		_dialogue_restore_pose = String(player.pose)
+		# chair_sit の場合は座面・机の高さを sit_context にセット
+		if pose_name == "chair_sit" and player.get("sit_context") != null:
+			var seat_h: float = float(hotspot_data.get("seat_height_cm", -1.0))
+			var desk_h: float = float(hotspot_data.get("desk_height_cm", -1.0))
+			# 静的定義がない場合（学校など高さが可変）は近傍 obs のメタから自動検出
+			if seat_h < 0.0 or desk_h < 0.0:
+				var hotspot_obs_ids: Array = []
+				var oi = hotspot_data.get("obs_ids", null)
+				if oi is Array:
+					hotspot_obs_ids = oi
+				else:
+					var single = String(hotspot_data.get("obs_id", ""))
+					if single != "":
+						hotspot_obs_ids = [single]
+				for child in get_children():
+					if not child.has_meta("obs_id"):
+						continue
+					var o_id: String = String(child.get_meta("obs_id"))
+					if not (o_id in hotspot_obs_ids):
+						continue
+					var oh: float = float(child.get_meta("obs_height_cm", 0.0))
+					if ("chair" in o_id or "bench" in o_id or "seat" in o_id) and seat_h < 0.0:
+						seat_h = oh
+					elif ("desk" in o_id or "table" in o_id) and desk_h < 0.0:
+						desk_h = oh
+			player.sit_context = {"seat_h_cm": seat_h, "desk_h_cm": desk_h}
 		if player.has_method("set_pose_immediately"):
 			player.call("set_pose_immediately", pose_name)
 		else:
@@ -1153,6 +1182,8 @@ func _end_dialogue() -> void:
 			var drawer := player.get_node_or_null("CharacterDrawer")
 			if drawer:
 				drawer.queue_redraw()
+		if _dialogue_restore_pose != "chair_sit" and player.get("sit_context") != null:
+			player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0}
 		_dialogue_restore_pose = ""
 
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
