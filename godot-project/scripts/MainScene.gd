@@ -11,6 +11,8 @@ var sidebar: PanelContainer # Qキーでトグル表示するステータスサ�
 var status_label: Label
 var bubble_panel: PanelContainer
 var bubble_label: Label
+var daily_guide_panel: PanelContainer
+var daily_guide_label: Label
 
 var minimap_bg: ColorRect
 var minimap_player: ColorRect
@@ -20,6 +22,7 @@ var stage_title_label: Label
 # ポーズメニュー用
 var pause_menu: Control
 var pause_save_label: Label
+var pause_fast_travel_panel: VBoxContainer
 
 # ステージ遷移用
 var _nearby_transition_door: String = ""
@@ -87,6 +90,17 @@ const GRADE_CHOICES: Dictionary = {
 		"summary": "ここで物語を区切り、仮エンディングのあとタイトルへ戻る。"
 	},
 }
+
+const FAST_TRAVEL_STAGES: Array[Dictionary] = [
+	{"id": "myroom", "label": "自室"},
+	{"id": "room", "label": "部屋（リビング）"},
+	{"id": "outdoor", "label": "屋外（街）"},
+	{"id": "school_hallway", "label": "学校（廊下）"},
+	{"id": "station", "label": "駅"},
+	{"id": "train", "label": "電車"},
+	{"id": "adjacent_town", "label": "隣町"},
+	{"id": "gakuenmachi", "label": "学園街"},
+]
 
 const TERM_HOTSPOT_ORDER = [
 	"home_mirror",
@@ -1701,6 +1715,33 @@ func _setup_ui():
 	action_hint_panel.add_child(action_hint_label)
 	ui_layer.add_child(action_hint_panel)
 
+	daily_guide_panel = PanelContainer.new()
+	var dg_style = StyleBoxFlat.new()
+	dg_style.bg_color = Color(0, 0, 0, 0.50)
+	dg_style.corner_radius_top_left = 8
+	dg_style.corner_radius_top_right = 8
+	dg_style.corner_radius_bottom_right = 8
+	dg_style.corner_radius_bottom_left = 8
+	dg_style.content_margin_left = 12
+	dg_style.content_margin_right = 12
+	dg_style.content_margin_top = 6
+	dg_style.content_margin_bottom = 6
+	daily_guide_panel.add_theme_stylebox_override("panel", dg_style)
+	daily_guide_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	daily_guide_panel.offset_left = 16
+	daily_guide_panel.offset_top = -58
+	daily_guide_panel.offset_right = 420
+	daily_guide_panel.offset_bottom = -16
+	daily_guide_panel.hide()
+	daily_guide_label = Label.new()
+	daily_guide_label.add_theme_font_size_override("font_size", 14)
+	daily_guide_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.92))
+	daily_guide_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.88))
+	daily_guide_label.add_theme_constant_override("outline_size", 3)
+	daily_guide_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	daily_guide_panel.add_child(daily_guide_label)
+	ui_layer.add_child(daily_guide_panel)
+
 	# 常時表示する「Q: ステータス設定」ヒントラベル
 	var hint = Label.new()
 	hint.text = "Q: ステータス設定"
@@ -1780,20 +1821,25 @@ func _setup_pause_menu() -> void:
 	style.content_margin_bottom = 40
 	panel.add_theme_stylebox_override("panel", style)
 	center.add_child(panel)
-	
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 20)
-	panel.add_child(vbox)
-	
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 28)
+	panel.add_child(hbox)
+
+	var left_vbox = VBoxContainer.new()
+	left_vbox.add_theme_constant_override("separation", 20)
+	left_vbox.custom_minimum_size = Vector2(280, 0)
+	hbox.add_child(left_vbox)
+
 	var title = Label.new()
 	title.text = "PAUSE MENU"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color.WHITE)
-	vbox.add_child(title)
+	left_vbox.add_child(title)
 	
 	# セパレータ
-	vbox.add_child(HSeparator.new())
+	left_vbox.add_child(HSeparator.new())
 	
 	var resume_btn = Button.new()
 	resume_btn.text = "ゲームに戻る (ESC)"
@@ -1801,7 +1847,7 @@ func _setup_pause_menu() -> void:
 	resume_btn.add_theme_font_size_override("font_size", 18)
 	resume_btn.focus_mode = Control.FOCUS_NONE
 	resume_btn.pressed.connect(_toggle_pause)
-	vbox.add_child(resume_btn)
+	left_vbox.add_child(resume_btn)
 	
 	var save_btn = Button.new()
 	save_btn.text = "セーブする"
@@ -1809,13 +1855,13 @@ func _setup_pause_menu() -> void:
 	save_btn.add_theme_font_size_override("font_size", 18)
 	save_btn.focus_mode = Control.FOCUS_NONE
 	save_btn.pressed.connect(_on_pause_save_pressed)
-	vbox.add_child(save_btn)
+	left_vbox.add_child(save_btn)
 	
 	pause_save_label = Label.new()
 	pause_save_label.add_theme_color_override("font_color", Color("#28a745"))
 	pause_save_label.add_theme_font_size_override("font_size", 14)
 	pause_save_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(pause_save_label)
+	left_vbox.add_child(pause_save_label)
 	
 	var title_btn = Button.new()
 	title_btn.text = "タイトルに戻る"
@@ -1823,7 +1869,7 @@ func _setup_pause_menu() -> void:
 	title_btn.add_theme_font_size_override("font_size", 18)
 	title_btn.focus_mode = Control.FOCUS_NONE
 	title_btn.pressed.connect(_on_title_pressed)
-	vbox.add_child(title_btn)
+	left_vbox.add_child(title_btn)
 	
 	var quit_btn = Button.new()
 	quit_btn.text = "ゲームを終了する"
@@ -1831,9 +1877,95 @@ func _setup_pause_menu() -> void:
 	quit_btn.add_theme_font_size_override("font_size", 18)
 	quit_btn.focus_mode = Control.FOCUS_NONE
 	quit_btn.pressed.connect(_on_quit_pressed)
-	vbox.add_child(quit_btn)
+	left_vbox.add_child(quit_btn)
+
+	var right_panel = PanelContainer.new()
+	var right_style = StyleBoxFlat.new()
+	right_style.bg_color = Color(0.08, 0.10, 0.12, 0.75)
+	right_style.corner_radius_top_left = 12
+	right_style.corner_radius_top_right = 12
+	right_style.corner_radius_bottom_right = 12
+	right_style.corner_radius_bottom_left = 12
+	right_style.content_margin_left = 20
+	right_style.content_margin_right = 20
+	right_style.content_margin_top = 20
+	right_style.content_margin_bottom = 20
+	right_panel.add_theme_stylebox_override("panel", right_style)
+	hbox.add_child(right_panel)
+
+	pause_fast_travel_panel = VBoxContainer.new()
+	pause_fast_travel_panel.add_theme_constant_override("separation", 10)
+	pause_fast_travel_panel.custom_minimum_size = Vector2(280, 0)
+	right_panel.add_child(pause_fast_travel_panel)
+	_rebuild_fast_travel_panel()
 	
 	ui_layer.add_child(pause_menu)
+
+func _rebuild_fast_travel_panel() -> void:
+	if not is_instance_valid(pause_fast_travel_panel):
+		return
+	for child in pause_fast_travel_panel.get_children():
+		child.queue_free()
+
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+
+	var current_stage_id: String = String(global.current_stage_id)
+	var age_value: int = int(global.age)
+	var current_stage_name: String = StageBuilder.get_stage_name(current_stage_id, age_value)
+
+	var title = Label.new()
+	title.text = "地図（ファストトラベル）"
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+	pause_fast_travel_panel.add_child(title)
+
+	var current = Label.new()
+	current.text = "現在地: %s" % current_stage_name
+	current.add_theme_font_size_override("font_size", 14)
+	current.add_theme_color_override("font_color", Color(0.74, 0.84, 0.96))
+	pause_fast_travel_panel.add_child(current)
+
+	pause_fast_travel_panel.add_child(HSeparator.new())
+
+	for entry in FAST_TRAVEL_STAGES:
+		var stage_id: String = _resolve_stage_id(String(entry.get("id", "")))
+		if stage_id == "" or not StageBuilder.STAGES.has(stage_id):
+			continue
+		var btn = Button.new()
+		btn.text = String(entry.get("label", stage_id))
+		btn.custom_minimum_size = Vector2(250, 42)
+		btn.focus_mode = Control.FOCUS_NONE
+		var lock_msg: String = _get_stage_lock_message(stage_id)
+		if stage_id == current_stage_id:
+			btn.disabled = true
+			btn.tooltip_text = "今いる場所"
+		elif lock_msg != "":
+			btn.disabled = true
+			btn.tooltip_text = lock_msg
+		else:
+			btn.pressed.connect(_on_fast_travel_pressed.bind(stage_id))
+		pause_fast_travel_panel.add_child(btn)
+
+func _on_fast_travel_pressed(stage_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var resolved_stage_id: String = _resolve_stage_id(stage_id)
+	if resolved_stage_id == "" or not StageBuilder.STAGES.has(resolved_stage_id):
+		return
+	var lock_msg: String = _get_stage_lock_message(resolved_stage_id)
+	if lock_msg != "":
+		_show_bump_alert(lock_msg)
+		return
+	if String(global.current_stage_id) == resolved_stage_id:
+		return
+	_toggle_pause()
+	global.current_stage_id = resolved_stage_id
+	global.actions_today += 1
+	_update_actions_hud()
+	_load_stage()
 
 func _setup_sleep_menu() -> void:
 	if sleep_menu:
@@ -2091,6 +2223,8 @@ func _toggle_pause() -> void:
 		var is_paused = not get_tree().paused
 		get_tree().paused = is_paused
 		pause_menu.visible = is_paused
+		if is_paused:
+			_rebuild_fast_travel_panel()
 		if pause_save_label:
 			pause_save_label.text = ""
 
@@ -2179,6 +2313,34 @@ func _update_ui():
 	
 	text += "F12: Screenshot save\n"
 	status_label.text = text
+	_update_daily_guide()
+
+func _update_daily_guide() -> void:
+	if not is_instance_valid(daily_guide_panel) or not is_instance_valid(daily_guide_label):
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		daily_guide_label.text = ""
+		daily_guide_panel.hide()
+		return
+
+	var stage_id: String = String(global.current_stage_id)
+	var actions: int = int(global.actions_today)
+	var max_actions: int = int(global.max_actions_per_day)
+	var in_school_classroom: bool = StageBuilder.is_school_classroom_stage(stage_id)
+	var hint_text := ""
+
+	if stage_id == "myroom" and actions == 0:
+		hint_text = "Hint: 朝だ。学校に向かおう"
+	elif in_school_classroom:
+		hint_text = "Hint: 授業を受けよう"
+	elif stage_id == "myroom" and actions >= max_actions:
+		hint_text = "Hint: ベッドで休もう"
+	elif actions >= max_actions:
+		hint_text = "Hint: 夕方だ。家に帰ろう"
+
+	daily_guide_label.text = hint_text
+	daily_guide_panel.visible = hint_text != ""
 
 func _queue_dialogue_event_once(global: Node, event_id: String, npc_id: String, dialogue_key: String) -> void:
 	if global == null:
