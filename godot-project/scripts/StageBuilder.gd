@@ -179,8 +179,8 @@ const STAGES = {
         "ceiling_height": null,
         "obstacles": [
             {"id": "door_to_school_hallway", "x": 80, "x2": 220, "height": 200, "type": "overhead"},
-            {"id": "horizontal_bar_low", "x": 500, "x2": 535, "height": 130, "type": "overhead"},
-            {"id": "horizontal_bar_high", "x": 640, "x2": 675, "height": 150, "type": "overhead"},
+            {"id": "horizontal_bar_low", "x": 500, "x2": 700, "height": 130, "type": "overhead"},
+            {"id": "horizontal_bar_high", "x": 750, "x2": 950, "height": 150, "type": "overhead"},
             {"id": "jungle_gym", "x": 900, "x2": 1100, "height": 200, "type": "background"},
             {"id": "basketball_hoop", "x": 1350, "x2": 1415, "height": 260, "type": "background"},
             {"id": "soccer_goal_post", "x": 2000, "x2": 2200, "height": 244, "type": "background"}
@@ -193,7 +193,7 @@ const STAGES = {
         "obstacles": [
             {"id": "door_to_school_hallway", "x": 80, "x2": 220, "height": 200, "type": "overhead"},
             {"id": "gym_storage", "x": 280, "x2": 450, "height": 200, "type": "background"},
-            {"id": "volleyball_net", "x": 1550, "x2": 1650, "height": 243, "type": "overhead"},
+            {"id": "volleyball_net", "x": 1550, "x2": 1850, "height": 243, "type": "overhead"},
             {"id": "gym_bench", "x": 2200, "x2": 2500, "height": 42, "type": "ground"},
             {"id": "gym_window_1", "x": 600, "x2": 780, "height": 500, "type": "background"},
             {"id": "gym_window_2", "x": 900, "x2": 1080, "height": 500, "type": "background"},
@@ -3251,33 +3251,33 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         # バスケゴール（支柱＋バックボード＋リング）
         cr.color = Color(0, 0, 0, 0)
         var bk_x = obs["x"] * cm_to_px
-        # ポール（地面から頂点まで）
+        # ポール（右側、地面から頂点まで）
         var bk_pole = ColorRect.new()
         bk_pole.color = Color(0.48, 0.48, 0.50)
-        bk_pole.position = Vector2(bk_x + w_px * 0.08, -h_px)
+        bk_pole.position = Vector2(bk_x + w_px * 0.82, -h_px)
         bk_pole.size = Vector2(12, h_px)
         bk_pole.z_index = -1
         node.add_child(bk_pole)
-        # ポールの土台（太い）
+        # ポールの土台（右側）
         var bk_base = ColorRect.new()
         bk_base.color = Color(0.40, 0.40, 0.42)
-        bk_base.position = Vector2(bk_x, -20)
-        bk_base.size = Vector2(w_px * 0.25, 20)
+        bk_base.position = Vector2(bk_x + w_px * 0.78, -20)
+        bk_base.size = Vector2(w_px * 0.22, 20)
         bk_base.z_index = -1
         node.add_child(bk_base)
-        # 横アーム（ポール上端 → バックボード方向へ）
+        # 横アーム（ポール頂上からボード方向へ左に延伸）
         var bk_arm = ColorRect.new()
         bk_arm.color = Color(0.48, 0.48, 0.50)
-        bk_arm.position = Vector2(bk_x + w_px * 0.08 + 12, -h_px)
-        bk_arm.size = Vector2(w_px * 0.50, 10)
+        bk_arm.position = Vector2(bk_x + w_px * 0.48, -h_px)
+        bk_arm.size = Vector2(w_px * 0.34 + 12, 10)
         bk_arm.z_index = -1
         node.add_child(bk_arm)
-        # バックボード（縦長の長方形）
-        var board_w = w_px * 0.32
-        var board_h = h_px * 0.18
+        # バックボード（アーム左端、リングの真後ろ）
+        var board_w = w_px * 0.16
+        var board_h = h_px * 0.22
         var bk_board = ColorRect.new()
         bk_board.color = Color(0.92, 0.92, 0.95)
-        bk_board.position = Vector2(bk_x + w_px * 0.58, -h_px - board_h * 0.25)
+        bk_board.position = Vector2(bk_x + w_px * 0.48, -h_px - board_h * 0.28)
         bk_board.size = Vector2(board_w, board_h)
         bk_board.z_index = -1
         node.add_child(bk_board)
@@ -3289,28 +3289,29 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         bk_board_frame.size = bk_board.size
         bk_board_frame.z_index = -1
         node.add_child(bk_board_frame)
-        # ボードの小さい四角（シューティングスクエア）
+        # ボードのシューティングスクエア
         var sq = ReferenceRect.new()
         sq.editor_only = false
         sq.border_color = Color(0.50, 0.50, 0.55)
         sq.border_width = 2.0
-        sq.position = bk_board.position + Vector2(board_w * 0.2, board_h * 0.3)
-        sq.size = Vector2(board_w * 0.6, board_h * 0.4)
+        sq.position = bk_board.position + Vector2(board_w * 0.15, board_h * 0.28)
+        sq.size = Vector2(board_w * 0.70, board_h * 0.42)
         sq.z_index = -1
         node.add_child(sq)
-        # リング（オレンジ）
+        # リング（ボードの前面から左へ）
         var ring_y = -h_px
+        var ring_w = w_px * 0.38
         var bk_ring = ColorRect.new()
         bk_ring.color = Color(0.92, 0.42, 0.08)
-        bk_ring.position = Vector2(bk_x + w_px * 0.28, ring_y - 3)
-        bk_ring.size = Vector2(w_px * 0.38, 7)
+        bk_ring.position = Vector2(bk_x + w_px * 0.48 - ring_w, ring_y - 3)
+        bk_ring.size = Vector2(ring_w, 7)
         bk_ring.z_index = -1
         node.add_child(bk_ring)
         # ネット（白い縦線）
         for ni in range(6):
             var net_line = ColorRect.new()
             net_line.color = Color(0.88, 0.88, 0.88, 0.80)
-            net_line.position = Vector2(bk_x + w_px * 0.28 + ni * (w_px * 0.38 / 5.0), ring_y + 4)
+            net_line.position = Vector2(bk_x + w_px * 0.48 - ring_w + ni * (ring_w / 5.0), ring_y + 4)
             net_line.size = Vector2(2, h_px * 0.12)
             net_line.z_index = -1
             node.add_child(net_line)
@@ -4074,15 +4075,15 @@ static func _schoolyard_obstacles(stage_id: String) -> Array:
         {"id": "soccer_goal_post", "x": 2000, "x2": 2200, "height": 244, "type": "background"},
     ]
     if suffix == "elementary":
-        obstacles.append({"id": "horizontal_bar_low", "x": 500, "x2": 535, "height": 130, "type": "overhead"})
-        obstacles.append({"id": "horizontal_bar_high", "x": 640, "x2": 675, "height": 150, "type": "overhead"})
+        obstacles.append({"id": "horizontal_bar_low", "x": 500, "x2": 700, "height": 130, "type": "overhead"})
+        obstacles.append({"id": "horizontal_bar_high", "x": 750, "x2": 950, "height": 150, "type": "overhead"})
         obstacles.append({"id": "jungle_gym", "x": 900, "x2": 1100, "height": 200, "type": "background"})
         obstacles.append({"id": "horizontal_ladder", "x": 1150, "x2": 1330, "height": 200, "type": "overhead"})
     elif suffix == "middle":
-        obstacles.append({"id": "horizontal_bar_high", "x": 700, "x2": 740, "height": 220, "type": "overhead"})
+        obstacles.append({"id": "horizontal_bar_high", "x": 700, "x2": 900, "height": 220, "type": "overhead"})
     else:
         obstacles.append({"id": "gym_bench", "x": 900, "x2": 1160, "height": 42, "type": "ground"})
-        obstacles.append({"id": "horizontal_bar_high", "x": 700, "x2": 740, "height": 220, "type": "overhead"})
+        obstacles.append({"id": "horizontal_bar_high", "x": 700, "x2": 900, "height": 220, "type": "overhead"})
     return obstacles
 
 static func _infirmary_obstacles(stage_id: String) -> Array:
@@ -4103,7 +4104,7 @@ static func _gymnasium_obstacles(stage_id: String) -> Array:
     return [
         {"id": "door_to_%s" % _school_stage_id("school_hallway", suffix), "x": 80, "x2": 220, "height": 200, "type": "overhead"},
         {"id": "gym_storage", "x": 280, "x2": 450, "height": 200, "type": "background"},
-        {"id": "volleyball_net", "x": net_x, "x2": net_x + 100, "height": 224, "type": "overhead"},
+        {"id": "volleyball_net", "x": net_x, "x2": net_x + 300, "height": 224, "type": "overhead"},
         {"id": "gym_bench", "x": 2200, "x2": 2500, "height": 42, "type": "ground"},
         {"id": "gym_window_1", "x": 600, "x2": 780, "height": 500, "type": "background"},
         {"id": "gym_window_2", "x": 900, "x2": 1080, "height": 500, "type": "background"},
