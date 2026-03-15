@@ -1,77 +1,188 @@
-# プロジェクト仕様書 (spec.md)
+# プロジェクト仕様書
 
-本ドキュメントは、**Tall Life Simulator** の現在の実装状況および技術仕様を定義しますわ。
+このドキュメントは **Tall Life Simulator** の現行実装に対応した高レベル仕様です。  
+詳細なステージ構成や NPC 反応の一覧は、別ドキュメントを参照してください。
 
-## 📍 ファイル構成クイックリファレンス
-AIの皆様、迷った際はこちらを参照してくださいませ。
-- **身体描画（オーケストラ）**: [CharacterDrawer.gd](../godot-project/scripts/CharacterDrawer.gd), [DrawContext.gd](../godot-project/scripts/DrawContext.gd)
-- **身体描画（正面・側面）**: [CharacterDrawFront.gd](../godot-project/scripts/CharacterDrawFront.gd), [CharacterDrawSide.gd](../godot-project/scripts/CharacterDrawSide.gd)
-- **身体描画（パーツ別）**: [CharacterHairDrawer.gd](../godot-project/scripts/CharacterHairDrawer.gd), [CharacterBodyDrawer.gd](../godot-project/scripts/CharacterBodyDrawer.gd), [CharacterClothingDrawer.gd](../godot-project/scripts/CharacterClothingDrawer.gd), [hair_drawing_system.md](hair_drawing_system.md)
-- **プレイヤー操作・屈み**: [SkeletalPlayer.gd](../godot-project/scripts/SkeletalPlayer.gd), [CharacterPoseCalculator.gd](../godot-project/scripts/CharacterPoseCalculator.gd)
-- **NPC反応**: [SkeletalNPC.gd](../godot-project/scripts/SkeletalNPC.gd)
-- **ステージ構築**: [StageBuilder.gd](../godot-project/scripts/StageBuilder.gd), [stage_design.md](stage_design.md)
-- **データ管理**: [Global.gd](../godot-project/scripts/Global.gd)
+## 関連ドキュメント
 
----
+- ステージ構成・接続・NPC配置: [stage_design.md](stage_design.md)
+- キャラクター描画: [character_drawing_system.md](character_drawing_system.md)
+- ポーズと姿勢: [character_pose_spec.md](character_pose_spec.md)
+- 髪描画: [hair_drawing_system.md](hair_drawing_system.md)
+- 服装・髪のロジック: [clothing_and_hair_logic.md](clothing_and_hair_logic.md)
+- 物語・会話仕様: [story_doalogue.md/dialogue_trigger_spec.md](story_doalogue.md/dialogue_trigger_spec.md), [story_doalogue.md/game_story_spec.md](story_doalogue.md/game_story_spec.md)
 
-## 1. プロジェクト概要
-高身長の主人公が、その体格ゆえに遭遇する日常の「摩擦」や「視線」、そして成長に伴う世界の小型化を体験する2D高身長シミュレーターですわ。
+## 1. ゲーム概要
 
-## 2. コアシステム仕様
+本作は、高身長の少女が成長しながら日常空間と学校生活を過ごすシミュレーションゲームです。
 
-### 2.1. 身体描画・ポーズシステム
-- **主要ファイル**: `CharacterDrawer.gd`（オーケストラ）, `CharacterDrawUtils.gd`（描画ユーティリティ）
-- **詳細仕様**: [character_drawing_system.md](specs/character_drawing_system.md), [hair_drawing_system.md](specs/hair_drawing_system.md)
-- **概要**: `Global.gd` の身体パラメータ（身長、頭身、股下比率）に基づき、各パーツの座標をリアルタイム計算。
-- **多角的描画**: 正面・背面・側面の3視点をサポート。
-  - 服装、髪型のレイヤー管理。詳細は [clothing_and_hair_logic.md](specs/clothing_and_hair_logic.md) を参照。
-- **描画サブシステム構成**（2026-03-10 リファクタリング済み）:
+- 身長の伸びによって、同じ場所や同じ物体の見え方・使いにくさが変わる
+- 学校、家、駅、通学路での体験が、ストレスや自己認識に影響する
+- NPC との会話、学期イベント、身体測定を通して物語が進む
+- キャラクターの見た目は 2D 手描きベースで、正面・側面・ポーズ変化に対応する
 
-  | ファイル | 役割 |
-  |---|---|
-  | `DrawContext.gd` | 描画に必要な全状態を保持する共有コンテキスト（`RefCounted`）。引数チェーンを排除 |
-  | `CharacterDrawFront.gd` | 正面・背面ビューの描画ロジック（`static func draw(ctx)`） |
-  | `CharacterDrawSide.gd` | 側面ビューの描画ロジック（`static func draw(ctx)`） |
-  | `CharacterHairDrawer.gd` | 髪型描画（前髪・後ろ髪・サイドヘア、正面・側面・背面対応） |
-  | `CharacterBodyDrawer.gd` | 腕（袖付き）・脚（パンツ付き）・スカート描画 |
-  | `CharacterClothingDrawer.gd` | 服装オーバーレイ（セーラー・ブレザー・リボン・ジャンパースカート） |
+## 2. 現行のゲーム進行仕様
 
-### 2.2. 物理干渉・屈みシステム
-- **主要ファイル**: `SkeletalPlayer.gd`, `CharacterPoseCalculator.gd`
-- **自動屈み (Auto-Crouch)**:
-  - 頭上のレイキャスト（センサー）により障害物を検知。
-  - `CharacterPoseCalculator.gd` による二段階の屈み（背を丸める ⇔ 膝を曲げる）を二分探索で最適化。
-- **頭の衝突 (Head Bump)**: 屈みが不十分な状態での衝突検知と演出。
+### 2-1. 進行単位
 
-### 2.3. 多段階NPCリアクションシステム
-- **主要ファイル**: `SkeletalNPC.gd`
-- **概要**: プレイヤーとの身長差をリアルタイムに判定。
+旧仕様の「1ターン = 1学期」は廃止されています。  
+現行実装では、**学期 > 日 > 行動** の3段階で進行します。
 
-| 身長差(Player - NPC) | 反応キー | セリフ例 | 特殊挙動 |
-| :--- | :--- | :--- | :--- |
-| **+60cm 以上** | `very_huge` | 「でかっ…！」 | **全力で後退/回避** |
-| **+35cm 以上** | `huge` | 「見上げちゃう」 | **緩やかに後退/回避** |
-| **+15cm 以上** | `tall` | 「背、高いな」 | 特になし |
-| **-15cm 以下** | `shorter` | 「今日は私の方が高い」 | 特になし |
-| **それ以外** | `same` | (無言) | 特になし |
+| 単位 | 現行仕様 |
+| --- | --- |
+| 学期 | `term` で管理。進級・進学・成長の基準単位 |
+| 日 | `day_in_term` で管理。1学期は `term_total_days = 30` 日 |
+| 行動 | `actions_today` で管理。1日の目安は `max_actions_per_day = 3` |
 
-- **視線同期**: NPCが頭の角度（`look_head_angle`）を動的に変えてプレイヤーを見る。
+### 2-2. 1日の進み方
 
-### 2.4. 成長・ライフサイクル
-- **主要ファイル**: `Global.gd`, `MainScene.gd`
-- **身体測定**: 保健室の身長計で学期進行（詳細は [spec.local.md](specs/spec.local.md) のメモ参照）。
-- **成長ロジック**: 年齢に応じた成長速度の変化と履歴保存。
+- ドア移動 `door_to_*` は 1 行動消費する
+- 画面端移動は現在 `outdoor -> adjacent_town` と `adjacent_town -> outdoor` のみ実装されており、これも 1 行動消費する
+- NPC との会話、term hotspot、身体測定そのものは現状では行動消費しない
+- `actions_today >= max_actions_per_day` になると HUD 上で「今日はもう夕方だ」という警告が出る
+- ただし現状はソフト制限であり、行動そのものは強制停止しない
 
-## 3. ステージ構成
-- **主要ファイル**: `StageBuilder.gd`
-- **詳細仕様**: [stage_design.md](specs/stage_design.md), [room_stage_objects.md](specs/room_stage_objects.md)
-- **構成**: 家(room), 駅(station), 屋外(outdoor), 学校(school)等。各オブジェクトの干渉判定を定義。
+### 2-3. 日送り
 
-## 4. 技術仕様
-- **エンジン**: Godot Engine 4.x
-- **座標系**: 1cm = 2.0px (`CM_TO_PX`)
-- **描画方式**: `_draw()` 関数による動的ポリゴン（スプライト未使用）。
-- **データ保存**: JSON形式によるスロットセーブ (`user://save_slot_N.json`)。
+日送りは `myroom` の `bed` から行います。
 
----
-*Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>*
+- `今日を終える`: `day_in_term += 1`
+- `学期末まで一気に進める`: `day_in_term = term_total_days`
+- 日送り時に `actions_today` は 0 に戻る
+- 日送り後はフェード演出を挟み、`myroom` に戻る
+
+### 2-4. 学期末と身体測定
+
+`day_in_term >= term_total_days` になると、`term_end_measurement` イベントが予約されます。
+
+- 学期末イベントは `myroom` で消化される
+- 学期末イベントの消化時に `Global.advance_term()` が呼ばれる
+- 学期進行後に身体測定結果パネルを表示する
+- 身体測定パネルを閉じると `myroom` に戻る
+
+このため、現行実装では **「学期末に測定して次の学期へ進む」** 流れになっています。
+
+### 2-5. 学校内の時間進行
+
+教室で学期イベント会話 `term_school` を消化すると、放課後演出を経て廊下へ移ります。
+
+- 教室で会話
+- 「放課後になった。」の演出
+- `school_hallway_*` へ移動
+- 帰り道や寄り道のフェーズへ移行
+
+### 2-6. 成長処理
+
+学期進行時には以下がまとめて更新されます。
+
+- `term` の増加
+- `age` の再計算
+- `current_params["height"]` の成長
+- 頭身比 `ratio` の自動更新
+- 学校段階が変わった場合の制服更新
+- `haruka_invited_this_term` など学期内フラグのリセット
+- `term_hotspot_flags` と `term_memory_note` のリセット
+- `semester_start` イベントの予約
+
+夏休み区間では急成長ボーナスも入ります。
+
+### 2-7. 感情・記録
+
+進行と並行して、以下の状態が蓄積されます。
+
+- `stress`: 今学期のしんどさ
+- `self_confidence`: 自己肯定寄りの蓄積
+- `self_complex`: コンプレックス寄りの蓄積
+- `term_hotspot_flags`: 今学期に触れたイベント地点
+- `term_memory_note`: 今学期の印象的な出来事メモ
+- `visited_stages`, `experienced_events`: 通算ログ
+
+## 3. ステージ仕様
+
+ステージは `StageBuilder.gd` が構築します。  
+学校系ステージは年齢に応じて実ステージ ID に解決されます。
+
+| ベースID | 11歳以下 | 12〜14歳 | 15歳以上 |
+| --- | --- | --- | --- |
+| `school_hallway` | `school_hallway_elementary` | `school_hallway_middle` | `school_hallway_high` |
+| `school` | `school_elementary` | `school_middle` | `school_high` |
+| `schoolyard` | `schoolyard_elementary` | `schoolyard_middle` | `schoolyard_high` |
+| `infirmary` | `infirmary_elementary` | `infirmary_middle` | `infirmary_high` |
+| `gymnasium` | `gymnasium_elementary` | `gymnasium_middle` | `gymnasium_high` |
+
+現行ルートの要点は以下です。
+
+- 家まわり: `myroom <-> room <-> outdoor`
+- 中学ルート: `outdoor` 右端 `-> adjacent_town -> school_hallway_middle`
+- 高校ルート: `station -> platform -> train -> gakuenmae -> gakuenmachi -> school_hallway_high`
+- 小学校ルート: `outdoor -> school_hallway_elementary`
+
+ステージごとの接続、比較対象オブジェクト、インタラクト対象、NPC 反応の詳細は [stage_design.md](stage_design.md) を参照してください。
+
+## 4. NPC と会話
+
+NPC システムは主に `MainScene.gd`、`DialogueDatabase.gd`、`SkeletalNPC.gd` を中心に構成されています。
+
+- 固有 NPC: `haruka`, `nurse`, `senior`, `mother`, `father`
+- 汎用 NPC: `generic` として扱う
+- 身長差やストーリーフラグに応じて会話キーを切り替える
+- 一部 NPC は学期内フラグや部活ストーリー段階に依存して分岐する
+
+NPC の出現場所や反応傾向は [stage_design.md](stage_design.md) を参照してください。
+
+## 5. 主要システムと対応ファイル
+
+| 系統 | 主なファイル | 役割 |
+| --- | --- | --- |
+| グローバル状態管理 | `godot-project/scripts/Global.gd` | 成長、学期進行、感情値、保存データの管理 |
+| メインシーン進行 | `godot-project/scripts/MainScene.gd` | UI、移動、会話、日送り、学期末処理、測定表示 |
+| ステージ構築 | `godot-project/scripts/StageBuilder.gd` | ステージ背景、障害物、接続、年齢別学校解決 |
+| 会話データ | `godot-project/scripts/DialogueDatabase.gd` | NPC・プレイヤー会話定義 |
+| プレイヤー描画 | `godot-project/scripts/CharacterDrawer.gd` ほか | 正面・側面・髪・服装・体型描画 |
+| プレイヤー姿勢 | `godot-project/scripts/CharacterPoseCalculator.gd`, `godot-project/scripts/SkeletalPlayer.gd` | しゃがみ、頭ぶつけ、姿勢制御 |
+| NPC 表示 | `godot-project/scripts/SkeletalNPC.gd` | NPC の見た目と基本挙動 |
+
+## 6. UI 仕様の要点
+
+現行のメイン画面では以下の情報を常時表示します。
+
+- 左上: `Q: ステータス設定`
+- 上中央: 現在のステージ名
+- 右上: `◯日目 行動 x/y`
+- 右下: 現在その場で可能な操作ヒント
+- 左上付近: ミニマップバー
+
+補助 UI として以下があります。
+
+- ポーズメニュー
+- 日送り用スリープメニュー
+- 身体測定結果パネル
+- 進級時の続行 / 終了選択パネル
+
+## 7. 保存仕様
+
+保存は `ConfigFile` ベースで行います。
+
+| 種類 | パス | 内容 |
+| --- | --- | --- |
+| 設定保存 | `user://settings.cfg` | 現在のプレイヤー状態、感情値、学期フラグ、見た目、システム設定 |
+| セーブスロット | `user://save_slots.cfg` | スロット別のプレイ状況保存 |
+
+保存対象の主な内容:
+
+- 身長、頭身、脚比率、性別
+- 見た目設定
+- `current_stage_id`
+- `age`, `term`, `day_in_term`, `actions_today`
+- 成長履歴
+- `stress`, `self_confidence`, `self_complex`
+- 学期フラグ、部活フラグ、同行フラグ
+- 訪問済みステージ、体験済みイベント
+
+## 8. 現行仕様として明記しておく点
+
+- 旧仕様の「1ターン = 1学期」は現行実装では採用していない
+- 現在は **1学期 = 30日**, **1日 = 複数行動**, **ベッドで日送り** の構造
+- 学期末の身体測定は `myroom` に戻ってから処理される
+- ステージ構成は駅ルートと隣町ルートを含む複数ハブ型になっている
+- ステージ詳細や NPC 反応は [stage_design.md](stage_design.md) を正とする
