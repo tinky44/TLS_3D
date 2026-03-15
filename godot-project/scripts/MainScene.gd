@@ -61,6 +61,7 @@ var _dialogue_index: int = 0
 var _current_dialogue_npc: String = ""
 var _current_dialogue_key: String = ""
 var _dialogue_restore_pose: String = ""
+var _sit_front_nodes: Array = []  # 着席中に前面表示した obs ノードのリスト
 var _choice_buttons: Array = []
 var _choice_selected_index: int = -1
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
@@ -946,31 +947,34 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	var pose_name: String = String(hotspot_data.get("pose", ""))
 	if pose_name != "" and player:
 		_dialogue_restore_pose = String(player.pose)
-		# chair_sit の場合は座面・机の高さを sit_context にセット
+		# chair_sit の場合は座面・机の高さを sit_context にセット、机を前面表示
 		if pose_name == "chair_sit" and player.get("sit_context") != null:
 			var seat_h: float = float(hotspot_data.get("seat_height_cm", -1.0))
 			var desk_h: float = float(hotspot_data.get("desk_height_cm", -1.0))
-			# 静的定義がない場合（学校など高さが可変）は近傍 obs のメタから自動検出
-			if seat_h < 0.0 or desk_h < 0.0:
-				var hotspot_obs_ids: Array = []
-				var oi = hotspot_data.get("obs_ids", null)
-				if oi is Array:
-					hotspot_obs_ids = oi
-				else:
-					var single = String(hotspot_data.get("obs_id", ""))
-					if single != "":
-						hotspot_obs_ids = [single]
-				for child in get_children():
-					if not child.has_meta("obs_id"):
-						continue
-					var o_id: String = String(child.get_meta("obs_id"))
-					if not (o_id in hotspot_obs_ids):
-						continue
-					var oh: float = float(child.get_meta("obs_height_cm", 0.0))
-					if ("chair" in o_id or "bench" in o_id or "seat" in o_id) and seat_h < 0.0:
-						seat_h = oh
-					elif ("desk" in o_id or "table" in o_id) and desk_h < 0.0:
+			var hotspot_obs_ids: Array = []
+			var oi = hotspot_data.get("obs_ids", null)
+			if oi is Array:
+				hotspot_obs_ids = oi
+			else:
+				var single = String(hotspot_data.get("obs_id", ""))
+				if single != "":
+					hotspot_obs_ids = [single]
+			_sit_front_nodes.clear()
+			for child in get_children():
+				if not child.has_meta("obs_id"):
+					continue
+				var o_id: String = String(child.get_meta("obs_id"))
+				if not (o_id in hotspot_obs_ids):
+					continue
+				var oh: float = float(child.get_meta("obs_height_cm", 0.0))
+				if ("chair" in o_id or "bench" in o_id or "seat" in o_id) and seat_h < 0.0:
+					seat_h = oh
+				elif "desk" in o_id or "table" in o_id:
+					if desk_h < 0.0:
 						desk_h = oh
+					# 机を前面に描画
+					child.z_index = 1
+					_sit_front_nodes.append(child)
 			player.sit_context = {"seat_h_cm": seat_h, "desk_h_cm": desk_h}
 		if player.has_method("set_pose_immediately"):
 			player.call("set_pose_immediately", pose_name)
@@ -1185,6 +1189,11 @@ func _end_dialogue() -> void:
 		if _dialogue_restore_pose != "chair_sit" and player.get("sit_context") != null:
 			player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0}
 		_dialogue_restore_pose = ""
+	# 前面表示していた机ノードを元の z_index に戻す
+	for n in _sit_front_nodes:
+		if is_instance_valid(n):
+			n.z_index = -1
+	_sit_front_nodes.clear()
 
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
 		if global:
