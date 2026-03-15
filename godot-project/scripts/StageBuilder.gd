@@ -642,19 +642,47 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         town_sky_btm.size = Vector2(town_w_px, 200 * cm_to_px)
         town_bg.add_child(town_sky_btm)
         for house_data in [
-            {"x": 180.0, "w": 220.0, "h": 240.0, "color": Color(0.88, 0.83, 0.76)},
-            {"x": 470.0, "w": 180.0, "h": 210.0, "color": Color(0.80, 0.82, 0.88)},
+            {"x": 180.0, "w": 220.0, "h": 240.0, "color": Color(0.88, 0.83, 0.76), "roof": Color(0.52, 0.30, 0.24)},
+            {"x": 470.0, "w": 180.0, "h": 210.0, "color": Color(0.80, 0.82, 0.88), "roof": Color(0.35, 0.30, 0.28)},
         ]:
+            var hx = float(house_data["x"]) * cm_to_px
+            var hw = float(house_data["w"]) * cm_to_px
+            var hh = float(house_data["h"]) * cm_to_px
             var house = ColorRect.new()
             house.color = house_data["color"]
-            house.position = Vector2(float(house_data["x"]) * cm_to_px, -float(house_data["h"]) * cm_to_px)
-            house.size = Vector2(float(house_data["w"]) * cm_to_px, float(house_data["h"]) * cm_to_px)
+            house.position = Vector2(hx, -hh)
+            house.size = Vector2(hw, hh)
             town_bg.add_child(house)
+            # 三角屋根
+            var overhang = 8.0 * cm_to_px
+            var roof = Polygon2D.new()
+            roof.polygon = PackedVector2Array([
+                Vector2(hx - overhang, -hh),
+                Vector2(hx + hw + overhang, -hh),
+                Vector2(hx + hw * 0.5, -hh - 50.0 * cm_to_px),
+            ])
+            roof.color = house_data["roof"]
+            town_bg.add_child(roof)
+            # 窓（左右2つ）
+            for wx_off in [0.15, 0.60]:
+                var win = ColorRect.new()
+                win.color = Color(0.62, 0.78, 0.90, 0.6)
+                win.position = Vector2(hx + hw * wx_off, -hh * 0.6)
+                win.size = Vector2(hw * 0.18, hh * 0.2)
+                town_bg.add_child(win)
         var school_wall = ColorRect.new()
         school_wall.color = Color(0.78, 0.80, 0.84)
         school_wall.position = Vector2(1070 * cm_to_px, -320 * cm_to_px)
         school_wall.size = Vector2(260 * cm_to_px, 320 * cm_to_px)
         town_bg.add_child(school_wall)
+        # 学校建物の窓（2列 × 2行）
+        for sw_row in range(2):
+            for sw_col in range(2):
+                var swin = ColorRect.new()
+                swin.color = Color(0.62, 0.78, 0.90, 0.55)
+                swin.position = Vector2((1095 + sw_col * 100) * cm_to_px, -(265 - sw_row * 90) * cm_to_px)
+                swin.size = Vector2(50 * cm_to_px, 60 * cm_to_px)
+                town_bg.add_child(swin)
         var school_gate = ColorRect.new()
         school_gate.color = Color(0.32, 0.38, 0.48)
         school_gate.position = Vector2(1160 * cm_to_px, -220 * cm_to_px)
@@ -752,16 +780,26 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
             {"x": 620.0, "w": 260.0, "h": 230.0, "body": Color(0.78, 0.84, 0.90), "awning": Color(0.26, 0.48, 0.78)},
             {"x": 980.0, "w": 250.0, "h": 240.0, "body": Color(0.88, 0.84, 0.78), "awning": Color(0.28, 0.60, 0.42)},
         ]:
+            var sx = float(shop["x"]) * cm_to_px
+            var sw2 = float(shop["w"]) * cm_to_px
+            var sh = float(shop["h"]) * cm_to_px
             var shop_body = ColorRect.new()
             shop_body.color = shop["body"]
-            shop_body.position = Vector2(float(shop["x"]) * cm_to_px, -float(shop["h"]) * cm_to_px)
-            shop_body.size = Vector2(float(shop["w"]) * cm_to_px, float(shop["h"]) * cm_to_px)
+            shop_body.position = Vector2(sx, -sh)
+            shop_body.size = Vector2(sw2, sh)
             town_arcade.add_child(shop_body)
             var awning = ColorRect.new()
             awning.color = shop["awning"]
-            awning.position = Vector2(float(shop["x"]) * cm_to_px, -(float(shop["h"]) - 32.0) * cm_to_px)
-            awning.size = Vector2(float(shop["w"]) * cm_to_px, 26 * cm_to_px)
+            awning.position = Vector2(sx, -(float(shop["h"]) - 32.0) * cm_to_px)
+            awning.size = Vector2(sw2, 26 * cm_to_px)
             town_arcade.add_child(awning)
+            # 店舗ガラス窓（2つ）
+            for wi in range(2):
+                var shop_win = ColorRect.new()
+                shop_win.color = Color(0.65, 0.82, 0.93, 0.58)
+                shop_win.position = Vector2(sx + sw2 * (0.12 + wi * 0.48), -sh * 0.56)
+                shop_win.size = Vector2(sw2 * 0.32, sh * 0.28)
+                town_arcade.add_child(shop_win)
         var high_gate_bg = ColorRect.new()
         high_gate_bg.color = Color(0.32, 0.36, 0.46)
         high_gate_bg.position = Vector2(1810 * cm_to_px, -260 * cm_to_px)
@@ -1718,6 +1756,39 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         shadow.size = Vector2(w_px * 0.1, h_draw_px)
         node.add_child(shadow)
 
+    elif o_id.begins_with("door_to_school_hallway"):
+        # 学校のガラス引き戸ドア（学校内部スタイル）
+        cr.color = Color(0, 0, 0, 0)
+        var sch_x = obs["x"] * cm_to_px
+        # ドア枠（暗い木/アルミ）
+        var sd_frame = ColorRect.new()
+        sd_frame.color = Color(0.28, 0.20, 0.14)
+        sd_frame.position = Vector2(sch_x, -h_px)
+        sd_frame.size = Vector2(w_px, h_px)
+        sd_frame.z_index = -1
+        node.add_child(sd_frame)
+        # ガラス上半分
+        var sd_glass = ColorRect.new()
+        sd_glass.color = Color(0.62, 0.78, 0.90, 0.58)
+        sd_glass.position = Vector2(sch_x + 10, -h_px + 10)
+        sd_glass.size = Vector2(w_px - 20, h_px * 0.52)
+        sd_glass.z_index = -1
+        node.add_child(sd_glass)
+        # 中間横桟
+        var sd_bar = ColorRect.new()
+        sd_bar.color = Color(0.22, 0.16, 0.10)
+        sd_bar.position = Vector2(sch_x, -h_px + h_px * 0.52 + 8)
+        sd_bar.size = Vector2(w_px, 8)
+        sd_bar.z_index = -1
+        node.add_child(sd_bar)
+        # ドアノブ
+        var sd_knob = ColorRect.new()
+        sd_knob.color = Color(0.78, 0.68, 0.18)
+        sd_knob.position = Vector2(sch_x + w_px * 0.78, -h_px * 0.52)
+        sd_knob.size = Vector2(10, 18)
+        sd_knob.z_index = -1
+        node.add_child(sd_knob)
+
     elif "door" in o_id:
         # 元の梁（上枠）の色をドアの枠色に合わせる
         cr.color = Color(0.24, 0.16, 0.12)
@@ -1768,7 +1839,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         node.add_child(btm_box)
         
         # ドアノブ
-        var knob_radius = 8.0
+        var _knob_radius = 8.0
         var is_right_door = ("right" in o_id or "2" in o_id or "4" in o_id)
         var knob_cx = door_panel.position.x + (25.0 if not is_right_door else door_panel.size.x - 25.0)
         var knob_cy = - h_px * 0.5

@@ -1499,6 +1499,11 @@ func _check_edge_transition() -> void:
 	elif stage_id == "adjacent_town":
 		if player_x_cm <= 10.0:
 			_enter_edge_transition("outdoor")
+	elif stage_id == "station":
+		var stage_w: float = float(StageBuilder.STAGES["station"]["width"])
+		# station は右端に見えない壁があるため、少し手前で遷移判定する
+		if player_x_cm >= stage_w - 150.0:
+			_enter_edge_transition("platform")
 
 func _update_minimap():
 	if not player or not minimap_bg or not minimap_player: return
@@ -2780,6 +2785,7 @@ func _enter_transition_door() -> void:
 		var return_door_id = "door_to_" + from_stage_id
 		var stage_width = float(StageBuilder.STAGES[new_stage_id]["width"])
 		var cur_age = global.age if global else 0
+		var spawned := false
 		for obs in StageBuilder.get_obstacles(new_stage_id, cur_age):
 			if obs["id"] == return_door_id:
 				var obs_x = float(obs["x"])
@@ -2793,7 +2799,11 @@ func _enter_transition_door() -> void:
 					spawn_x = obs_x2 + 50.0
 				spawn_x = clamp(spawn_x, 50.0, stage_width - 50.0)
 				player.position = Vector2(spawn_x * p, 0)
+				spawned = true
 				break
+		# station には door_to_platform を置かない設計なので、platform から戻る時は右側に出す
+		if not spawned and new_stage_id == "station" and from_stage_id == "platform":
+			player.position = Vector2((stage_width - 260.0) * p, 0)
 
 # ─── 成長システム ───────────────────────────────────────────────
 
