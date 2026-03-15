@@ -60,7 +60,8 @@ const STAGES = {
             {"id": "door_to_station", "x": 80, "x2": 220, "height": 190, "type": "overhead"},
             {"id": "platform_column_1", "x": 520, "x2": 575, "height": 250, "type": "background"},
             {"id": "platform_bench", "x": 860, "x2": 1060, "height": 42, "type": "ground"},
-            {"id": "platform_column_2", "x": 1340, "x2": 1395, "height": 250, "type": "background"}
+            {"id": "platform_column_2", "x": 1340, "x2": 1395, "height": 250, "type": "background"},
+            {"id": "door_to_train", "x": 1880, "x2": 2060, "height": 185, "type": "overhead"}
         ]
     },
     "gakuenmae": {
@@ -68,6 +69,7 @@ const STAGES = {
         "width": 1700,
         "ceiling_height": null,
         "obstacles": [
+            {"id": "door_to_train", "x": 70, "x2": 230, "height": 185, "type": "overhead"},
             {"id": "station_sign_gakuenmae", "x": 520, "x2": 760, "height": 160, "type": "background"},
             {"id": "platform_bench_small", "x": 940, "x2": 1100, "height": 42, "type": "ground"},
             {"id": "door_to_gakuenmachi", "x": 1450, "x2": 1600, "height": 190, "type": "overhead"}
@@ -372,15 +374,9 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         _add_edge_trigger(parent_node, "RightEdgeTrigger", _edge_w_px, "adjacent_town")
     elif stage_id == "adjacent_town":
         _add_edge_trigger(parent_node, "LeftEdgeTrigger", 0.0, "outdoor")
-    elif stage_id == "platform":
-        # ホーム右端 → 電車（右端から100cm手前でトリガー、壁は端に残す）
-        _add_edge_trigger(parent_node, "RightEdgeTrigger", (_edge_w_px - 120 * cm_to_px), "train")
     elif stage_id == "station":
         # 駅右端 → ホーム（右端から150cm手前でトリガー、壁は端に残す）
         _add_edge_trigger(parent_node, "RightEdgeTrigger", (_edge_w_px - 150 * cm_to_px), "platform")
-    elif stage_id == "gakuenmae":
-        # 学園前駅左端 → 電車（左端から150cm手前でトリガー）
-        _add_edge_trigger(parent_node, "LeftEdgeTrigger", 150 * cm_to_px, "train")
 
     # 部屋系ステージの場合、背景を壁紙風にする
     if (stage_id == "room" or stage_id == "myroom") and stage_data.get("ceiling_height") != null:

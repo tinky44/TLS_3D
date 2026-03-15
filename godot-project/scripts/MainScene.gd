@@ -2558,6 +2558,8 @@ func _enter_edge_transition(target_stage: String) -> void:
 		var spawn_x = 80.0
 		if from_stage_id == "adjacent_town" and resolved_target == "outdoor":
 			spawn_x = stage_width - 80.0
+		elif from_stage_id == "station" and resolved_target == "platform":
+			spawn_x = 270.0  # door_to_station(x:80-220)の右隣にスポーン
 		player.position = Vector2(spawn_x * p, 0)
 	_edge_transition_running = false
 
