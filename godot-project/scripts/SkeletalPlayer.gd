@@ -274,7 +274,20 @@ func _update_smooth_pose(delta: float) -> void:
 		var t: float = 1.0 if (waist_settled and key in WALK_ANGLE_KEYS) else pose_t
 		smooth_d[key] = lerp(float(smooth_d.get(key, val)), float(val), t)
 
-func _update_visual_height(delta: float) -> void:
+func set_pose_immediately(new_pose: String) -> void:
+	pose = new_pose
+	_refresh_pose_visual_immediately()
+
+func _refresh_pose_visual_immediately() -> void:
+	if m == null or m.is_empty():
+		return
+	visual_height_cm = _get_target_visual_height_cm()
+	_update_collision()
+	smooth_d = CharacterPoseCalculator.calculate_pose_data(self, m, CM_TO_PX)
+	if character_drawer:
+		character_drawer.queue_redraw()
+
+func _get_target_visual_height_cm() -> float:
 	var target_h_cm = m["height"]
 
 	if pose == "taiiku_suwari":
@@ -289,14 +302,19 @@ func _update_visual_height(delta: float) -> void:
 		elif Input.is_key_pressed(KEY_S):
 			target_h_cm *= 0.8
 
-	sensors[4].force_raycast_update()
-	if sensors[4].is_colliding():
-		var hit_point = sensors[4].get_collision_point()
-		var ceil_y_px = global_position.y - hit_point.y
-		var ceil_h_cm = ceil_y_px / CM_TO_PX
-		if target_h_cm > ceil_h_cm - 8.0:
-			target_h_cm = ceil_h_cm - 8.0
+	if sensors.size() > 4 and is_instance_valid(sensors[4]):
+		sensors[4].force_raycast_update()
+		if sensors[4].is_colliding():
+			var hit_point = sensors[4].get_collision_point()
+			var ceil_y_px = global_position.y - hit_point.y
+			var ceil_h_cm = ceil_y_px / CM_TO_PX
+			if target_h_cm > ceil_h_cm - 8.0:
+				target_h_cm = ceil_h_cm - 8.0
 
+	return target_h_cm
+
+func _update_visual_height(delta: float) -> void:
+	var target_h_cm = _get_target_visual_height_cm()
 	visual_height_cm = lerp(visual_height_cm, target_h_cm, 15.0 * delta)
 
 func _update_collision() -> void:

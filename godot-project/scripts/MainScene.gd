@@ -916,7 +916,13 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	var pose_name: String = String(hotspot_data.get("pose", ""))
 	if pose_name != "" and player:
 		_dialogue_restore_pose = String(player.pose)
-		player.pose = pose_name
+		if player.has_method("set_pose_immediately"):
+			player.call("set_pose_immediately", pose_name)
+		else:
+			player.pose = pose_name
+			var drawer := player.get_node_or_null("CharacterDrawer")
+			if drawer:
+				drawer.queue_redraw()
 	global.save_settings()
 	_nearby_term_hotspot = ""
 	_start_dialogue(
@@ -1064,7 +1070,13 @@ func _end_dialogue() -> void:
 	get_tree().paused = false
 	dialogue_panel.hide()
 	if player and _dialogue_restore_pose != "":
-		player.pose = _dialogue_restore_pose
+		if player.has_method("set_pose_immediately"):
+			player.call("set_pose_immediately", _dialogue_restore_pose)
+		else:
+			player.pose = _dialogue_restore_pose
+			var drawer := player.get_node_or_null("CharacterDrawer")
+			if drawer:
+				drawer.queue_redraw()
 		_dialogue_restore_pose = ""
 
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
