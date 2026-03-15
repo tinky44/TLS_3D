@@ -58,6 +58,8 @@ var _dialogue_index: int = 0
 var _current_dialogue_npc: String = ""
 var _current_dialogue_key: String = ""
 var _dialogue_restore_pose: String = ""
+var _choice_buttons: Array = []
+var _choice_selected_index: int = -1
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
@@ -971,13 +973,17 @@ func _show_dialogue_line() -> void:
 	if line.has("choices"):
 		_show_choices(line["choices"])
 	else:
+		_clear_choice_buttons()
 		choice_container.hide()
 		_choice_pending = false
+		dialogue_hint_label.text = "Eキーで次へ"
 		dialogue_hint_label.show()
 
 func _show_choices(choices: Array) -> void:
 	_choice_pending = true
-	dialogue_hint_label.hide()
+	dialogue_hint_label.text = "↑↓で選択  Eキーで決定"
+	dialogue_hint_label.show()
+	_clear_choice_buttons()
 	for child in choice_container.get_children():
 		child.queue_free()
 	var choice_style = StyleBoxFlat.new()
@@ -993,17 +999,60 @@ func _show_choices(choices: Array) -> void:
 	for c in choices:
 		var btn = Button.new()
 		btn.text = c.get("label", "")
+		btn.focus_mode = Control.FOCUS_ALL
 		btn.add_theme_font_size_override("font_size", 17)
 		btn.add_theme_stylebox_override("normal", choice_style.duplicate())
 		btn.add_theme_stylebox_override("hover", hover_style.duplicate())
+		btn.add_theme_stylebox_override("focus", hover_style.duplicate())
+		btn.add_theme_stylebox_override("pressed", hover_style.duplicate())
 		btn.add_theme_color_override("font_color", Color.WHITE)
+		btn.mouse_entered.connect(_on_choice_button_hovered.bind(_choice_buttons.size()))
+		btn.focus_entered.connect(_on_choice_button_focused.bind(_choice_buttons.size()))
 		btn.connect("pressed", _on_choice_selected.bind(c))
+		_choice_buttons.append(btn)
 		choice_container.add_child(btn)
 	choice_container.show()
+	_set_choice_selection(0)
+
+func _clear_choice_buttons() -> void:
+	_choice_buttons.clear()
+	_choice_selected_index = -1
+
+func _set_choice_selection(index: int) -> void:
+	if _choice_buttons.is_empty():
+		_choice_selected_index = -1
+		return
+	_choice_selected_index = wrapi(index, 0, _choice_buttons.size())
+	var btn: Button = _choice_buttons[_choice_selected_index]
+	if is_instance_valid(btn):
+		btn.grab_focus()
+
+func _move_choice_selection(delta: int) -> void:
+	if _choice_buttons.is_empty():
+		return
+	var base_index := _choice_selected_index if _choice_selected_index >= 0 else 0
+	_set_choice_selection(base_index + delta)
+
+func _activate_selected_choice() -> void:
+	if _choice_buttons.is_empty():
+		return
+	if _choice_selected_index < 0:
+		_set_choice_selection(0)
+	var btn: Button = _choice_buttons[_choice_selected_index]
+	if is_instance_valid(btn):
+		btn.emit_signal("pressed")
+
+func _on_choice_button_hovered(index: int) -> void:
+	_set_choice_selection(index)
+
+func _on_choice_button_focused(index: int) -> void:
+	_choice_selected_index = index
 
 func _on_choice_selected(choice: Dictionary) -> void:
 	_choice_pending = false
+	_clear_choice_buttons()
 	choice_container.hide()
+	dialogue_hint_label.text = "Eキーで次へ"
 	dialogue_hint_label.show()
 	# 感情パラメータ更新
 	var emotion: String = choice.get("emotion", "")
@@ -1075,7 +1124,9 @@ func _end_dialogue() -> void:
 
 	_in_dialogue = false
 	_choice_pending = false
+	_clear_choice_buttons()
 	choice_container.hide()
+	dialogue_hint_label.text = "Eキーで次へ"
 	dialogue_hint_label.show()
 	get_tree().paused = false
 	dialogue_panel.hide()
@@ -1940,6 +1991,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
 		_toggle_pause()
 	elif event is InputEventKey and event.pressed and not event.echo:
+		if _in_dialogue and _choice_pending:
+			if event.is_action_pressed("ui_up"):
+				_move_choice_selection(-1)
+				get_viewport().set_input_as_handled()
+				return
+			elif event.is_action_pressed("ui_down"):
+				_move_choice_selection(1)
+				get_viewport().set_input_as_handled()
+				return
 		if event.keycode == KEY_Q:
 			if sidebar: sidebar.visible = not sidebar.visible
 			_toggle_action_hint()
@@ -1947,7 +2007,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_history_panel()
 		elif event.keycode == KEY_E:
 			if _in_dialogue:
-				_advance_dialogue()
+				if _choice_pending:
+					_activate_selected_choice()
+				else:
+					_advance_dialogue()
 			elif _measurement_showing:
 				_on_close_measurement_pressed()
 			elif _nearby_bed:
