@@ -8,347 +8,225 @@
 
 | 優先 | タスク | 規模 |
 |---|---|---|
-| ★★★ | ステージ追加・接続修正（ホーム・学園前・学園街・隣町） | 大 |
-| ★★★ | ゲーム進行システム見直し（日単位ループ・就寝・スキップ） | 大 |
+| ★★★ | デイリーガイド HUD（今日の目標表示） | 小 |
+| ★★★ | ファストトラベル（ESCメニュー内地図） | 中 |
 
 ---
 
-## ★★★ ステージ追加・接続修正
+## ★★★ デイリーガイド（今日の目標表示）
 
-### 確定仕様（ユーザ確認済み）
+### 目的
 
-| 学校 | 所在地 | アクセス方法 |
-|---|---|---|
-| 小学校 | outdoor（街）から徒歩 | `outdoor` → Eキー → `school_hallway_elementary` |
-| 中学校 | 隣町 | `outdoor` の右端まで歩く → `adjacent_town` → Eキー → `school_hallway_middle` |
-| 高校 | 学園街 | `outdoor` → 電車 → `gakuenmae` → `gakuenmachi` → Eキー → `school_hallway_high` |
+「今何をすればいいかわからない」を解消する。
+**左下**に `Hint: [テキスト]` の形式で1行表示する。
 
-### 注意: IDの命名規則
+### 表示仕様
 
-`school_area` は `StageBuilder.is_school_classroom_stage()` が `school_.begins_with()` で拾うため**学校内部扱いになる**。
-学園街（屋外の商店街）には `gakuenmachi` を使う。
+| 条件 | 表示テキスト |
+|---|---|
+| `current_stage_id == "myroom"` かつ `actions_today == 0` | Hint: 朝だ。学校に向かおう |
+| 学校系ステージ（`is_school_classroom_stage()` == true） | Hint: 授業を受けよう |
+| `actions_today >= max_actions_per_day` かつ 学校外 | Hint: 夕方だ。家に帰ろう |
+| `current_stage_id == "myroom"` かつ `actions_today >= max_actions_per_day` | Hint: ベッドで休もう |
+| それ以外 | （非表示） |
 
-| ステージID | 名前 | 種別 |
-|---|---|---|
-| `platform` | ホーム（地元側） | 屋外 |
-| `gakuenmae` | 学園前駅 | 屋外 |
-| `gakuenmachi` | 学園街 | 屋外（`school_` 非プレフィックス） |
-| `adjacent_town` | 隣町 | 屋外 |
+### 実装方針
 
-### 現状の問題
-
-| 場所 | 現在の接続（誤り） | 問題 |
-|---|---|---|
-| `train` | → `school_hallway_high` | 電車から直接高校に入れる（中間ステージがない） |
-| `outdoor` | → `school_hallway_*`（年齢解決） | 中高生も屋外から直接学校に入れる |
-
-### 修正後のステージ接続マップ
-
-```
-myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
-                  ↕                              ↕（Eキー）
-              station                   school_hallway_middle
-                  ↕（Eキー）
-              platform ← ホーム（新設）
-                  ↕（Eキー）
-               train ← 電車内
-                  ↓（Eキー）
-            gakuenmae ← 学園前駅（新設）
-                  ↓（Eキー）
-           gakuenmachi ← 学園街（新設）
-                  ↓（Eキー）
-        school_hallway_high ← 高校
-```
-
-**小学校**: `outdoor → school_hallway_elementary`（Eキー・変更なし）
-
-**中学**: `outdoor` 右端まで歩く → `adjacent_town` → Eキー → `school_hallway_middle`
-
-**高校**: `outdoor` → `station` → `platform` → `train` → `gakuenmae` → `gakuenmachi` → Eキー → `school_hallway_high`
-
-### StageBuilder.gd の変更点
-
-#### 既存接続の変更
+**ノード追加（`_setup_ui` 内、左下に配置）**
 
 ```gdscript
-# train のドア定義（変更前 → 変更後）
-{"id": "door_to_school_hallway_high", ...}  # ← 削除
-{"id": "door_to_platform",    ...}          # 地元側ホームへ戻る（左出口）
-{"id": "door_to_gakuenmae",   ...}          # 学園前駅へ（右出口）
-
-# station のドア定義（変更前 → 変更後）
-{"id": "door_to_train",    ...}   # ← 変更
-{"id": "door_to_platform", ...}   # platform が train の手前に入る
-
-# outdoor のドア定義
-{"id": "door_to_school_hallway_elementary", ...}  # 小学生のみ残す（変更なし）
-# 中高生の学校ルートを担っていた door_to_school_hallway は不要
-# 右端の StaticBody2D 壁 → 削除（edge-walk 遷移に差し替え）
+# MainScene.gd: _setup_ui() に追加
+var daily_guide_label = Label.new()
+daily_guide_label.name = "daily_guide_label"
+daily_guide_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+daily_guide_label.offset_bottom = -8
+daily_guide_label.offset_left = 8
+ui_layer.add_child(daily_guide_label)
 ```
 
-#### `_school_hallway_obstacles()` の entry_door 修正（StageBuilder.gd L3067-3071）
-
-廊下に入るためのドアが参照するステージIDが変わるため修正が必要。
+**更新関数**
 
 ```gdscript
-# 変更前
-var entry_door = "door_to_outdoor"
-if suffix == "middle":
-    entry_door = "door_to_station"
-elif suffix == "high":
-    entry_door = "door_to_train"
+# MainScene.gd: _update_daily_guide() を新規追加
+func _update_daily_guide() -> void:
+    var text := ""
+    var stage := Global.current_stage_id
+    var actions := int(Global.actions_today)
+    var max_a := int(Global.max_actions_per_day)
+    var in_school := StageBuilder.is_school_classroom_stage(stage)
 
-# 変更後
-var entry_door = "door_to_outdoor"
-if suffix == "middle":
-    entry_door = "door_to_adjacent_town"  # 隣町から入学
-elif suffix == "high":
-    entry_door = "door_to_gakuenmachi"    # 学園街から入学
+    if stage == "myroom" and actions == 0:
+        text = "⏰ 朝だ。学校に向かおう"
+    elif in_school:
+        text = "📚 授業を受けよう"
+    elif actions >= max_a and stage != "myroom":
+        text = "🌇 夕方だ。家に帰ろう"
+    elif stage == "myroom" and actions >= max_a:
+        text = "🛏 今日は終わり。ベッドで休もう"
+
+    daily_guide_label.text = text
+    daily_guide_panel.visible = text != ""
 ```
 
-#### 新ステージの build_stage() 分岐追加
+**呼び出し箇所**：`_update_ui()` の末尾に `_update_daily_guide()` を追記する。
 
-```gdscript
-"platform":
-    # ホーム（屋根・柱・線路・黄色い点字ブロック）
-    # ドア: door_to_station（左）, door_to_train（右）
+### 変更ファイル
 
-"gakuenmae":
-    # 学園前駅ホーム（小さな屋外ホーム、看板「学園前」）
-    # ドア: door_to_train（左）, door_to_gakuenmachi（右）
+- `godot-project/scripts/MainScene.gd`
+  - `_setup_ui()` にノード追加（約10行）
+  - `_update_daily_guide()` 新規追加（約15行）
+  - `_update_ui()` 末尾に1行追記
 
-"gakuenmachi":
-    # 学園街（商店街・掲示板・制服の高校生が行き交う）
-    # ドア: door_to_gakuenmae（左）, door_to_school_hallway_high（右）
-    # ※ school_ プレフィックスを持たないため屋外扱いのまま
+---
 
-"adjacent_town":
-    # 隣町（outdoor の右隣、中学校の校門がある）
-    # 右端の StaticBody2D 壁はそのまま（行き止まり）
-    # ドア: door_to_school_hallway_middle（Eキー）
-    # 左端: edge-walk で outdoor に戻る
+## ★★★ ファストトラベル（ESCメニュー内地図）
+
+### 目的
+
+「どこにいても行きたい場所に即ワープできる」機能。
+ESCポーズメニューを左右に分割し、**右ペイン**に行ける場所リストを表示する。
+
+### UI レイアウト
+
+```
+┌─────────────────────────────────────┐
+│  ポーズメニュー                        │
+│ ┌────────────┬──────────────────┐   │
+│ │ 左ペイン    │ 右ペイン（地図）   │   │
+│ │            │                  │   │
+│ │ ゲームに戻る │ 📍 今いる場所     │   │
+│ │ セーブする  │ ─────────────── │   │
+│ │ タイトルへ  │ ✅ 自室           │   │
+│ │ 終了する   │ ✅ 部屋           │   │
+│ │            │ ✅ 屋外（街）      │   │
+│ │            │ ✅ 学校（廊下）   │   │
+│ │            │ 🔒 駅（ロック中） │   │
+│ └────────────┴──────────────────┘   │
+└─────────────────────────────────────┘
 ```
 
-#### `_get_stage_lock_message()` について
-
-`school_hallway_middle` および `school_hallway_high` のロックは**既存コード（MainScene.gd L613-643）で対応済み**のため追加不要。
-新ステージ `gakuenmachi` / `adjacent_town` はロックなし（年齢制限を設けない）。
-
-### 隣町（adjacent_town）edge-walk 遷移の実装方針
-
-**outdoor の右端**と**adjacent_town の左端**にそれぞれ Area2D を置き、
-プレイヤーが踏み込んだら自動でステージ遷移する。
-
-#### StageBuilder.gd 側
+### ステージ表示リスト定義
 
 ```gdscript
-# outdoor ステージ: 右端の StaticBody2D 壁の代わりに RightEdgeTrigger を生成
-var edge_area = Area2D.new()
-edge_area.name = "RightEdgeTrigger"
-edge_area.set_meta("target_stage", "adjacent_town")
-var col = CollisionShape2D.new()
-var rect = RectangleShape2D.new()
-rect.size = Vector2(20, 2000)
-col.position = Vector2(stage_width_px, -500)
-col.shape = rect
-edge_area.add_child(col)
-parent_node.add_child(edge_area)
-
-# adjacent_town の左端にも同様（target_stage = "outdoor"、名前 = "LeftEdgeTrigger"）
+# MainScene.gd 内に定数として定義
+const FAST_TRAVEL_STAGES := [
+    # [stage_id, 表示名]
+    ["myroom",                  "🛏 自室"],
+    ["room",                    "🏠 部屋（リビング）"],
+    ["outdoor",                 "🌳 屋外（街）"],
+    ["school_hallway",          "🏫 学校（廊下）"],   # _resolve_stage_id() で年齢補完
+    ["station",                 "🚉 駅"],
+    ["train",                   "🚃 電車"],
+    ["adjacent_town",           "🏘 隣町"],
+    ["gakuenmachi",             "🏙 学園街"],
+]
 ```
 
-#### MainScene.gd 側
+※ `school_hallway` は `_resolve_stage_id()` で `school_hallway_elementary` / `_middle` / `_high` に解決される。
+
+### ロック判定
+
+既存の `_get_stage_lock_message(stage_id)` をそのまま使用。
+- 空文字列 → 移動可能（ボタン有効）
+- 非空文字列 → ボタンをグレーアウト、ホバー時にロック理由をツールチップ表示
+
+### ファストトラベル実行仕様
+
+| 項目 | 仕様 |
+|---|---|
+| アクション消費 | `actions_today += 1`（通常ドア遷移と同じ） |
+| 現在地への移動 | ボタンを無効化（`current_stage_id` と一致する場合） |
+| 実行後 | メニューを閉じ `_load_stage()` を呼ぶ |
+
+### 実装方針
+
+**`_setup_pause_menu()` の変更（MainScene.gd L1757付近）**
+
+現在は `CenterContainer` で中央配置しているが、`HBoxContainer` に変更して左右分割する。
 
 ```gdscript
-# _load_stage() 後に RightEdgeTrigger / LeftEdgeTrigger を走査しシグナル接続
-func _enter_edge_transition(target_stage: String) -> void:
-    Global.current_stage_id = target_stage
+func _setup_pause_menu() -> void:
+    # ... 既存の背景ColorRect ...
+
+    var hbox = HBoxContainer.new()
+    hbox.add_theme_constant_override("separation", 24)
+    hbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+
+    # --- 左ペイン（既存ボタン群） ---
+    var left_panel = VBoxContainer.new()
+    left_panel.custom_minimum_size = Vector2(220, 0)
+    # （既存ボタンをここに追加）
+    hbox.add_child(left_panel)
+
+    # --- 右ペイン（ファストトラベルリスト） ---
+    var right_panel = VBoxContainer.new()
+    right_panel.name = "fast_travel_panel"
+    right_panel.custom_minimum_size = Vector2(240, 0)
+    hbox.add_child(right_panel)
+    _setup_fast_travel_panel(right_panel)
+
+    pause_menu.add_child(hbox)
+```
+
+**`_setup_fast_travel_panel()` 新規追加**
+
+```gdscript
+func _setup_fast_travel_panel(parent: VBoxContainer) -> void:
+    var title = Label.new()
+    title.text = "📍 " + _get_stage_display_name(Global.current_stage_id)
+    parent.add_child(title)
+
+    var sep = HSeparator.new()
+    parent.add_child(sep)
+
+    for entry in FAST_TRAVEL_STAGES:
+        var stage_id: String = _resolve_stage_id(entry[0])
+        var label: String = entry[1]
+        var btn = Button.new()
+        btn.text = label
+        var lock_msg = _get_stage_lock_message(stage_id)
+        if lock_msg != "":
+            btn.disabled = true
+            btn.tooltip_text = lock_msg
+        elif stage_id == Global.current_stage_id:
+            btn.disabled = true
+            btn.tooltip_text = "今いる場所"
+        else:
+            btn.pressed.connect(_on_fast_travel_pressed.bind(stage_id))
+        parent.add_child(btn)
+```
+
+**`_on_fast_travel_pressed()` 新規追加**
+
+```gdscript
+func _on_fast_travel_pressed(stage_id: String) -> void:
+    _toggle_pause()                       # メニューを閉じる
+    Global.current_stage_id = stage_id
     Global.actions_today += 1
     _update_actions_hud()
     _load_stage()
 ```
 
-### 各ステージのビジュアル・NPC配置
+**`_toggle_pause()` でリストを再構築**
 
-| ステージ | 背景イメージ | NPC |
-|---|---|---|
-| `platform` | 駅ホーム（屋根・柱・線路）、右端に電車ドア | 通勤客（汎用） |
-| `gakuenmae` | 小さな無人ホーム、看板「学園前」 | 高校生（汎用） |
-| `gakuenmachi` | 商店街・掲示板 | 高校生・店員（汎用） |
-| `adjacent_town` | outdoor と地続きの街並み、中学校の校門 | 中学生・住民（汎用） |
+ポーズを開くたびに現在地・ロック状態が変わるため、`_toggle_pause()` の「表示時」分岐で `_setup_fast_travel_panel()` を再呼び出しする（既存ノードをクリアしてから追加）。
+
+### 変更ファイル
+
+- `godot-project/scripts/MainScene.gd`
+  - `FAST_TRAVEL_STAGES` 定数追加（5行）
+  - `_setup_pause_menu()` を左右分割に変更（約20行の差分）
+  - `_setup_fast_travel_panel()` 新規追加（約30行）
+  - `_on_fast_travel_pressed()` 新規追加（約6行）
+  - `_toggle_pause()` にパネル再構築を追加（約5行）
 
 ---
 
-## ★★★ ゲーム進行システム見直し
+## 実装順
 
-### 確定仕様（ユーザ確認済み）
+| Phase | 内容 | 規模 |
+|---|---|---|
+| **1** | デイリーガイド HUD | 小（独立タスク） |
+| **2** | ファストトラベル（ESCメニュー分割 + リスト） | 中（独立タスク） |
 
-- 測定パネルの [E] は「次の学期へ」ではなく**「閉じる」**に変更
-- `advance_term()` は**学期末強制測定時のみ**呼ぶ（任意測定・パネル閉じでは呼ばない）
-
-### 現状（as-is）のループ
-
-```
-1. myroom でスタート
-2. 自由に移動（ほぼ学校一択）
-3. 保健室の身長計に触れて E → 測定パネル
-4. 「次の学期へ」ボタン → advance_term() → myroom へ
-5. 1 に戻る
-```
-
-問題: 1ターン=1学期で単調。受動的イベントが少ない。測定が「作業」になっている。
-
-### 目標（to-be）のループ
-
-```
-[朝] myroom でスタート (actions_today = 0)
-    ↓
-[行動] ステージ移動・NPC・ホットスポット探索
-    各ステージ遷移で actions_today++
-    ↓
-[上限到達] actions_today >= max_actions_per_day になると
-    バブル: 「もう夕方だ。今日を終えよう。」（ソフトリミット: 遷移は引き続き可能）
-    ↓ ベッドに近づいて E
-[就寝メニュー]
-    ├── 「今日を終える」         → day_in_term++, 翌朝へ
-    └── 「学期末まで一気に進める」→ day_in_term = term_total_days, 測定イベント発火
-    ↓
-[学期末] day_in_term >= term_total_days になったとき
-    → 「身体測定の日です」強制イベント
-    → advance_term()（成長）→ 測定パネル表示（Eキーで閉じる） → 新学期へ
-```
-
-### 新規変数（Global.gd に追加）
-
-```gdscript
-var day_in_term: int = 1           # 学期内の経過日数（1 スタート）
-var actions_today: int = 0         # 今日の行動済み回数
-var max_actions_per_day: int = 3   # 1日の最大行動回数
-var term_total_days: int = 30      # 1学期の日数
-```
-
-セーブ/ロード対象に追加（**save_settings / load_settings の両方**に追加する）：
-
-```gdscript
-# save_settings() に追加
-config.set_value("Player", "day_in_term",   day_in_term)
-config.set_value("Player", "actions_today", actions_today)
-
-# load_settings() に追加
-day_in_term   = int(config.get_value("Player", "day_in_term",   1))
-actions_today = int(config.get_value("Player", "actions_today", 0))
-```
-
-save_slot / load_slot にも同様に追加：
-
-```gdscript
-# save_slot()
-data["day_in_term"]   = day_in_term
-data["actions_today"] = actions_today
-
-# load_slot()
-day_in_term   = data.get("day_in_term", 1)
-actions_today = data.get("actions_today", 0)
-```
-
-`advance_term()` に追加：
-
-```gdscript
-day_in_term = 1
-actions_today = 0
-```
-
-### 就寝ホットスポット（myroom の bed）
-
-`TERM_HOTSPOTS` には追加しない（何度でも使えるため）。専用処理を設ける。
-
-```gdscript
-func _trigger_bed_interaction() -> void:
-    var opts = ["今日を終える"]
-    if day_in_term < term_total_days - 2:
-        opts.append("学期末まで一気に進める")
-    _show_sleep_menu(opts)
-
-func _on_sleep_menu_selected(choice: String) -> void:
-    match choice:
-        "今日を終える":
-            Global.day_in_term += 1
-            Global.actions_today = 0
-            _do_fade_to_myroom()
-            if Global.day_in_term >= Global.term_total_days:
-                Global.queue_event("term_end_measurement")
-        "学期末まで一気に進める":
-            Global.day_in_term = Global.term_total_days
-            Global.actions_today = 0
-            _do_fade_to_myroom()
-            Global.queue_event("term_end_measurement")
-```
-
-### 学期末強制測定（`term_end_measurement`）
-
-`_load_stage()` のイベント処理に追加：
-
-```gdscript
-"term_end_measurement":
-    Global.advance_term()   # ここで1回だけ成長させる
-    _show_measurement_result()
-    # 測定パネルは E キーで「閉じる」だけ（advance_term() は呼ばない）
-```
-
-`_on_next_term_pressed()` の変更（MainScene.gd L2437）：
-
-```gdscript
-# 変更前: advance_term() を呼んでいた
-# 変更後: 測定パネルを閉じるだけ（advance_term() は term_end_measurement で済んでいる）
-func _on_close_measurement_pressed() -> void:
-    _hide_measurement_panel()
-    Global.current_stage_id = "myroom"
-    _load_stage()
-```
-
-`DialogueDatabase.gd` に追加：
-
-```gdscript
-"nurse": {
-    "measurement_notice": [
-        {"speaker": "保健の先生", "text": "そろそろ身体測定の時期ね。保健室においで。"},
-    ]
-}
-```
-
-### アクション消費（MainScene.gd）
-
-`_enter_transition_door()` に追加：
-
-```gdscript
-Global.actions_today += 1
-_update_actions_hud()
-```
-
-行動上限 UI（**ソフトリミット**: 上限到達後もバブルを出すだけで遷移は禁止しない）：
-
-```gdscript
-func _update_actions_hud() -> void:
-    action_label.text = "行動 %d/%d" % [Global.actions_today, Global.max_actions_per_day]
-    if Global.actions_today >= Global.max_actions_per_day:
-        _show_player_bubble("もう夕方だ。今日を終えよう。")
-```
-
-### 保健室任意測定の扱い
-
-現在の「身長計に触れてEキー」はそのまま残す（確認用）。
-
-- **任意測定**: `advance_term()` を呼ばない → 現在の身長を表示するだけ（成長なし）
-- **学期末強制測定**: `advance_term()` を先に呼んで成長させてからパネルを表示
-
-成長は学期末のみ発生。
-
-### 実装フェーズ
-
-| Phase | 内容 |
-|---|---|
-| **1** | ステージ追加・接続修正 |
-| **2** | `day_in_term` 変数 + 就寝ホットスポット + スキップ機能 |
-| **3** | アクション制限 + 行動上限 HUD + 夜バブル演出 |
-
-Phase 1・2 は独立して実装可能。Phase 3 は 2 の後。
+Phase 1・2 は独立して実装可能。

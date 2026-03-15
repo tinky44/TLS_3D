@@ -62,7 +62,7 @@ func _on_continue_pressed() -> void:
 
 func _on_exit_pressed() -> void:
     if OS.has_feature("web"):
-        JavaScriptBridge.eval("window.location.href = 'index.html';")
+        JavaScriptBridge.eval("window.location.replace(new URL('./', window.location.href).toString());")
     else:
         get_tree().quit()
 

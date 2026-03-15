@@ -3,6 +3,7 @@ param(
     [ValidateSet("main", "creator", "title", "save_slot")]
     [string]$Scene = "main",
     [string]$Stage = "room",
+    [string]$Resolution = "",
     [int]$Frames = 12,
     [double]$DelaySec = 0.15,
     [string]$OutputDir = "",
@@ -27,7 +28,8 @@ param(
     [string]$HatType = "",
     [string]$HatColor = "",
     [string]$BagType = "",
-    [string]$BagColor = ""
+    [string]$BagColor = "",
+    [string]$FitStage = ""
 )
 
 function Add-OptionalArgument {
@@ -145,6 +147,10 @@ New-Item -ItemType Directory -Force -Path $godotTempDir | Out-Null
 New-Item -ItemType Directory -Force -Path $godotLogDir | Out-Null
 
 $arguments = [System.Collections.Generic.List[string]]::new()
+if (-not [string]::IsNullOrWhiteSpace($Resolution)) {
+    $arguments.Add("--resolution")
+    $arguments.Add($Resolution)
+}
 $arguments.AddRange([string[]]@(
     "--path", $projectPath,
     "--log-file", $logFilePath,
@@ -179,6 +185,7 @@ Add-OptionalArgument -ArgumentList $arguments -Key "hat-type" -Value $HatType
 Add-OptionalArgument -ArgumentList $arguments -Key "hat-color" -Value $HatColor
 Add-OptionalArgument -ArgumentList $arguments -Key "bag-type" -Value $BagType
 Add-OptionalArgument -ArgumentList $arguments -Key "bag-color" -Value $BagColor
+Add-OptionalArgument -ArgumentList $arguments -Key "fit-stage" -Value $FitStage
 
 $originalEnv = @{
     "APPDATA" = $env:APPDATA

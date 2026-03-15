@@ -75,6 +75,8 @@ func _run() -> void:
 	var delay_sec := float(options.get("delay_sec", DEFAULT_DELAY_SEC))
 	if delay_sec > 0.0:
 		await get_tree().create_timer(delay_sec).timeout
+	_apply_post_wait_overrides(scene_instance, options)
+	await _wait_frames(1)
 
 	var prefix := String(options.get("prefix", ""))
 	if prefix == "":
@@ -95,6 +97,7 @@ func _prepare_global_state(global, options: Dictionary) -> void:
 	global.term_hotspot_flags = {}
 	global.term_memory_note = ""
 	global.current_stage_id = String(options.get("stage", DEFAULT_STAGE_ID))
+	global.visited_stages[global.current_stage_id] = true
 
 	if options.has("age"):
 		global.age = int(options["age"])
@@ -197,6 +200,10 @@ func _parse_args(args: PackedStringArray) -> Dictionary:
 				options["bag_type"] = value
 			"bag-color":
 				options["bag_color"] = value
+			"fit-stage":
+				var fit_stage: Variant = _parse_bool_option(value)
+				if fit_stage != null:
+					options["fit_stage"] = fit_stage
 
 	var scene_key := String(options.get("scene", DEFAULT_SCENE_KEY))
 	options["scene_path"] = SCENE_MAP.get(scene_key, SCENE_MAP[DEFAULT_SCENE_KEY])
@@ -257,6 +264,58 @@ func _apply_scene_overrides(scene_instance: Node, options: Dictionary) -> void:
 		var drawer: Node = player.get_node_or_null("CharacterDrawer")
 		if drawer != null:
 			drawer.call("queue_redraw")
+
+func _apply_post_wait_overrides(scene_instance: Node, options: Dictionary) -> void:
+	if not bool(options.get("fit_stage", false)):
+		return
+	_fit_camera_to_stage(scene_instance, String(options.get("stage", DEFAULT_STAGE_ID)))
+
+func _fit_camera_to_stage(scene_instance: Node, requested_stage_id: String) -> void:
+	var player: Node = _find_player(scene_instance)
+	if player == null:
+		return
+	var cam := player.get_node_or_null("Camera2D") as Camera2D
+	if cam == null:
+		return
+
+	var stage_width_px := _resolve_stage_width_px(requested_stage_id, player)
+	if stage_width_px <= 1.0:
+		return
+
+	var view_size := get_viewport().get_visible_rect().size
+	if view_size.x <= 1.0:
+		return
+
+	# Keep camera behavior unchanged for gameplay; this runs only in capture mode.
+	var zoom_factor := view_size.x / stage_width_px
+	zoom_factor = clampf(zoom_factor, 0.05, 1.0)
+	cam.zoom = Vector2(zoom_factor, zoom_factor)
+	cam.position_smoothing_enabled = false
+
+	var current_pos: Vector2 = player.global_position
+	current_pos.x = stage_width_px * 0.5
+	player.global_position = current_pos
+
+	if cam.has_method("force_update_scroll"):
+		cam.call("force_update_scroll")
+
+func _resolve_stage_width_px(requested_stage_id: String, player: Node) -> float:
+	var global = get_node_or_null("/root/Global")
+	var age := 0
+	if global != null and global.get("age") != null:
+		age = int(global.get("age"))
+
+	var resolved_stage_id := StageBuilder.resolve_stage_id(requested_stage_id, age)
+	var stage_data: Dictionary = StageBuilder.STAGES.get(resolved_stage_id, {})
+	if stage_data.is_empty():
+		stage_data = StageBuilder.STAGES.get(requested_stage_id, {})
+	if stage_data.is_empty():
+		return 0.0
+
+	var p := 2.0
+	if player.get("CM_TO_PX") != null:
+		p = float(player.get("CM_TO_PX"))
+	return float(stage_data.get("width", 0.0)) * p
 
 func _find_player(scene_instance: Node) -> Node:
 	var player := scene_instance.get_node_or_null("Player")

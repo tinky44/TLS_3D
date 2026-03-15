@@ -65,7 +65,7 @@ func _run_sequence(global: Node, h: float, p: float) -> void:
 	await get_tree().create_timer(0.4).timeout
 
 	# (3) テキスト表示
-	_label.text = "%d歳、身長%.0fcm。\n――ここから私の生活が始まる。" % [global.age, h]
+	_label.text = "%d歳、身長%.0fcm。\n彼女の生活が始まります――" % [global.age, h]
 	var tw3 := create_tween()
 	tw3.tween_property(_label, "modulate:a", 1.0, 0.5)
 	await tw3.finished

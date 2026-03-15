@@ -11,6 +11,8 @@ var sidebar: PanelContainer # Qキーでトグル表示するステータスサ�
 var status_label: Label
 var bubble_panel: PanelContainer
 var bubble_label: Label
+var daily_guide_panel: PanelContainer
+var daily_guide_label: Label
 
 var minimap_bg: ColorRect
 var minimap_player: ColorRect
@@ -20,6 +22,7 @@ var stage_title_label: Label
 # ポーズメニュー用
 var pause_menu: Control
 var pause_save_label: Label
+var pause_fast_travel_panel: VBoxContainer
 
 # ステージ遷移用
 var _nearby_transition_door: String = ""
@@ -72,6 +75,7 @@ var _school_day_transition_running: bool = false
 var sleep_menu: Control
 var sleep_menu_options: VBoxContainer
 var _sleep_menu_showing: bool = false
+var _sleep_menu_current_options: Array[String] = []
 var _edge_transition_running: bool = false
 var _last_soft_limit_notice_key: String = ""
 
@@ -86,6 +90,17 @@ const GRADE_CHOICES: Dictionary = {
 		"summary": "ここで物語を区切り、仮エンディングのあとタイトルへ戻る。"
 	},
 }
+
+const FAST_TRAVEL_STAGES: Array[Dictionary] = [
+	{"id": "myroom", "label": "自室"},
+	{"id": "room", "label": "部屋（リビング）"},
+	{"id": "outdoor", "label": "屋外（街）"},
+	{"id": "school_hallway", "label": "学校（廊下）"},
+	{"id": "station", "label": "駅"},
+	{"id": "train", "label": "電車"},
+	{"id": "adjacent_town", "label": "隣町"},
+	{"id": "gakuenmachi", "label": "学園街"},
+]
 
 const TERM_HOTSPOT_ORDER = [
 	"home_mirror",
@@ -1484,6 +1499,15 @@ func _check_edge_transition() -> void:
 	elif stage_id == "adjacent_town":
 		if player_x_cm <= 10.0:
 			_enter_edge_transition("outdoor")
+	elif stage_id == "station":
+		var stage_w: float = float(StageBuilder.STAGES["station"]["width"])
+		# station は右端に見えない壁があるため、少し手前で遷移判定する
+		if player_x_cm >= stage_w - 150.0:
+			_enter_edge_transition("platform")
+	elif stage_id == "platform":
+		# platform は左端に見えない壁があるため、少し手前で遷移判定する
+		if player_x_cm <= 150.0:
+			_enter_edge_transition("station")
 
 func _update_minimap():
 	if not player or not minimap_bg or not minimap_player: return
@@ -1700,6 +1724,33 @@ func _setup_ui():
 	action_hint_panel.add_child(action_hint_label)
 	ui_layer.add_child(action_hint_panel)
 
+	daily_guide_panel = PanelContainer.new()
+	var dg_style = StyleBoxFlat.new()
+	dg_style.bg_color = Color(0, 0, 0, 0.50)
+	dg_style.corner_radius_top_left = 8
+	dg_style.corner_radius_top_right = 8
+	dg_style.corner_radius_bottom_right = 8
+	dg_style.corner_radius_bottom_left = 8
+	dg_style.content_margin_left = 12
+	dg_style.content_margin_right = 12
+	dg_style.content_margin_top = 6
+	dg_style.content_margin_bottom = 6
+	daily_guide_panel.add_theme_stylebox_override("panel", dg_style)
+	daily_guide_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	daily_guide_panel.offset_left = 16
+	daily_guide_panel.offset_top = -58
+	daily_guide_panel.offset_right = 420
+	daily_guide_panel.offset_bottom = -16
+	daily_guide_panel.hide()
+	daily_guide_label = Label.new()
+	daily_guide_label.add_theme_font_size_override("font_size", 14)
+	daily_guide_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.92))
+	daily_guide_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.88))
+	daily_guide_label.add_theme_constant_override("outline_size", 3)
+	daily_guide_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	daily_guide_panel.add_child(daily_guide_label)
+	ui_layer.add_child(daily_guide_panel)
+
 	# 常時表示する「Q: ステータス設定」ヒントラベル
 	var hint = Label.new()
 	hint.text = "Q: ステータス設定"
@@ -1779,20 +1830,25 @@ func _setup_pause_menu() -> void:
 	style.content_margin_bottom = 40
 	panel.add_theme_stylebox_override("panel", style)
 	center.add_child(panel)
-	
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 20)
-	panel.add_child(vbox)
-	
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 28)
+	panel.add_child(hbox)
+
+	var left_vbox = VBoxContainer.new()
+	left_vbox.add_theme_constant_override("separation", 20)
+	left_vbox.custom_minimum_size = Vector2(280, 0)
+	hbox.add_child(left_vbox)
+
 	var title = Label.new()
 	title.text = "PAUSE MENU"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color.WHITE)
-	vbox.add_child(title)
+	left_vbox.add_child(title)
 	
 	# セパレータ
-	vbox.add_child(HSeparator.new())
+	left_vbox.add_child(HSeparator.new())
 	
 	var resume_btn = Button.new()
 	resume_btn.text = "ゲームに戻る (ESC)"
@@ -1800,7 +1856,7 @@ func _setup_pause_menu() -> void:
 	resume_btn.add_theme_font_size_override("font_size", 18)
 	resume_btn.focus_mode = Control.FOCUS_NONE
 	resume_btn.pressed.connect(_toggle_pause)
-	vbox.add_child(resume_btn)
+	left_vbox.add_child(resume_btn)
 	
 	var save_btn = Button.new()
 	save_btn.text = "セーブする"
@@ -1808,13 +1864,13 @@ func _setup_pause_menu() -> void:
 	save_btn.add_theme_font_size_override("font_size", 18)
 	save_btn.focus_mode = Control.FOCUS_NONE
 	save_btn.pressed.connect(_on_pause_save_pressed)
-	vbox.add_child(save_btn)
+	left_vbox.add_child(save_btn)
 	
 	pause_save_label = Label.new()
 	pause_save_label.add_theme_color_override("font_color", Color("#28a745"))
 	pause_save_label.add_theme_font_size_override("font_size", 14)
 	pause_save_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(pause_save_label)
+	left_vbox.add_child(pause_save_label)
 	
 	var title_btn = Button.new()
 	title_btn.text = "タイトルに戻る"
@@ -1822,7 +1878,7 @@ func _setup_pause_menu() -> void:
 	title_btn.add_theme_font_size_override("font_size", 18)
 	title_btn.focus_mode = Control.FOCUS_NONE
 	title_btn.pressed.connect(_on_title_pressed)
-	vbox.add_child(title_btn)
+	left_vbox.add_child(title_btn)
 	
 	var quit_btn = Button.new()
 	quit_btn.text = "ゲームを終了する"
@@ -1830,9 +1886,95 @@ func _setup_pause_menu() -> void:
 	quit_btn.add_theme_font_size_override("font_size", 18)
 	quit_btn.focus_mode = Control.FOCUS_NONE
 	quit_btn.pressed.connect(_on_quit_pressed)
-	vbox.add_child(quit_btn)
+	left_vbox.add_child(quit_btn)
+
+	var right_panel = PanelContainer.new()
+	var right_style = StyleBoxFlat.new()
+	right_style.bg_color = Color(0.08, 0.10, 0.12, 0.75)
+	right_style.corner_radius_top_left = 12
+	right_style.corner_radius_top_right = 12
+	right_style.corner_radius_bottom_right = 12
+	right_style.corner_radius_bottom_left = 12
+	right_style.content_margin_left = 20
+	right_style.content_margin_right = 20
+	right_style.content_margin_top = 20
+	right_style.content_margin_bottom = 20
+	right_panel.add_theme_stylebox_override("panel", right_style)
+	hbox.add_child(right_panel)
+
+	pause_fast_travel_panel = VBoxContainer.new()
+	pause_fast_travel_panel.add_theme_constant_override("separation", 10)
+	pause_fast_travel_panel.custom_minimum_size = Vector2(280, 0)
+	right_panel.add_child(pause_fast_travel_panel)
+	_rebuild_fast_travel_panel()
 	
 	ui_layer.add_child(pause_menu)
+
+func _rebuild_fast_travel_panel() -> void:
+	if not is_instance_valid(pause_fast_travel_panel):
+		return
+	for child in pause_fast_travel_panel.get_children():
+		child.queue_free()
+
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+
+	var current_stage_id: String = String(global.current_stage_id)
+	var age_value: int = int(global.age)
+	var current_stage_name: String = StageBuilder.get_stage_name(current_stage_id, age_value)
+
+	var title = Label.new()
+	title.text = "地図（ファストトラベル）"
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+	pause_fast_travel_panel.add_child(title)
+
+	var current = Label.new()
+	current.text = "現在地: %s" % current_stage_name
+	current.add_theme_font_size_override("font_size", 14)
+	current.add_theme_color_override("font_color", Color(0.74, 0.84, 0.96))
+	pause_fast_travel_panel.add_child(current)
+
+	pause_fast_travel_panel.add_child(HSeparator.new())
+
+	for entry in FAST_TRAVEL_STAGES:
+		var stage_id: String = _resolve_stage_id(String(entry.get("id", "")))
+		if stage_id == "" or not StageBuilder.STAGES.has(stage_id):
+			continue
+		var btn = Button.new()
+		btn.text = String(entry.get("label", stage_id))
+		btn.custom_minimum_size = Vector2(250, 42)
+		btn.focus_mode = Control.FOCUS_NONE
+		var lock_msg: String = _get_stage_lock_message(stage_id)
+		if stage_id == current_stage_id:
+			btn.disabled = true
+			btn.tooltip_text = "今いる場所"
+		elif lock_msg != "":
+			btn.disabled = true
+			btn.tooltip_text = lock_msg
+		else:
+			btn.pressed.connect(_on_fast_travel_pressed.bind(stage_id))
+		pause_fast_travel_panel.add_child(btn)
+
+func _on_fast_travel_pressed(stage_id: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var resolved_stage_id: String = _resolve_stage_id(stage_id)
+	if resolved_stage_id == "" or not StageBuilder.STAGES.has(resolved_stage_id):
+		return
+	var lock_msg: String = _get_stage_lock_message(resolved_stage_id)
+	if lock_msg != "":
+		_show_bump_alert(lock_msg)
+		return
+	if String(global.current_stage_id) == resolved_stage_id:
+		return
+	_toggle_pause()
+	global.current_stage_id = resolved_stage_id
+	global.actions_today += 1
+	_update_actions_hud()
+	_load_stage()
 
 func _setup_sleep_menu() -> void:
 	if sleep_menu:
@@ -1898,15 +2040,18 @@ func _setup_sleep_menu() -> void:
 func _show_sleep_menu(options: Array) -> void:
 	if not sleep_menu:
 		_setup_sleep_menu()
+	_sleep_menu_current_options.clear()
 	for child in sleep_menu_options.get_children():
 		child.queue_free()
 	for option in options:
+		var option_text := String(option)
+		_sleep_menu_current_options.append(option_text)
 		var button = Button.new()
-		button.text = String(option)
+		button.text = option_text
 		button.custom_minimum_size = Vector2(260, 46)
 		button.add_theme_font_size_override("font_size", 17)
 		button.focus_mode = Control.FOCUS_NONE
-		button.pressed.connect(_on_sleep_menu_selected.bind(String(option)))
+		button.pressed.connect(_on_sleep_menu_selected.bind(option_text))
 		sleep_menu_options.add_child(button)
 	_sleep_menu_showing = true
 	sleep_menu.show()
@@ -1914,9 +2059,15 @@ func _show_sleep_menu(options: Array) -> void:
 
 func _hide_sleep_menu() -> void:
 	_sleep_menu_showing = false
+	_sleep_menu_current_options.clear()
 	if sleep_menu:
 		sleep_menu.hide()
 	get_tree().paused = false
+
+func _confirm_sleep_menu_default() -> void:
+	if _sleep_menu_current_options.is_empty():
+		return
+	_on_sleep_menu_selected(_sleep_menu_current_options[0])
 
 func _trigger_bed_interaction() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -1931,17 +2082,19 @@ func _on_sleep_menu_selected(choice: String) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return
+	global.day_in_term = clampi(int(global.day_in_term), 1, int(global.term_total_days))
 	_hide_sleep_menu()
 	match choice:
 		"今日を終える":
-			global.day_in_term += 1
+			global.day_in_term = mini(int(global.day_in_term) + 1, int(global.term_total_days))
 		"学期末まで一気に進める":
 			global.day_in_term = global.term_total_days
 		_:
 			return
 	global.actions_today = 0
 	if int(global.day_in_term) >= int(global.term_total_days):
-		global.queue_event("term_end_measurement")
+		if not global.has_pending_event("term_end_measurement"):
+			global.queue_event("term_end_measurement")
 	call_deferred("_run_sleep_transition")
 
 func _run_sleep_transition() -> void:
@@ -1977,6 +2130,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_hide_sleep_menu()
 		return
 	if _sleep_menu_showing:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+			_confirm_sleep_menu_default()
 		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return
@@ -2077,6 +2232,8 @@ func _toggle_pause() -> void:
 		var is_paused = not get_tree().paused
 		get_tree().paused = is_paused
 		pause_menu.visible = is_paused
+		if is_paused:
+			_rebuild_fast_travel_panel()
 		if pause_save_label:
 			pause_save_label.text = ""
 
@@ -2097,7 +2254,7 @@ func _on_title_pressed() -> void:
 
 func _on_quit_pressed() -> void:
 	if OS.has_feature("web"):
-		JavaScriptBridge.eval("window.location.href = 'index.html';")
+		JavaScriptBridge.eval("window.location.replace(new URL('./', window.location.href).toString());")
 	else:
 		get_tree().quit()
 
@@ -2165,6 +2322,34 @@ func _update_ui():
 	
 	text += "F12: Screenshot save\n"
 	status_label.text = text
+	_update_daily_guide()
+
+func _update_daily_guide() -> void:
+	if not is_instance_valid(daily_guide_panel) or not is_instance_valid(daily_guide_label):
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		daily_guide_label.text = ""
+		daily_guide_panel.hide()
+		return
+
+	var stage_id: String = String(global.current_stage_id)
+	var actions: int = int(global.actions_today)
+	var max_actions: int = int(global.max_actions_per_day)
+	var in_school_classroom: bool = StageBuilder.is_school_classroom_stage(stage_id)
+	var hint_text := ""
+
+	if stage_id == "myroom" and actions == 0:
+		hint_text = "Hint: 朝だ。学校に向かおう"
+	elif in_school_classroom:
+		hint_text = "Hint: 授業を受けよう"
+	elif stage_id == "myroom" and actions >= max_actions:
+		hint_text = "Hint: ベッドで休もう"
+	elif actions >= max_actions:
+		hint_text = "Hint: 夕方だ。家に帰ろう"
+
+	daily_guide_label.text = hint_text
+	daily_guide_panel.visible = hint_text != ""
 
 func _queue_dialogue_event_once(global: Node, event_id: String, npc_id: String, dialogue_key: String) -> void:
 	if global == null:
@@ -2198,9 +2383,14 @@ func _queue_stage_arrival_events(global: Node, stage_id: String, was_first_visit
 	if height_cm >= 190.0:
 		_queue_dialogue_event_once(global, "npc_talk_veryhuge", "generic", "npc_talk_veryhuge")
 
-func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> void:
+func _defer_pending_stage_event(global: Node, ev: String) -> void:
 	if global == null or ev == "":
 		return
+	global.pending_events.push_back(ev)
+
+func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> bool:
+	if global == null or ev == "":
+		return false
 	if ev == "semester_start":
 		if StageBuilder.is_school_classroom_stage(stage_id):
 			await get_tree().create_timer(0.5).timeout
@@ -2208,37 +2398,49 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			if not global.senior_gym_invited:
 				global.senior_gym_invited = true
 				global.queue_event("gym_senior_invite")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "gym_senior_invite":
 		if StageBuilder.is_gymnasium_stage(stage_id):
 			await get_tree().create_timer(0.8).timeout
 			_start_dialogue("senior", "first_meet")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "npc_talk_tall":
 		if StageBuilder.is_school_stage(stage_id):
 			await get_tree().create_timer(0.45).timeout
 			_start_dialogue("generic", "npc_talk_tall")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "npc_talk_huge":
 		if _is_public_milestone_stage(stage_id):
 			await get_tree().create_timer(0.45).timeout
 			_start_dialogue("generic", "npc_talk_huge")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "npc_talk_veryhuge":
 		await get_tree().create_timer(0.35).timeout
 		_start_dialogue("generic", "npc_talk_veryhuge")
+		return true
 	elif ev.begins_with("npc_firstvisit_"):
 		if ev == "npc_firstvisit_%s" % stage_id:
 			var first_visit_key: String = _get_first_visit_dialogue_key(stage_id)
 			if first_visit_key != "":
 				await get_tree().create_timer(0.45).timeout
 				_start_dialogue("generic", first_visit_key)
+				return true
+			return false
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "summer_growth":
 		if stage_id == "room":
 			await get_tree().create_timer(0.8).timeout
@@ -2248,20 +2450,26 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			_start_dialogue("player", summer_key)
 			if global.vball_story_phase >= 2 and global.vball_story_phase < 6:
 				global.vball_story_phase = 6
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "vball_tell_senior":
 		if StageBuilder.is_gymnasium_stage(stage_id):
 			await get_tree().create_timer(0.8).timeout
 			_start_dialogue("senior", "pain_concern")
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "entrance_ceremony":
 		if stage_id == "myroom":
 			await get_tree().create_timer(1.2).timeout
-			_start_dialogue("player", _get_entrance_dialogue_key(global.age))
+			_start_dialogue("player", _get_term_intro_dialogue_key(int(global.age), int(global.term)))
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
 	elif ev == "term_end_measurement":
 		if stage_id == "myroom":
 			await get_tree().create_timer(0.4).timeout
@@ -2269,8 +2477,11 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			if player and player.has_method("update_measurements"):
 				player.call("update_measurements")
 			_show_measurement_result(true)
+			return true
 		else:
-			global.pending_events.push_front(ev)
+			_defer_pending_stage_event(global, ev)
+			return false
+	return false
 
 func _load_stage():
 	var global = get_node_or_null("/root/Global")
@@ -2307,7 +2518,14 @@ func _load_stage():
 			player.connect("head_bump", bump_handler)
 
 	if global:
-		await _handle_pending_stage_event(global, stage_id, global.pop_next_event())
+		var pending_count := int(global.pending_events.size())
+		for _event_index in range(pending_count):
+			var next_event: String = global.pop_next_event()
+			if next_event == "":
+				break
+			var handled: bool = await _handle_pending_stage_event(global, stage_id, next_event)
+			if handled:
+				break
 		_update_actions_hud()
 		if global.current_slot >= 1:
 			global.save_slot(global.current_slot)
@@ -2349,6 +2567,10 @@ func _enter_edge_transition(target_stage: String) -> void:
 		var spawn_x = 80.0
 		if from_stage_id == "adjacent_town" and resolved_target == "outdoor":
 			spawn_x = stage_width - 80.0
+		elif from_stage_id == "station" and resolved_target == "platform":
+			spawn_x = 270.0  # ホーム左側に到着
+		elif from_stage_id == "platform" and resolved_target == "station":
+			spawn_x = stage_width - 260.0  # 駅右側に到着
 		player.position = Vector2(spawn_x * p, 0)
 	_edge_transition_running = false
 
@@ -2358,6 +2580,16 @@ func _get_entrance_dialogue_key(age: int) -> String:
 	if age <= 12:
 		return "entrance_middle"
 	return "entrance_high"
+
+func _is_entrance_term(age: int, term_value: int) -> bool:
+	if not age in [6, 12, 15]:
+		return false
+	return Global.get_term_in_school_year(age, term_value) == 1
+
+func _get_term_intro_dialogue_key(age: int, term_value: int) -> String:
+	if _is_entrance_term(age, term_value):
+		return _get_entrance_dialogue_key(age)
+	return "new_semester"
 
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_show_bump_alert(StageBuilder.get_head_bump_comment(obs_id, obs_height_cm))
@@ -2559,6 +2791,7 @@ func _enter_transition_door() -> void:
 		var return_door_id = "door_to_" + from_stage_id
 		var stage_width = float(StageBuilder.STAGES[new_stage_id]["width"])
 		var cur_age = global.age if global else 0
+		var spawned := false
 		for obs in StageBuilder.get_obstacles(new_stage_id, cur_age):
 			if obs["id"] == return_door_id:
 				var obs_x = float(obs["x"])
@@ -2572,7 +2805,11 @@ func _enter_transition_door() -> void:
 					spawn_x = obs_x2 + 50.0
 				spawn_x = clamp(spawn_x, 50.0, stage_width - 50.0)
 				player.position = Vector2(spawn_x * p, 0)
+				spawned = true
 				break
+		# station には door_to_platform を置かない設計なので、platform から戻る時は右側に出す
+		if not spawned and new_stage_id == "station" and from_stage_id == "platform":
+			player.position = Vector2((stage_width - 260.0) * p, 0)
 
 # ─── 成長システム ───────────────────────────────────────────────
 
@@ -2741,6 +2978,7 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 
 	var h: float = global.current_params["height"]
 	var prev_h: float = global.prev_height
+	var animate_growth: bool = return_to_myroom and prev_h > 0.0 and absf(h - prev_h) > 0.01
 	var a: int = global.age
 	var avg_h: float = global.get_avg_height(a)
 	var diff_avg: float = h - avg_h
@@ -2760,28 +2998,31 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 
 	# 前回比ラベル
 	if prev_h > 0.0:
-		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev
+		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev if return_to_myroom else "現在値（前回比 %+.1f cm）" % diff_prev
 	else:
 		_meas_diff_label.text = "はじめての測定"
 
 	# 初期状態リセット
-	_meas_height_label.text = "%.1f cm" % (prev_h if prev_h > 0.0 else h)
+	_meas_height_label.text = "%.1f cm" % (prev_h if animate_growth else h)
 	_meas_diff_label.modulate.a = 0.0
 	measurement_content_label.modulate.a = 0.0
 	_meas_btn_row.modulate.a = 0.0
 	_meas_diff_label.scale = Vector2(0.7, 0.7)
-	_update_mini_avatar(prev_h if prev_h > 0.0 else h)
+	_update_mini_avatar(prev_h if animate_growth else h)
 
-	# グラフに「現在測定中」のプレビューデータをセット（最新点を末尾に追加）
+	# 学期末測定のみ成長演出。任意測定は現在値をそのまま表示する。
 	if _meas_graph:
-		var preview = global.growth_history.duplicate()
-		preview.append({
-			"height": h, "avg_height": avg_h,
-			"age": a, "term": global.term,
-			"diff_prev": diff_prev, "diff_avg": diff_avg,
-		})
-		_meas_graph.set_data(preview)
-		_meas_graph.animate_new_point(1.4) # カウントアップ(1.4秒)と同期
+		if animate_growth:
+			var preview = global.growth_history.duplicate()
+			preview.append({
+				"height": h, "avg_height": avg_h,
+				"age": a, "term": global.term,
+				"diff_prev": diff_prev, "diff_avg": diff_avg,
+			})
+			_meas_graph.set_data(preview)
+			_meas_graph.animate_new_point(1.4) # カウントアップ(1.4秒)と同期
+		else:
+			_meas_graph.set_data(global.growth_history)
 
 	_measurement_returns_to_myroom = return_to_myroom
 	_measurement_showing = true
@@ -2792,14 +3033,14 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 	var tween = create_tween()
 	tween.tween_property(measurement_panel, "color", Color(0, 0, 0, 0.75), 0.4)
 
-	# 身長カウントアップ（前回値 → 現在値）＋アバターがリアルタイムで成長
-	if prev_h > 0.0:
+	# 学期末測定のみ、前回値から現在値へカウントアップする
+	if animate_growth:
 		tween.tween_method(func(v: float):
 			_meas_height_label.text = "%.1f cm" % v
 			_update_mini_avatar(v)
 		, prev_h, h, 1.4)
 	else:
-		tween.tween_interval(0.5)
+		tween.tween_interval(0.25)
 
 	# 前回比ポップアップ
 	tween.tween_property(_meas_diff_label, "modulate:a", 1.0, 0.2)
@@ -2904,8 +3145,8 @@ func _on_next_term_pressed() -> void:
 	# 少し歩き込んでから主人公モノローグ（入学年は入学式セリフ）
 	await get_tree().create_timer(1.8).timeout
 	var mono_key = "new_semester"
-	if global and global.age in [12, 15]:
-		mono_key = _get_entrance_dialogue_key(global.age)
+	if global:
+		mono_key = _get_term_intro_dialogue_key(int(global.age), int(global.term))
 	_start_dialogue("player", mono_key)
 
 func _setup_history_panel() -> void:

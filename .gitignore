@@ -21,5 +21,5 @@ artifacts/godot-captures/
 .DS_Store
 node_modules/
 
-godot-project/artifacts/godot-captures/*.png
+godot-project/artifacts/godot-captures/*
 artifacts/godot-runtime/*
