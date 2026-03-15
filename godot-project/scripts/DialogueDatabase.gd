@@ -194,6 +194,9 @@ const DATA: Dictionary = {
 			{"speaker": "保健の先生", "text": "あら、今日も身長を測りに来たの？"},
 			{"speaker": "保健の先生", "text": "身長計の前に立って。はい、背筋をまっすぐ。"},
 		],
+		"measurement_notice": [
+			{"speaker": "保健の先生", "text": "そろそろ身体測定の時期ね。保健室においで。"},
+		],
 	},
 	"player": {
 		"summer_growth": [

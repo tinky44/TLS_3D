@@ -14,6 +14,7 @@ var bubble_label: Label
 
 var minimap_bg: ColorRect
 var minimap_player: ColorRect
+var action_label: Label
 
 # ポーズメニュー用
 var pause_menu: Control
@@ -24,6 +25,7 @@ var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
 var _nearby_term_hotspot: String = ""
+var _nearby_bed: bool = false
 
 # アクションヒントパネル（Q キーで切り替え）
 var action_hint_panel: PanelContainer
@@ -33,6 +35,7 @@ var action_hint_label: Label
 var measurement_panel: Control
 var measurement_content_scroll: ScrollContainer
 var measurement_content_label: Label
+var _measurement_returns_to_myroom: bool = false
 var history_panel: Control
 var history_header_label: Label
 var growth_graph: Control
@@ -63,6 +66,11 @@ var term_choice_header_label: Label
 var _term_choice_showing: bool = false
 var _ending_overlay_showing: bool = false
 var _school_day_transition_running: bool = false
+var sleep_menu: Control
+var sleep_menu_options: VBoxContainer
+var _sleep_menu_showing: bool = false
+var _edge_transition_running: bool = false
+var _last_soft_limit_notice_key: String = ""
 
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
@@ -241,6 +249,7 @@ func _ready() -> void:
 	_setup_dialogue_panel() # ダイアログパネル（bubble_panelの上）
 	_setup_pause_menu() # pause_menu を後に追加（最前面に描画）
 	_setup_measurement_panel()
+	_setup_sleep_menu()
 	_setup_term_choice_panel()
 	_load_stage()
 
@@ -793,7 +802,7 @@ func _get_stress_dialogue_opener(npc_id: String) -> Dictionary:
 func _get_stage_mood_bucket(stage_id: String) -> String:
 	if stage_id == "room" or stage_id == "myroom":
 		return "home"
-	if stage_id == "station" or stage_id == "train" or stage_id == "outdoor":
+	if stage_id in ["station", "platform", "train", "outdoor", "adjacent_town", "gakuenmae", "gakuenmachi"]:
 		return "station"
 	if StageBuilder.is_school_stage(stage_id):
 		return "school"
@@ -1398,6 +1407,7 @@ func _on_screenshot_failed(result: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_actions_hud()
 	_update_ui()
 	_update_bubble()
 	_update_minimap()
@@ -1426,6 +1436,9 @@ func _update_bubble():
 
 	var m = player.get("m")
 	if not m: return
+	if _sleep_menu_showing:
+		bubble_panel.hide()
+		return
 
 	var px = player.global_position.x / p
 	var hit_dist = 60.0 # 60cm以内に近づいたら表示
@@ -1438,6 +1451,7 @@ func _update_bubble():
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
 		_nearby_term_hotspot = ""
+		_nearby_bed = false
 		bubble_label.text = "[Eキー] 話しかける"
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
@@ -1463,17 +1477,26 @@ func _update_bubble():
 		var hotspot_id: String = _get_term_hotspot_id_for_obstacle(String(obs_id))
 
 		bubble_label.text = StageBuilder.get_obstacle_comment(obs_id, h, oh)
+		var global = get_node_or_null("/root/Global")
 
 		# 近くのオブジェクトに応じたインタラクションヒントを追加
-		if hotspot_id != "":
+		if obs_id == "bed" and global and String(global.current_stage_id) == "myroom":
+			_nearby_transition_door = ""
+			_nearby_height_scale = false
+			_nearby_term_hotspot = ""
+			_nearby_bed = true
+			bubble_label.text += "\n[E] 休む"
+		elif hotspot_id != "":
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
 			_nearby_term_hotspot = hotspot_id
+			_nearby_bed = false
 			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
 		elif obs_id.begins_with("door_to_"):
 			var lock_message: String = _get_transition_lock_message(String(obs_id))
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
+			_nearby_bed = false
 			if lock_message != "":
 				_nearby_transition_door = ""
 				bubble_label.text = lock_message
@@ -1484,11 +1507,13 @@ func _update_bubble():
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
 			_nearby_term_hotspot = ""
+			_nearby_bed = false
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
+			_nearby_bed = false
 
 		bubble_panel.show()
 		bubble_panel.position = _get_bubble_screen_pos()
@@ -1496,7 +1521,8 @@ func _update_bubble():
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
 		_nearby_term_hotspot = ""
-		if _in_dialogue or _measurement_showing or _term_choice_showing:
+		_nearby_bed = false
+		if _in_dialogue or _measurement_showing or _term_choice_showing or _sleep_menu_showing:
 			bubble_panel.hide()
 			return
 		var global = get_node_or_null("/root/Global")
@@ -1630,6 +1656,19 @@ func _setup_ui():
 	minimap_player.size = Vector2(6, 8)
 	minimap_bg.add_child(minimap_player)
 
+	action_label = Label.new()
+	action_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	action_label.offset_left = -300
+	action_label.offset_top = 16
+	action_label.offset_right = -20
+	action_label.offset_bottom = 44
+	action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	action_label.add_theme_font_size_override("font_size", 16)
+	action_label.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
+	action_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	action_label.add_theme_constant_override("outline_size", 4)
+	ui_layer.add_child(action_label)
+
 	add_child(ui_layer)
 	# ui_layer は _setup_ui() で add_child 済み。_setup_bubble() / _setup_pause_menu() はその後に呼ぶ
 
@@ -1713,11 +1752,149 @@ func _setup_pause_menu() -> void:
 	
 	ui_layer.add_child(pause_menu)
 
+func _setup_sleep_menu() -> void:
+	if sleep_menu:
+		return
+
+	sleep_menu = ColorRect.new()
+	sleep_menu.color = Color(0, 0, 0, 0.6)
+	sleep_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sleep_menu.hide()
+	sleep_menu.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sleep_menu.add_child(center)
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#1d2630")
+	style.corner_radius_top_left = 16
+	style.corner_radius_top_right = 16
+	style.corner_radius_bottom_right = 16
+	style.corner_radius_bottom_left = 16
+	style.content_margin_left = 36
+	style.content_margin_right = 36
+	style.content_margin_top = 28
+	style.content_margin_bottom = 28
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "休む"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title)
+
+	var subtitle = Label.new()
+	subtitle.text = "今日はここまでにしようか。"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 15)
+	subtitle.add_theme_color_override("font_color", Color(0.78, 0.86, 0.96))
+	vbox.add_child(subtitle)
+
+	vbox.add_child(HSeparator.new())
+
+	sleep_menu_options = VBoxContainer.new()
+	sleep_menu_options.add_theme_constant_override("separation", 12)
+	vbox.add_child(sleep_menu_options)
+
+	var close_hint = Label.new()
+	close_hint.text = "[ESC] 閉じる"
+	close_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	close_hint.add_theme_font_size_override("font_size", 13)
+	close_hint.add_theme_color_override("font_color", Color(0.72, 0.80, 0.90))
+	vbox.add_child(close_hint)
+
+	ui_layer.add_child(sleep_menu)
+
+func _show_sleep_menu(options: Array) -> void:
+	if not sleep_menu:
+		_setup_sleep_menu()
+	for child in sleep_menu_options.get_children():
+		child.queue_free()
+	for option in options:
+		var button = Button.new()
+		button.text = String(option)
+		button.custom_minimum_size = Vector2(260, 46)
+		button.add_theme_font_size_override("font_size", 17)
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(_on_sleep_menu_selected.bind(String(option)))
+		sleep_menu_options.add_child(button)
+	_sleep_menu_showing = true
+	sleep_menu.show()
+	get_tree().paused = true
+
+func _hide_sleep_menu() -> void:
+	_sleep_menu_showing = false
+	if sleep_menu:
+		sleep_menu.hide()
+	get_tree().paused = false
+
+func _trigger_bed_interaction() -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var opts: Array = ["今日を終える"]
+	if int(global.day_in_term) < int(global.term_total_days) - 2:
+		opts.append("学期末まで一気に進める")
+	_show_sleep_menu(opts)
+
+func _on_sleep_menu_selected(choice: String) -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	_hide_sleep_menu()
+	match choice:
+		"今日を終える":
+			global.day_in_term += 1
+		"学期末まで一気に進める":
+			global.day_in_term = global.term_total_days
+		_:
+			return
+	global.actions_today = 0
+	if int(global.day_in_term) >= int(global.term_total_days):
+		global.queue_event("term_end_measurement")
+	call_deferred("_run_sleep_transition")
+
+func _run_sleep_transition() -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.z_index = 110
+	fade.process_mode = Node.PROCESS_MODE_ALWAYS
+	ui_layer.add_child(fade)
+	var tw = create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 0.35)
+	await tw.finished
+	global.current_stage_id = "myroom"
+	if player and player.has_method("update_measurements"):
+		player.call("update_measurements")
+	await _load_stage()
+	_update_actions_hud()
+	var tw_out = create_tween()
+	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
+	await tw_out.finished
+	fade.queue_free()
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _ending_overlay_showing:
 		return
 	if _school_day_transition_running:
+		return
+	if _sleep_menu_showing and event.is_action_pressed("ui_cancel"):
+		_hide_sleep_menu()
+		return
+	if _sleep_menu_showing:
 		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return
@@ -1741,7 +1918,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _in_dialogue:
 				_advance_dialogue()
 			elif _measurement_showing:
-				_on_next_term_pressed()
+				_on_close_measurement_pressed()
+			elif _nearby_bed:
+				_trigger_bed_interaction()
 			elif _nearby_term_hotspot != "":
 				_trigger_term_hotspot(_nearby_term_hotspot)
 			elif _nearby_transition_door != "":
@@ -1773,10 +1952,16 @@ func _toggle_action_hint() -> void:
 		action_hint_panel.visible = not action_hint_panel.visible
 
 func _get_action_hint_text() -> String:
+	if _sleep_menu_showing:
+		return "[ESC] 閉じる"
 	if _term_choice_showing:
 		return "[1][2] 進級後の進み方を選ぶ"
 	if _in_dialogue:
 		return "[E] 次へ"
+	if _measurement_showing:
+		return "[E] 閉じる"
+	if _nearby_bed:
+		return "[E] 休む"
 	if _measurement_showing:
 		return "[E] 次の学期へ進む"
 	if _nearby_term_hotspot != "":
@@ -1822,6 +2007,29 @@ func _on_quit_pressed() -> void:
 	else:
 		get_tree().quit()
 
+func _update_actions_hud() -> void:
+	if not action_label:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		action_label.text = ""
+		return
+	action_label.text = "%d日目  行動 %d/%d" % [
+		int(global.day_in_term),
+		int(global.actions_today),
+		int(global.max_actions_per_day),
+	]
+	var font_color = Color(0.95, 0.97, 1.0)
+	if int(global.actions_today) >= int(global.max_actions_per_day):
+		font_color = Color(1.0, 0.86, 0.78)
+		var notice_key = "%d:%d" % [int(global.term), int(global.day_in_term)]
+		if _last_soft_limit_notice_key != notice_key:
+			_show_bump_alert("もう夕方だ。今日を終えよう。")
+			_last_soft_limit_notice_key = notice_key
+	else:
+		_last_soft_limit_notice_key = ""
+	action_label.add_theme_color_override("font_color", font_color)
+
 
 func _update_ui():
 	if not player or not status_label: return
@@ -1839,6 +2047,12 @@ func _update_ui():
 	var stress_val: int = global.stress if global else 0
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
+	text += "day %d/%d  action %d/%d\n" % [
+		int(global.day_in_term) if global else 1,
+		int(global.term_total_days) if global else 30,
+		int(global.actions_today) if global else 0,
+		int(global.max_actions_per_day) if global else 3,
+	]
 	text += "%d歳 / %s\n" % [age_val, Global.get_school_term_label(age_val, term_val)]
 	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
 	var confidence_val: int = global.self_confidence if global else 0
@@ -1871,7 +2085,7 @@ func _get_first_visit_dialogue_key(stage_id: String) -> String:
 	return ""
 
 func _is_public_milestone_stage(stage_id: String) -> bool:
-	return stage_id == "station" or stage_id == "train" or stage_id == "outdoor"
+	return stage_id in ["station", "platform", "train", "outdoor", "adjacent_town", "gakuenmae", "gakuenmachi"]
 
 func _queue_stage_arrival_events(global: Node, stage_id: String, was_first_visit: bool) -> void:
 	if global == null:
@@ -1952,10 +2166,19 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			_start_dialogue("player", _get_entrance_dialogue_key(global.age))
 		else:
 			global.pending_events.push_front(ev)
+	elif ev == "term_end_measurement":
+		if stage_id == "myroom":
+			await get_tree().create_timer(0.4).timeout
+			global.advance_term()
+			if player and player.has_method("update_measurements"):
+				player.call("update_measurements")
+			_show_measurement_result(true)
+		else:
+			global.pending_events.push_front(ev)
 
 func _load_stage():
 	var global = get_node_or_null("/root/Global")
-	var stage_id = global.current_stage_id if global else "room"
+	var stage_id = global.current_stage_id if global else "myroom"
 	stage_id = _resolve_stage_id(String(stage_id))
 	var was_first_visit := false
 	if global:
@@ -1966,6 +2189,7 @@ func _load_stage():
 	_sync_player_stage_appearance(stage_id)
 
 	StageBuilder.build_stage(stage_id, self, p, global.age if global else 0)
+	_bind_edge_triggers()
 	_spawn_npcs(stage_id)
 
 	if global and global.current_slot >= 1:
@@ -1985,6 +2209,49 @@ func _load_stage():
 
 	if global:
 		await _handle_pending_stage_event(global, stage_id, global.pop_next_event())
+		_update_actions_hud()
+		if global.current_slot >= 1:
+			global.save_slot(global.current_slot)
+
+func _bind_edge_triggers() -> void:
+	for child in get_children():
+		if child is Area2D and child.has_meta("edge_target_stage"):
+			var area := child as Area2D
+			var target_stage: String = String(area.get_meta("edge_target_stage"))
+			var handler := Callable(self, "_on_edge_trigger_body_entered").bind(target_stage)
+			if not area.is_connected("body_entered", handler):
+				area.body_entered.connect(handler)
+
+func _on_edge_trigger_body_entered(body: Node, target_stage: String) -> void:
+	if body != player:
+		return
+	if _edge_transition_running or _in_dialogue or _measurement_showing or _term_choice_showing or _sleep_menu_showing:
+		return
+	_enter_edge_transition(target_stage)
+
+func _enter_edge_transition(target_stage: String) -> void:
+	if _edge_transition_running:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var resolved_target = _resolve_stage_id(target_stage)
+	if not StageBuilder.STAGES.has(resolved_target):
+		return
+	var from_stage_id: String = String(global.current_stage_id)
+	_edge_transition_running = true
+	global.current_stage_id = resolved_target
+	global.actions_today += 1
+	_nearby_bed = false
+	_update_actions_hud()
+	_load_stage()
+	if player:
+		var stage_width = float(StageBuilder.STAGES[resolved_target]["width"])
+		var spawn_x = 80.0
+		if from_stage_id == "adjacent_town" and resolved_target == "outdoor":
+			spawn_x = stage_width - 80.0
+		player.position = Vector2(spawn_x * p, 0)
+	_edge_transition_running = false
 
 func _get_entrance_dialogue_key(age: int) -> String:
 	if age <= 6:
@@ -2069,6 +2336,47 @@ func _spawn_npcs(stage_id: String) -> void:
 			"shoes_color": "#ffffff"
 		}, "", 90.0)
 
+	elif stage_id == "adjacent_town":
+		var middle_uniform: Dictionary = _build_stage_uniform_appearance("school_hallway_middle", "short", "#4f382b")
+		_spawn_stage_npc(npc_scene, 520.0, hall_student_params["middle"], middle_uniform, "", 70.0)
+		_spawn_stage_npc(npc_scene, 860.0, {
+			"height": 160.0,
+			"ratio": 6.9,
+			"legRatio": 44.0,
+			"sex": "female"
+		}, {}, "", 90.0)
+
+	elif stage_id == "platform":
+		_spawn_stage_npc(npc_scene, 760.0, {
+			"height": 162.0,
+			"ratio": 6.9,
+			"legRatio": 44.0,
+			"sex": "female"
+		}, {}, "", 110.0)
+
+	elif stage_id == "gakuenmae":
+		var high_uniform_station: Dictionary = _build_stage_uniform_appearance("school_hallway_high", "short", "#4c3329")
+		_spawn_stage_npc(npc_scene, 820.0, hall_student_params["high"], high_uniform_station, "", 80.0)
+
+	elif stage_id == "gakuenmachi":
+		var high_uniform_town: Dictionary = _build_stage_uniform_appearance("school_hallway_high", "side_tail", "#413026")
+		_spawn_stage_npc(npc_scene, 760.0, hall_student_params["high"], high_uniform_town, "", 85.0)
+		_spawn_stage_npc(npc_scene, 1240.0, {
+			"height": 158.0,
+			"ratio": 6.8,
+			"legRatio": 44.0,
+			"sex": "female"
+		}, {
+			"hair_style": "short",
+			"hair_color": "#6a4b3b",
+			"tops_type": "sweater",
+			"tops_color": "#b78b6e",
+			"bottoms_type": "skirt_long",
+			"bottoms_color": "#4c3d37",
+			"shoes_type": "loafer",
+			"shoes_color": "#4b4b52"
+		}, "", 60.0)
+
 	elif stage_id == "room":
 		_spawn_stage_npc(npc_scene, 400.0, {}, {}, "mother", 0.0)
 		_spawn_stage_npc(npc_scene, 700.0, {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}, {}, "father", 0.0)
@@ -2140,8 +2448,11 @@ func _enter_transition_door() -> void:
 	if global:
 		from_stage_id = global.current_stage_id
 		global.current_stage_id = new_stage_id
+		global.actions_today += 1
+		_update_actions_hud()
 
 	_nearby_transition_door = ""
+	_nearby_bed = false
 	_load_stage()
 
 	# 遷移先の「戻り口ドア」の近くにスポーン
@@ -2294,18 +2605,21 @@ func _setup_measurement_panel() -> void:
 
 	var close_btn = Button.new()
 	close_btn.text = "閉じる"
+	close_btn.text = "閉じる"
 	close_btn.custom_minimum_size = Vector2(140, 48)
 	close_btn.add_theme_font_size_override("font_size", 16)
 	close_btn.focus_mode = Control.FOCUS_NONE
-	close_btn.pressed.connect(_on_measurement_panel_closed)
+	close_btn.pressed.connect(_on_close_measurement_pressed)
 	_meas_btn_row.add_child(close_btn)
 
 	var next_btn = Button.new()
+	next_btn.hide()
+	next_btn.text = "閉じる"
 	next_btn.text = "次の学期へ"
 	next_btn.custom_minimum_size = Vector2(160, 48)
 	next_btn.add_theme_font_size_override("font_size", 16)
 	next_btn.focus_mode = Control.FOCUS_NONE
-	next_btn.pressed.connect(_on_next_term_pressed)
+	next_btn.pressed.connect(_on_close_measurement_pressed)
 	_meas_btn_row.add_child(next_btn)
 
 	ui_layer.add_child(measurement_panel)
@@ -2322,7 +2636,7 @@ func _update_mini_avatar(h_cm: float) -> void:
 	_mini_proxy.visual_height_cm = h_cm
 	_mini_drawer.queue_redraw()
 
-func _show_measurement_result() -> void:
+func _show_measurement_result(return_to_myroom: bool = false) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
 
@@ -2370,6 +2684,7 @@ func _show_measurement_result() -> void:
 		_meas_graph.set_data(preview)
 		_meas_graph.animate_new_point(1.4) # カウントアップ(1.4秒)と同期
 
+	_measurement_returns_to_myroom = return_to_myroom
 	_measurement_showing = true
 	measurement_panel.show()
 	get_tree().paused = true
@@ -2403,7 +2718,28 @@ func _reset_measurement_content_scroll() -> void:
 	measurement_content_scroll.set_deferred("scroll_vertical", 0)
 	measurement_content_scroll.set_deferred("scroll_horizontal", 0)
 
+func _on_close_measurement_pressed() -> void:
+	_measurement_showing = false
+	measurement_panel.hide()
+	get_tree().paused = false
+	_nearby_height_scale = false
+	var global = get_node_or_null("/root/Global")
+	var should_return_to_myroom := _measurement_returns_to_myroom
+	_measurement_returns_to_myroom = false
+	if should_return_to_myroom:
+		if global:
+			global.current_stage_id = "myroom"
+		if player and player.has_method("update_measurements"):
+			player.call("update_measurements")
+		_load_stage()
+		return
+	if global and global.haruka_following:
+		global.haruka_following = false
+		_start_dialogue("haruka", "measure_after")
+
 func _on_measurement_panel_closed() -> void:
+	_on_close_measurement_pressed()
+	return
 	_measurement_showing = false
 	measurement_panel.hide()
 	get_tree().paused = false
@@ -2414,6 +2750,8 @@ func _on_measurement_panel_closed() -> void:
 		_start_dialogue("haruka", "measure_after")
 
 func _on_next_term_pressed() -> void:
+	_on_close_measurement_pressed()
+	return
 	_measurement_showing = false
 	measurement_panel.hide()
 	get_tree().paused = false

@@ -32,7 +32,7 @@ var system_settings: Dictionary = {
 	"move_speed": 250.0
 }
 
-var current_stage_id: String = "room"
+var current_stage_id: String = "myroom"
 var current_slot: int = -1 # 現在使用中のスロット番号 (-1 = 未選択)
 var slot_select_mode: String = "save" # "save" or "load"
 var _screenshot_in_progress: bool = false
@@ -40,6 +40,10 @@ var _screenshot_in_progress: bool = false
 # 成長パラメータ（term=6 が小学1年・6歳のスタート）
 var age: int = 6
 var term: int = 6
+var day_in_term: int = 1
+var actions_today: int = 0
+var max_actions_per_day: int = 3
+var term_total_days: int = 30
 var growth_factor: float = 1.0
 var growth_type: String = "normal" # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
@@ -338,6 +342,8 @@ func advance_term() -> void:
 	var prev_age: int = age
 	var prev_school_level: int = _school_level_from_age(prev_age)
 	term += 1
+	day_in_term = 1
+	actions_today = 0
 	age = term_to_age(term)
 	var school_level: int = _school_level_from_age(age)
 	current_params["height"] += calc_growth()
@@ -522,6 +528,8 @@ func load_settings():
 		current_params["sex"] = config.get_value("Player", "sex", current_params["sex"])
 		age = config.get_value("Player", "age", age)
 		term = config.get_value("Player", "term", term)
+		day_in_term = int(config.get_value("Player", "day_in_term", day_in_term))
+		actions_today = int(config.get_value("Player", "actions_today", actions_today))
 		growth_factor = config.get_value("Player", "growth_factor", growth_factor)
 		growth_type = config.get_value("Player", "growth_type", growth_type)
 		self_confidence = int(config.get_value("Player", "self_confidence", self_confidence))
@@ -558,6 +566,8 @@ func save_settings():
 	config.set_value("Player", "sex", current_params["sex"])
 	config.set_value("Player", "age", age)
 	config.set_value("Player", "term", term)
+	config.set_value("Player", "day_in_term", day_in_term)
+	config.set_value("Player", "actions_today", actions_today)
 	config.set_value("Player", "growth_factor", growth_factor)
 	config.set_value("Player", "growth_type", growth_type)
 	config.set_value("Player", "self_confidence", self_confidence)
@@ -594,6 +604,8 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "stage_id", current_stage_id)
 	config.set_value(section, "age", age)
 	config.set_value(section, "term", term)
+	config.set_value(section, "day_in_term", day_in_term)
+	config.set_value(section, "actions_today", actions_today)
 	config.set_value(section, "prev_height", prev_height)
 	config.set_value(section, "growth_factor", growth_factor)
 	config.set_value(section, "growth_type", growth_type)
@@ -637,9 +649,11 @@ func load_slot(slot: int) -> bool:
 	current_params["ratio"] = config.get_value(section, "ratio", 7.5)
 	current_params["legRatio"] = config.get_value(section, "legRatio", 48.0)
 	current_params["sex"] = config.get_value(section, "sex", "female")
-	current_stage_id = config.get_value(section, "stage_id", "room")
+	current_stage_id = config.get_value(section, "stage_id", "myroom")
 	age = config.get_value(section, "age", 6)
 	term = config.get_value(section, "term", 6)
+	day_in_term = int(config.get_value(section, "day_in_term", 1))
+	actions_today = int(config.get_value(section, "actions_today", 0))
 	prev_height = config.get_value(section, "prev_height", 0.0)
 	growth_factor = config.get_value(section, "growth_factor", 1.0)
 	growth_type = config.get_value(section, "growth_type", "normal")
@@ -693,7 +707,7 @@ func get_slot_info(slot: int) -> Dictionary:
 		return {}
 	return {
 		"height": config.get_value(section, "height", 180.0),
-		"stage_id": config.get_value(section, "stage_id", "room"),
+		"stage_id": config.get_value(section, "stage_id", "myroom"),
 		"timestamp": config.get_value(section, "timestamp", ""),
 		"age": config.get_value(section, "age", 6),
 		"term": config.get_value(section, "term", 6),
