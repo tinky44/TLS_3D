@@ -21,7 +21,19 @@
 |---|---|---|
 | 小学校 | outdoor（街）から徒歩 | `outdoor` → Eキー → `school_hallway_elementary` |
 | 中学校 | 隣町 | `outdoor` の右端まで歩く → `adjacent_town` → Eキー → `school_hallway_middle` |
-| 高校 | 学園街 | `outdoor` → 電車 → `gakuenmae` → `school_area` → Eキー → `school_hallway_high` |
+| 高校 | 学園街 | `outdoor` → 電車 → `gakuenmae` → `gakuenmachi` → Eキー → `school_hallway_high` |
+
+### 注意: IDの命名規則
+
+`school_area` は `StageBuilder.is_school_classroom_stage()` が `school_.begins_with()` で拾うため**学校内部扱いになる**。
+学園街（屋外の商店街）には `gakuenmachi` を使う。
+
+| ステージID | 名前 | 種別 |
+|---|---|---|
+| `platform` | ホーム（地元側） | 屋外 |
+| `gakuenmae` | 学園前駅 | 屋外 |
+| `gakuenmachi` | 学園街 | 屋外（`school_` 非プレフィックス） |
+| `adjacent_town` | 隣町 | 屋外 |
 
 ### 現状の問題
 
@@ -29,16 +41,6 @@
 |---|---|---|
 | `train` | → `school_hallway_high` | 電車から直接高校に入れる（中間ステージがない） |
 | `outdoor` | → `school_hallway_*`（年齢解決） | 中高生も屋外から直接学校に入れる |
-| `train` | 隣町への出口なし | 隣町は outdoor 右隣なので train 経由は不要 |
-
-### 追加するステージ一覧
-
-| ステージID | 名前 | 説明 |
-|---|---|---|
-| `platform` | ホーム（地元側） | 地元の駅のホーム。`station` と `train` をつなぐ |
-| `gakuenmae` | 学園前駅 | 学校側のホーム。`train` と `school_area` をつなぐ |
-| `school_area` | 学園街 | 高校周辺の商店街。高校へのエントランス |
-| `adjacent_town` | 隣町 | 街の右隣。中学校がある。**右端歩き**で遷移 |
 
 ### 修正後のステージ接続マップ
 
@@ -53,7 +55,7 @@ myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
                   ↓（Eキー）
             gakuenmae ← 学園前駅（新設）
                   ↓（Eキー）
-           school_area ← 学園街（新設）
+           gakuenmachi ← 学園街（新設）
                   ↓（Eキー）
         school_hallway_high ← 高校
 ```
@@ -62,7 +64,7 @@ myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
 
 **中学**: `outdoor` 右端まで歩く → `adjacent_town` → Eキー → `school_hallway_middle`
 
-**高校**: `outdoor` → `station` → `platform` → `train` → `gakuenmae` → `school_area` → Eキー → `school_hallway_high`
+**高校**: `outdoor` → `station` → `platform` → `train` → `gakuenmae` → `gakuenmachi` → Eキー → `school_hallway_high`
 
 ### StageBuilder.gd の変更点
 
@@ -71,17 +73,37 @@ myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
 ```gdscript
 # train のドア定義（変更前 → 変更後）
 {"id": "door_to_school_hallway_high", ...}  # ← 削除
-{"id": "door_to_platform",  ...}            # 地元側ホームへ戻る（左出口）
-{"id": "door_to_gakuenmae", ...}            # 学園前駅へ（右出口）
-# ※隣町への出口は不要（隣町は outdoor 右隣）
+{"id": "door_to_platform",    ...}          # 地元側ホームへ戻る（左出口）
+{"id": "door_to_gakuenmae",   ...}          # 学園前駅へ（右出口）
 
 # station のドア定義（変更前 → 変更後）
-{"id": "door_to_train", ...}      # ← 変更
+{"id": "door_to_train",    ...}   # ← 変更
 {"id": "door_to_platform", ...}   # platform が train の手前に入る
 
 # outdoor のドア定義
-{"id": "door_to_school_hallway", ...}  # 中高生分を削除、小学生分だけ残す
+{"id": "door_to_school_hallway_elementary", ...}  # 小学生のみ残す（変更なし）
+# 中高生の学校ルートを担っていた door_to_school_hallway は不要
 # 右端の StaticBody2D 壁 → 削除（edge-walk 遷移に差し替え）
+```
+
+#### `_school_hallway_obstacles()` の entry_door 修正（StageBuilder.gd L3067-3071）
+
+廊下に入るためのドアが参照するステージIDが変わるため修正が必要。
+
+```gdscript
+# 変更前
+var entry_door = "door_to_outdoor"
+if suffix == "middle":
+    entry_door = "door_to_station"
+elif suffix == "high":
+    entry_door = "door_to_train"
+
+# 変更後
+var entry_door = "door_to_outdoor"
+if suffix == "middle":
+    entry_door = "door_to_adjacent_town"  # 隣町から入学
+elif suffix == "high":
+    entry_door = "door_to_gakuenmachi"    # 学園街から入学
 ```
 
 #### 新ステージの build_stage() 分岐追加
@@ -89,30 +111,28 @@ myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
 ```gdscript
 "platform":
     # ホーム（屋根・柱・線路・黄色い点字ブロック）
-    # ドア: door_to_station, door_to_train
+    # ドア: door_to_station（左）, door_to_train（右）
 
 "gakuenmae":
-    # 学園前駅ホーム（シンプルな屋外ホーム、看板「学園前」）
-    # ドア: door_to_train, door_to_school_area
+    # 学園前駅ホーム（小さな屋外ホーム、看板「学園前」）
+    # ドア: door_to_train（左）, door_to_gakuenmachi（右）
 
-"school_area":
-    # 学園街（自販機・掲示板・制服の高校生が行き交う）
-    # ドア: door_to_gakuenmae, door_to_school_hallway_high
+"gakuenmachi":
+    # 学園街（商店街・掲示板・制服の高校生が行き交う）
+    # ドア: door_to_gakuenmae（左）, door_to_school_hallway_high（右）
+    # ※ school_ プレフィックスを持たないため屋外扱いのまま
 
 "adjacent_town":
-    # 隣町（街の右隣、中学校がある）
+    # 隣町（outdoor の右隣、中学校の校門がある）
     # 右端の StaticBody2D 壁はそのまま（行き止まり）
     # ドア: door_to_school_hallway_middle（Eキー）
     # 左端: edge-walk で outdoor に戻る
 ```
 
-#### `_get_stage_lock_message()` に追加
+#### `_get_stage_lock_message()` について
 
-```gdscript
-"door_to_school_hallway_middle":
-    if global.age < 12 or global.age >= 15:
-        return "ここは中学校だ。"
-```
+`school_hallway_middle` および `school_hallway_high` のロックは**既存コード（MainScene.gd L613-643）で対応済み**のため追加不要。
+新ステージ `gakuenmachi` / `adjacent_town` はロックなし（年齢制限を設けない）。
 
 ### 隣町（adjacent_town）edge-walk 遷移の実装方針
 
@@ -122,11 +142,7 @@ myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
 #### StageBuilder.gd 側
 
 ```gdscript
-# outdoor ステージの右端壁生成を条件分岐に変更
-# 右端（x = stage_width）は壁を置かず、代わりに edge_trigger を返す
-# build_stage() の戻り値 or parent_node にメタデータとして付与
-
-# 右端 Area2D の生成（outdoor のみ）
+# outdoor ステージ: 右端の StaticBody2D 壁の代わりに RightEdgeTrigger を生成
 var edge_area = Area2D.new()
 edge_area.name = "RightEdgeTrigger"
 edge_area.set_meta("target_stage", "adjacent_town")
@@ -138,17 +154,17 @@ col.shape = rect
 edge_area.add_child(col)
 parent_node.add_child(edge_area)
 
-# adjacent_town の左端にも同様（target_stage = "outdoor"）
+# adjacent_town の左端にも同様（target_stage = "outdoor"、名前 = "LeftEdgeTrigger"）
 ```
 
 #### MainScene.gd 側
 
 ```gdscript
-# _load_stage() 後に RightEdgeTrigger / LeftEdgeTrigger を走査
-# body_entered シグナルで _enter_edge_transition(target_stage) を呼ぶ
+# _load_stage() 後に RightEdgeTrigger / LeftEdgeTrigger を走査しシグナル接続
 func _enter_edge_transition(target_stage: String) -> void:
     Global.current_stage_id = target_stage
     Global.actions_today += 1
+    _update_actions_hud()
     _load_stage()
 ```
 
@@ -157,13 +173,18 @@ func _enter_edge_transition(target_stage: String) -> void:
 | ステージ | 背景イメージ | NPC |
 |---|---|---|
 | `platform` | 駅ホーム（屋根・柱・線路）、右端に電車ドア | 通勤客（汎用） |
-| `gakuenmae` | 小さな無人ホーム、看板「学園前」 | 生徒（汎用） |
-| `school_area` | 商店街・掲示板 | 高校生・店員（汎用） |
+| `gakuenmae` | 小さな無人ホーム、看板「学園前」 | 高校生（汎用） |
+| `gakuenmachi` | 商店街・掲示板 | 高校生・店員（汎用） |
 | `adjacent_town` | outdoor と地続きの街並み、中学校の校門 | 中学生・住民（汎用） |
 
 ---
 
 ## ★★★ ゲーム進行システム見直し
+
+### 確定仕様（ユーザ確認済み）
+
+- 測定パネルの [E] は「次の学期へ」ではなく**「閉じる」**に変更
+- `advance_term()` は**学期末強制測定時のみ**呼ぶ（任意測定・パネル閉じでは呼ばない）
 
 ### 現状（as-is）のループ
 
@@ -185,8 +206,8 @@ func _enter_edge_transition(target_stage: String) -> void:
 [行動] ステージ移動・NPC・ホットスポット探索
     各ステージ遷移で actions_today++
     ↓
-[夜] actions_today >= max_actions_per_day になると
-    バブル: 「もう夕方だ。今日はどうする？」
+[上限到達] actions_today >= max_actions_per_day になると
+    バブル: 「もう夕方だ。今日を終えよう。」（ソフトリミット: 遷移は引き続き可能）
     ↓ ベッドに近づいて E
 [就寝メニュー]
     ├── 「今日を終える」         → day_in_term++, 翌朝へ
@@ -194,7 +215,7 @@ func _enter_edge_transition(target_stage: String) -> void:
     ↓
 [学期末] day_in_term >= term_total_days になったとき
     → 「身体測定の日です」強制イベント
-    → advance_term()（成長）→ 測定パネル表示 → 新学期へ
+    → advance_term()（成長）→ 測定パネル表示（Eキーで閉じる） → 新学期へ
 ```
 
 ### 新規変数（Global.gd に追加）
@@ -206,7 +227,19 @@ var max_actions_per_day: int = 3   # 1日の最大行動回数
 var term_total_days: int = 30      # 1学期の日数
 ```
 
-セーブ/ロード対象に追加：
+セーブ/ロード対象に追加（**save_settings / load_settings の両方**に追加する）：
+
+```gdscript
+# save_settings() に追加
+config.set_value("Player", "day_in_term",   day_in_term)
+config.set_value("Player", "actions_today", actions_today)
+
+# load_settings() に追加
+day_in_term   = int(config.get_value("Player", "day_in_term",   1))
+actions_today = int(config.get_value("Player", "actions_today", 0))
+```
+
+save_slot / load_slot にも同様に追加：
 
 ```gdscript
 # save_slot()
@@ -257,12 +290,20 @@ func _on_sleep_menu_selected(choice: String) -> void:
 
 ```gdscript
 "term_end_measurement":
-    Global.advance_term()   # 先に成長させる
-    if StageBuilder.resolve_stage_id("infirmary", Global.age) == Global.current_stage_id:
-        _show_measurement_result()
-    else:
-        _start_dialogue("nurse", "measurement_notice")
-        # 会話終了後に infirmary へ自動遷移
+    Global.advance_term()   # ここで1回だけ成長させる
+    _show_measurement_result()
+    # 測定パネルは E キーで「閉じる」だけ（advance_term() は呼ばない）
+```
+
+`_on_next_term_pressed()` の変更（MainScene.gd L2437）：
+
+```gdscript
+# 変更前: advance_term() を呼んでいた
+# 変更後: 測定パネルを閉じるだけ（advance_term() は term_end_measurement で済んでいる）
+func _on_close_measurement_pressed() -> void:
+    _hide_measurement_panel()
+    Global.current_stage_id = "myroom"
+    _load_stage()
 ```
 
 `DialogueDatabase.gd` に追加：
@@ -284,7 +325,7 @@ Global.actions_today += 1
 _update_actions_hud()
 ```
 
-行動上限 UI：
+行動上限 UI（**ソフトリミット**: 上限到達後もバブルを出すだけで遷移は禁止しない）：
 
 ```gdscript
 func _update_actions_hud() -> void:
