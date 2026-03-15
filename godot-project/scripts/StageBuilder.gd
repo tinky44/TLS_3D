@@ -100,7 +100,7 @@ const STAGES = {
     },
     "outdoor": {
         "name": "屋外",
-        "width": 1200,
+        "width": 1500,
         "ceiling_height": null,
         "obstacles": [
             {"id": "door_to_room", "x": 50, "x2": 130, "height": 200, "type": "overhead"},
@@ -593,8 +593,8 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
             stw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
             out_bg.add_child(stw)
         # ===== 学校（door_to_school の背後） =====
-        var sc_x = 1020 * cm_to_px
-        var sc_w = 200 * cm_to_px
+        var sc_x = 980 * cm_to_px
+        var sc_w = 560 * cm_to_px
         var sc_h = 380 * cm_to_px
         var sc_wall = ColorRect.new()
         sc_wall.color = Color(0.82, 0.80, 0.72)
@@ -603,12 +603,22 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         out_bg.add_child(sc_wall)
         # 学校の窓（格子状）
         for row in range(3):
-            for col in range(2):
+            for col in range(4):
                 var scw = ColorRect.new()
                 scw.color = Color(0.58, 0.74, 0.90, 0.78)
-                scw.position = Vector2(sc_x + (18 + col * 90) * cm_to_px, - (sc_h - (30 + row * 110) * cm_to_px))
+                scw.position = Vector2(sc_x + (24 + col * 112) * cm_to_px, - (sc_h - (30 + row * 110) * cm_to_px))
                 scw.size = Vector2(60 * cm_to_px, 80 * cm_to_px)
                 out_bg.add_child(scw)
+        var sc_gate = ColorRect.new()
+        sc_gate.color = Color(0.34, 0.40, 0.50)
+        sc_gate.position = Vector2(1200 * cm_to_px, -220 * cm_to_px)
+        sc_gate.size = Vector2(120 * cm_to_px, 220 * cm_to_px)
+        out_bg.add_child(sc_gate)
+        var sc_fence = ColorRect.new()
+        sc_fence.color = Color(0.70, 0.72, 0.76)
+        sc_fence.position = Vector2(1320 * cm_to_px, -120 * cm_to_px)
+        sc_fence.size = Vector2(180 * cm_to_px, 12 * cm_to_px)
+        out_bg.add_child(sc_fence)
         parent_node.add_child(out_bg)
 
     elif stage_id == "adjacent_town":

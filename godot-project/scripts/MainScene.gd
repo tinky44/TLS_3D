@@ -2232,9 +2232,12 @@ func _load_stage():
 		player.position = Vector2(100 * p, 0)
 		var cam = player.get_node_or_null("Camera2D")
 		if cam:
+			var stage_width_px := int(float(StageBuilder.STAGES[stage_id]["width"]) * p) if StageBuilder.STAGES.has(stage_id) else 0
 			var m = player.get("m")
 			if m and m.has("height"):
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
+			cam.limit_left = 0
+			cam.limit_right = stage_width_px
 			cam.limit_bottom = 250
 		var bump_handler := Callable(self, "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
