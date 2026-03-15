@@ -72,6 +72,7 @@ var _school_day_transition_running: bool = false
 var sleep_menu: Control
 var sleep_menu_options: VBoxContainer
 var _sleep_menu_showing: bool = false
+var _sleep_menu_current_options: Array[String] = []
 var _edge_transition_running: bool = false
 var _last_soft_limit_notice_key: String = ""
 
@@ -1898,15 +1899,18 @@ func _setup_sleep_menu() -> void:
 func _show_sleep_menu(options: Array) -> void:
 	if not sleep_menu:
 		_setup_sleep_menu()
+	_sleep_menu_current_options.clear()
 	for child in sleep_menu_options.get_children():
 		child.queue_free()
 	for option in options:
+		var option_text := String(option)
+		_sleep_menu_current_options.append(option_text)
 		var button = Button.new()
-		button.text = String(option)
+		button.text = option_text
 		button.custom_minimum_size = Vector2(260, 46)
 		button.add_theme_font_size_override("font_size", 17)
 		button.focus_mode = Control.FOCUS_NONE
-		button.pressed.connect(_on_sleep_menu_selected.bind(String(option)))
+		button.pressed.connect(_on_sleep_menu_selected.bind(option_text))
 		sleep_menu_options.add_child(button)
 	_sleep_menu_showing = true
 	sleep_menu.show()
@@ -1914,9 +1918,15 @@ func _show_sleep_menu(options: Array) -> void:
 
 func _hide_sleep_menu() -> void:
 	_sleep_menu_showing = false
+	_sleep_menu_current_options.clear()
 	if sleep_menu:
 		sleep_menu.hide()
 	get_tree().paused = false
+
+func _confirm_sleep_menu_default() -> void:
+	if _sleep_menu_current_options.is_empty():
+		return
+	_on_sleep_menu_selected(_sleep_menu_current_options[0])
 
 func _trigger_bed_interaction() -> void:
 	var global = get_node_or_null("/root/Global")
@@ -1979,6 +1989,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_hide_sleep_menu()
 		return
 	if _sleep_menu_showing:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+			_confirm_sleep_menu_default()
 		return
 	if _term_choice_showing and event.is_action_pressed("ui_cancel"):
 		return
