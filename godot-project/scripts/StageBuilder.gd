@@ -729,6 +729,59 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         tactile.position = Vector2(0, -8)
         tactile.size = Vector2(platform_w_px, 8)
         platform_bg.add_child(tactile)
+        # ===== 電車（右側に停車）=====
+        var tr_x = 1600 * cm_to_px
+        var tr_w = platform_w_px - tr_x
+        var tr_h = 320 * cm_to_px
+        # 車体メイン（シルバーホワイト）
+        var tr_body = ColorRect.new()
+        tr_body.color = Color(0.88, 0.88, 0.90)
+        tr_body.position = Vector2(tr_x, -tr_h)
+        tr_body.size = Vector2(tr_w, tr_h)
+        platform_bg.add_child(tr_body)
+        # 前面パネル（左端）
+        var tr_front = ColorRect.new()
+        tr_front.color = Color(0.76, 0.76, 0.80)
+        tr_front.position = Vector2(tr_x, -tr_h)
+        tr_front.size = Vector2(10 * cm_to_px, tr_h)
+        platform_bg.add_child(tr_front)
+        # 青帯
+        var tr_stripe = ColorRect.new()
+        tr_stripe.color = Color(0.18, 0.48, 0.82)
+        tr_stripe.position = Vector2(tr_x, -tr_h * 0.58)
+        tr_stripe.size = Vector2(tr_w, tr_h * 0.09)
+        platform_bg.add_child(tr_stripe)
+        # 窓（ドアエリア x:1880-2060 を避けて配置）
+        var win_top_y = -tr_h + tr_h * 0.08
+        var win_h_px = tr_h * 0.30
+        var win_w_px = 80 * cm_to_px
+        for wi in range(6):
+            var wx = tr_x + (20 + wi * 100) * cm_to_px
+            var wx_cm = wx / cm_to_px
+            if wx_cm >= 1860 and wx_cm <= 2070:
+                continue
+            if wx + win_w_px > platform_w_px:
+                continue
+            var win_rect = ColorRect.new()
+            win_rect.color = Color(0.50, 0.68, 0.88, 0.75)
+            win_rect.position = Vector2(wx, win_top_y)
+            win_rect.size = Vector2(win_w_px, win_h_px)
+            platform_bg.add_child(win_rect)
+        # ドア上梁（door_to_train の上、車体ライン合わせ）
+        var tr_door_x = 1880 * cm_to_px
+        var tr_door_w = 180 * cm_to_px
+        var tr_door_beam_h = tr_h - 185 * cm_to_px
+        var tr_door_beam = ColorRect.new()
+        tr_door_beam.color = Color(0.86, 0.86, 0.88)
+        tr_door_beam.position = Vector2(tr_door_x, -tr_h)
+        tr_door_beam.size = Vector2(tr_door_w, tr_door_beam_h)
+        platform_bg.add_child(tr_door_beam)
+        # 下部フレームライン
+        var tr_underline = ColorRect.new()
+        tr_underline.color = Color(0.35, 0.35, 0.38)
+        tr_underline.position = Vector2(tr_x, 0)
+        tr_underline.size = Vector2(tr_w, 8)
+        platform_bg.add_child(tr_underline)
         parent_node.add_child(platform_bg)
 
     elif stage_id == "gakuenmae":
@@ -1442,7 +1495,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
             top_wall.z_index = -1
             node.add_child(top_wall)
 
-    elif stage_id == "train" and "door" in o_id:
+    elif (stage_id == "train" or (stage_id == "platform" and o_id == "door_to_train")) and "door" in o_id:
         # 電車のスライドドア（door_2 / door_3 / door_4）
         cr.color = Color(0, 0, 0, 0)
         var tdoor_x = obs["x"] * cm_to_px
