@@ -1415,6 +1415,23 @@ func _process(delta: float) -> void:
 	_update_mood_feedback(delta)
 	if action_hint_label and action_hint_panel and action_hint_panel.visible:
 		action_hint_label.text = _get_action_hint_text()
+	_check_edge_transition()
+
+func _check_edge_transition() -> void:
+	if _edge_transition_running or not player:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var stage_id := String(global.current_stage_id)
+	var player_x_cm: float = player.global_position.x / p
+	if stage_id == "outdoor":
+		var stage_w: float = float(StageBuilder.STAGES["outdoor"]["width"])
+		if player_x_cm >= stage_w - 10.0:
+			_enter_edge_transition("adjacent_town")
+	elif stage_id == "adjacent_town":
+		if player_x_cm <= 10.0:
+			_enter_edge_transition("outdoor")
 
 func _update_minimap():
 	if not player or not minimap_bg or not minimap_player: return
