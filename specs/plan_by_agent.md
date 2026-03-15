@@ -15,12 +15,21 @@
 
 ## ★★★ ステージ追加・接続修正
 
+### 確定仕様（ユーザ確認済み）
+
+| 学校 | 所在地 | アクセス方法 |
+|---|---|---|
+| 小学校 | outdoor（街）から徒歩 | `outdoor` → Eキー → `school_hallway_elementary` |
+| 中学校 | 隣町 | `outdoor` の右端まで歩く → `adjacent_town` → Eキー → `school_hallway_middle` |
+| 高校 | 学園街 | `outdoor` → 電車 → `gakuenmae` → `school_area` → Eキー → `school_hallway_high` |
+
 ### 現状の問題
 
 | 場所 | 現在の接続（誤り） | 問題 |
 |---|---|---|
-| `train` | → `school_hallway_high` | 電車から直接高校に入れる（ホームがない） |
+| `train` | → `school_hallway_high` | 電車から直接高校に入れる（中間ステージがない） |
 | `outdoor` | → `school_hallway_*`（年齢解決） | 中高生も屋外から直接学校に入れる |
+| `train` | 隣町への出口なし | 隣町は outdoor 右隣なので train 経由は不要 |
 
 ### 追加するステージ一覧
 
@@ -28,55 +37,51 @@
 |---|---|---|
 | `platform` | ホーム（地元側） | 地元の駅のホーム。`station` と `train` をつなぐ |
 | `gakuenmae` | 学園前駅 | 学校側のホーム。`train` と `school_area` をつなぐ |
-| `school_area` | 学園街 | 学校周辺の商店街。中高の学校へのエントランス |
-| `adjacent_town` | 隣町 | 電車でさらに先の町。`train` の別方向出口から |
+| `school_area` | 学園街 | 高校周辺の商店街。高校へのエントランス |
+| `adjacent_town` | 隣町 | 街の右隣。中学校がある。**右端歩き**で遷移 |
 
 ### 修正後のステージ接続マップ
 
 ```
-myroom ↔ room ↔ outdoor
-                  ↕
-              station ← 地元の駅
-                  ↕
+myroom ↔ room ↔ outdoor ─（右端歩き）─→ adjacent_town
+                  ↕                              ↕（Eキー）
+              station                   school_hallway_middle
+                  ↕（Eキー）
               platform ← ホーム（新設）
-                  ↕
+                  ↕（Eキー）
                train ← 電車内
-              ↙       ↘
-        gakuenmae    adjacent_town
-（学園前駅・新設）       （隣町・新設）
-            ↕
-        school_area
-       （学園街・新設）
-            ↕
-     school_hallway_* ← 年齢で suffix 解決
+                  ↓（Eキー）
+            gakuenmae ← 学園前駅（新設）
+                  ↓（Eキー）
+           school_area ← 学園街（新設）
+                  ↓（Eキー）
+        school_hallway_high ← 高校
 ```
 
-**小学校**: `outdoor → school_hallway_elementary` のまま変更なし（徒歩圏内）
+**小学校**: `outdoor → school_hallway_elementary`（Eキー・変更なし）
 
-**中学・高校**: `outdoor → station → platform → train → gakuenmae → school_area → school_hallway_middle/high`
+**中学**: `outdoor` 右端まで歩く → `adjacent_town` → Eキー → `school_hallway_middle`
+
+**高校**: `outdoor` → `station` → `platform` → `train` → `gakuenmae` → `school_area` → Eキー → `school_hallway_high`
 
 ### StageBuilder.gd の変更点
 
 #### 既存接続の変更
 
 ```gdscript
-# train のドア定義
-# 変更前
-{"id": "door_to_school_hallway_high", ...}   # ← 削除
-# 変更後
-{"id": "door_to_platform",      ...}   # 地元側に戻る
-{"id": "door_to_gakuenmae",     ...}   # 学園前駅へ（右出口）
-{"id": "door_to_adjacent_town", ...}   # 隣町へ（さらに右）
+# train のドア定義（変更前 → 変更後）
+{"id": "door_to_school_hallway_high", ...}  # ← 削除
+{"id": "door_to_platform",  ...}            # 地元側ホームへ戻る（左出口）
+{"id": "door_to_gakuenmae", ...}            # 学園前駅へ（右出口）
+# ※隣町への出口は不要（隣町は outdoor 右隣）
 
-# station のドア定義
-# 変更前
-{"id": "door_to_train", ...}
-# 変更後
-{"id": "door_to_platform", ...}   # ホームへ（platform が train の手前に入る）
+# station のドア定義（変更前 → 変更後）
+{"id": "door_to_train", ...}      # ← 変更
+{"id": "door_to_platform", ...}   # platform が train の手前に入る
 
 # outdoor のドア定義
-{"id": "door_to_school_hallway", ...}  # 中高生分を削除
-# 中高生の学校ルートは電車経由に。小学生分だけ残す
+{"id": "door_to_school_hallway", ...}  # 中高生分を削除、小学生分だけ残す
+# 右端の StaticBody2D 壁 → 削除（edge-walk 遷移に差し替え）
 ```
 
 #### 新ステージの build_stage() 分岐追加
@@ -91,21 +96,60 @@ myroom ↔ room ↔ outdoor
     # ドア: door_to_train, door_to_school_area
 
 "school_area":
-    # 学園街（自販機・掲示板・制服の生徒が行き交う）
-    # ドア: door_to_gakuenmae, door_to_school_hallway（_resolve_stage_id() で suffix 付与）
+    # 学園街（自販機・掲示板・制服の高校生が行き交う）
+    # ドア: door_to_gakuenmae, door_to_school_hallway_high
 
 "adjacent_town":
-    # 隣町（見知らぬ大人・洗練された商店）
-    # ドア: door_to_train（帰る）
-    # 高校生以降解放
+    # 隣町（街の右隣、中学校がある）
+    # 右端の StaticBody2D 壁はそのまま（行き止まり）
+    # ドア: door_to_school_hallway_middle（Eキー）
+    # 左端: edge-walk で outdoor に戻る
 ```
 
 #### `_get_stage_lock_message()` に追加
 
 ```gdscript
-"adjacent_town":
-    if global.age < 15:
-        return "電車でもう少し先まで行くのは、高校生になってからにしよう。"
+"door_to_school_hallway_middle":
+    if global.age < 12 or global.age >= 15:
+        return "ここは中学校だ。"
+```
+
+### 隣町（adjacent_town）edge-walk 遷移の実装方針
+
+**outdoor の右端**と**adjacent_town の左端**にそれぞれ Area2D を置き、
+プレイヤーが踏み込んだら自動でステージ遷移する。
+
+#### StageBuilder.gd 側
+
+```gdscript
+# outdoor ステージの右端壁生成を条件分岐に変更
+# 右端（x = stage_width）は壁を置かず、代わりに edge_trigger を返す
+# build_stage() の戻り値 or parent_node にメタデータとして付与
+
+# 右端 Area2D の生成（outdoor のみ）
+var edge_area = Area2D.new()
+edge_area.name = "RightEdgeTrigger"
+edge_area.set_meta("target_stage", "adjacent_town")
+var col = CollisionShape2D.new()
+var rect = RectangleShape2D.new()
+rect.size = Vector2(20, 2000)
+col.position = Vector2(stage_width_px, -500)
+col.shape = rect
+edge_area.add_child(col)
+parent_node.add_child(edge_area)
+
+# adjacent_town の左端にも同様（target_stage = "outdoor"）
+```
+
+#### MainScene.gd 側
+
+```gdscript
+# _load_stage() 後に RightEdgeTrigger / LeftEdgeTrigger を走査
+# body_entered シグナルで _enter_edge_transition(target_stage) を呼ぶ
+func _enter_edge_transition(target_stage: String) -> void:
+    Global.current_stage_id = target_stage
+    Global.actions_today += 1
+    _load_stage()
 ```
 
 ### 各ステージのビジュアル・NPC配置
@@ -114,8 +158,8 @@ myroom ↔ room ↔ outdoor
 |---|---|---|
 | `platform` | 駅ホーム（屋根・柱・線路）、右端に電車ドア | 通勤客（汎用） |
 | `gakuenmae` | 小さな無人ホーム、看板「学園前」 | 生徒（汎用） |
-| `school_area` | 商店街・掲示板 | 生徒・店員（汎用） |
-| `adjacent_town` | 知らない街並み | 見知らぬ大人（汎用） |
+| `school_area` | 商店街・掲示板 | 高校生・店員（汎用） |
+| `adjacent_town` | outdoor と地続きの街並み、中学校の校門 | 中学生・住民（汎用） |
 
 ---
 
