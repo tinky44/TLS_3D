@@ -444,7 +444,7 @@ func _setup_dialogue_panel() -> void:
 	dialogue_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var bg = StyleBoxFlat.new()
-	bg.bg_color = Color("#1a1a2e")
+	bg.bg_color = Color(0.1, 0.1, 0.18, 0.5)
 	bg.border_color = Color("#e8c872")
 	bg.border_width_top = 2
 	bg.content_margin_left = 24
