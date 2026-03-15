@@ -2985,6 +2985,15 @@ static func is_school_classroom_stage(stage_id: String) -> bool:
 static func is_schoolyard_stage(stage_id: String) -> bool:
     return stage_id.begins_with("schoolyard_")
 
+static func is_school_stage(stage_id: String) -> bool:
+    return (
+        is_school_classroom_stage(stage_id)
+        or is_school_hallway_stage(stage_id)
+        or is_schoolyard_stage(stage_id)
+        or is_infirmary_stage(stage_id)
+        or is_gymnasium_stage(stage_id)
+    )
+
 static func is_infirmary_stage(stage_id: String) -> bool:
     return stage_id.begins_with("infirmary_")
 

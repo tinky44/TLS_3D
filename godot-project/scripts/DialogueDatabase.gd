@@ -319,6 +319,10 @@ const DATA: Dictionary = {
 			{"speaker": "（主人公）", "text": "自販機の前で立ち止まる。ボタンは低いのに、なぜか視線だけは高いところまで届く気がした。"},
 			{"speaker": "（主人公）", "text": "ただ立っているだけで目立つ。そんな感覚が、駅前ではいちばん強い。"},
 		],
+		"gymnasium_basket_reach": [
+			{"speaker": "（主人公）", "text": "腕をまっすぐ伸ばすと、ゴールが前より少しだけ近く見えた。"},
+			{"speaker": "（主人公）", "text": "届くかどうかより、体が素直に上へ伸びる感覚のほうがうれしかった。"},
+		],
 		"entrance_elementary": [
 			{"speaker": "（主人公）", "text": "今日は小学校の入学式だ。"},
 			{"speaker": "（主人公）", "text": "ランドセルが重たい……でも、楽しみだな。"},
@@ -344,17 +348,46 @@ const DATA: Dictionary = {
 			{"speaker": "人", "text": "えっ……！？"},
 			{"speaker": "人", "text": "（信じられないものを見るように見上げている）"},
 		],
+		"npc_talk_tall": [
+			{"speaker": "同級生", "text": "ねえ、バスケ部入ってるの？ 絶対向いてるって！"},
+			{"speaker": "同級生", "text": "その高さ、ちょっと羨ましいな。"},
+		],
+		"npc_talk_huge": [
+			{"speaker": "通行人", "text": "……モデルさんですか？"},
+			{
+				"speaker": "（主人公）",
+				"text": "（なんて答えればいいんだろう）",
+				"choices": [
+					{"label": "笑って『違います』と言う", "emotion": "confidence", "action": "stress:-2"},
+					{"label": "目をそらす", "emotion": "complex", "action": "stress:+4"}
+				]
+			},
+		],
+		"npc_talk_veryhuge": [
+			{"speaker": "周囲の人", "text": "えっ……ほんとに大きい。"},
+			{
+				"speaker": "（主人公）",
+				"text": "（ざわつきが一斉にこっちへ向く）",
+				"choices": [
+					{"label": "軽く会釈する", "emotion": "confidence", "action": "stress:-1"},
+					{"label": "肩をすくめてやり過ごす", "emotion": "complex", "action": "stress:+5"}
+				]
+			},
+		],
+		"npc_firstvisit_gymnasium": [
+			{"speaker": "体育教師", "text": "おっ、新しい顔か。君、バレー部に向いてそうだな。"},
+		],
 		"huge": [
-			{"speaker": "人", "text": "うわっ、でかっ……！"},
-			{"speaker": "人", "text": "（あまりの大きさに言葉を失っているようだ）"},
+			{"speaker": "人", "text": "モデルさんみたい！"},
+			{"speaker": "人", "text": "天井、頭届きそう？"},
 		],
 		"tall": [
-			{"speaker": "人", "text": "おお、背高いな……。"},
-			{"speaker": "人", "text": "（首を痛めそうな角度で見上げられている）"},
+			{"speaker": "人", "text": "背高いね。バスケ向いてそう！"},
+			{"speaker": "人", "text": "ちょっと棚の上の荷物取ってくれる？"},
 		],
 		"default": [
-			{"speaker": "人", "text": "あ、こんにちは。"},
-			{"speaker": "人", "text": "（見上げながら挨拶を返してくれた）"},
+			{"speaker": "人", "text": "今日もすっきりしてるね。"},
+			{"speaker": "人", "text": "話しかけやすくて助かるよ。"},
 		]
 	},
 }

@@ -65,6 +65,22 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_r_angle = -30
         var thigh_down = thigh_l * cos(leg_l_angle * PI / 180)
         y_crotch = -max(thigh_down, 5.0 * p)
+    elif pose == "reach_low":
+        waist_angle = 0.12
+        leg_l_angle = -2
+        leg_r_angle = 4
+        knee_l = 0.08
+        knee_r = 0.08
+        arm_l_angle = -18
+        arm_r_angle = -55
+    elif pose == "reach_up":
+        waist_angle = -0.04
+        leg_l_angle = -4
+        leg_r_angle = 2
+        knee_l = 0.05
+        knee_r = 0.05
+        arm_l_angle = -20
+        arm_r_angle = -165
     elif pose == "sleep":
         # 寝る（簡易版）: 体育座りをさらに深くして頭を前に倒す
         waist_angle = PI * 0.85

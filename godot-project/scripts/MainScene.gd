@@ -53,6 +53,7 @@ var _dialogue_lines: Array = []
 var _dialogue_index: int = 0
 var _current_dialogue_npc: String = ""
 var _current_dialogue_key: String = ""
+var _dialogue_restore_pose: String = ""
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
@@ -75,34 +76,6 @@ const GRADE_CHOICES: Dictionary = {
 	},
 }
 
-const TERM_CHOICE_ORDER = ["home", "school", "station"]
-const TERM_CHOICES: Dictionary = {
-	"home": {
-		"title": "1. 家で過ごす",
-		"summary": "家族の近くで落ち着いて過ごす。ストレスは下がるが、外の刺激は少ない。",
-		"stage_id": "room",
-		"stress_delta": -12,
-		"feedback": "家に戻ると肩の力が少し抜ける",
-		"event_id": "term_home"
-	},
-	"school": {
-		"title": "2. 学校を優先する",
-		"summary": "授業や人間関係に向き合う。少し気疲れするが、学校イベントが進みやすい。",
-		"stage_id": "school",
-		"stress_delta": 8,
-		"feedback": "視線を意識して、少し気が張る",
-		"event_id": ""
-	},
-	"station": {
-		"title": "3. 駅前に出る",
-		"summary": "人の多い場所で、自分の大きさを強く意識する。ストレスは大きく上がる。",
-		"stage_id": "station",
-		"stress_delta": 16,
-		"feedback": "人通りの多さで肩がこわばる",
-		"event_id": "term_station"
-	},
-}
-
 const TERM_HOTSPOT_ORDER = [
 	"home_mirror",
 	"home_table",
@@ -110,10 +83,10 @@ const TERM_HOTSPOT_ORDER = [
 	"school_infirmary",
 	"station_bench",
 	"station_vending",
+	"gymnasium_basket",
 ]
 const TERM_HOTSPOTS: Dictionary = {
 	"home_mirror": {
-		"plan": "home",
 		"stage_id": "room",
 		"obs_id": "washstand",
 		"prompt": "鏡を見る",
@@ -124,54 +97,66 @@ const TERM_HOTSPOTS: Dictionary = {
 		"memory_note": "洗面台の鏡の前で、自分の背丈を静かに見つめた。"
 	},
 	"home_table": {
-		"plan": "home",
 		"stage_id": "room",
 		"obs_ids": ["table", "chair"],
 		"prompt": "食卓で一息つく",
 		"dialogue_npc": "player",
-		"dialogue_key": "term_home_table"
+		"dialogue_key": "term_home_table",
+		"pose": "chair_sit"
 	},
 	"school_seat": {
-		"plan": "school",
 		"stage_id": "school",
 		"obs_ids": ["desk_1", "student_chair_1", "desk_2", "student_chair_2"],
 		"prompt": "自分の席に座る",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_school_seat",
+		"pose": "chair_sit",
 		"stress_delta": 2,
 		"feedback": "席に座ると少しだけ視線を意識する",
 		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。"
 	},
 	"school_infirmary": {
-		"plan": "school",
 		"stage_id": "infirmary",
-		"obs_id": "infirmary_desk",
+		"obs_id": "infirmary_bed",
 		"prompt": "保健室で相談する",
 		"dialogue_npc": "player",
-		"dialogue_key": "term_school_infirmary"
+		"dialogue_key": "term_school_infirmary",
+		"pose": "taiiku_suwari"
 	},
 	"station_bench": {
-		"plan": "station",
 		"stage_id": "station",
 		"obs_id": "station_bench",
 		"prompt": "ベンチで一息つく",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_station_bench",
+		"pose": "chair_sit",
 		"stress_delta": -4,
 		"feedback": "人波から少し距離を取れた",
 		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。"
 	},
 	"station_vending": {
-		"plan": "station",
 		"stage_id": "station",
 		"obs_id": "station_vending",
 		"prompt": "自販機の前で立ち止まる",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_station_vending",
+		"pose": "reach_low",
 		"stress_delta": 3,
 		"feedback": "立ち止まると視線が集まりやすい",
 		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。"
 	},
+	"gymnasium_basket": {
+		"stage_id": "gymnasium",
+		"obs_id": "basketball_board",
+		"prompt": "バスケゴールに手を伸ばす",
+		"dialogue_npc": "player",
+		"dialogue_key": "gymnasium_basket_reach",
+		"pose": "reach_up",
+		"height_min": 185.0,
+		"stress_delta": -5,
+		"feedback": "手を上げた瞬間、体の伸びやかさに少し気持ちがほぐれた。",
+		"memory_note": "バスケゴールに手を伸ばしたら、いつもより高さが近く感じられた。"
+	}
 }
 
 const STRESS_PREFIX_KEYS: Array[String] = ["default", "tall", "huge", "check"]
@@ -672,7 +657,6 @@ func _on_grade_choice_selected(choice_id: String) -> void:
 		return
 
 	global.pending_term_choice = false
-	global.current_term_plan = Global.DEFAULT_TERM_PLAN
 	_hide_term_choice_panel()
 	global.save_settings()
 
@@ -806,72 +790,80 @@ func _get_stress_dialogue_opener(npc_id: String) -> Dictionary:
 	var opener: Variant = opener_set.get(band, {})
 	return opener.duplicate(true) if opener is Dictionary else {}
 
+func _get_stage_mood_bucket(stage_id: String) -> String:
+	if stage_id == "room" or stage_id == "myroom":
+		return "home"
+	if stage_id == "station" or stage_id == "train" or stage_id == "outdoor":
+		return "station"
+	if StageBuilder.is_school_stage(stage_id):
+		return "school"
+	return "default"
+
 func _get_idle_monologue_text(global: Node) -> String:
 	if not global:
 		return ""
-	var plan_id: String = String(global.current_term_plan)
-	if plan_id == "":
-		return ""
-	var monologue_set: Dictionary = STRESS_IDLE_MONOLOGUES.get(plan_id, STRESS_IDLE_MONOLOGUES.get("default", {}))
+	var stage_bucket: String = _get_stage_mood_bucket(String(global.current_stage_id))
+	var monologue_set: Dictionary = STRESS_IDLE_MONOLOGUES.get(stage_bucket, STRESS_IDLE_MONOLOGUES.get("default", {}))
 	return String(monologue_set.get(_get_stress_band(int(global.stress)), ""))
 
 func _get_default_action_hint_text() -> String:
 	var global = get_node_or_null("/root/Global")
 	if not global:
-		return "[Q] 設定  [G] 記録  [E] インタラクト"
+		return "[Q] 設定  [G] 記録  [E] 調べる"
 	var band: String = _get_stress_band(int(global.stress))
-	match String(global.current_term_plan):
+	var stage_bucket: String = _get_stage_mood_bucket(String(global.current_stage_id))
+	var vball_phase: int = Global.vball_story_phase
+	if stage_bucket == "school":
+		if vball_phase == 0 and Global.senior_gym_invited:
+			return "体育館で先輩に話しかけてみよう"
+		if vball_phase == 1:
+			return "先輩に返事をしに行こう"
+		if vball_phase == 2:
+			return "バレー部と教室、どちらも気にしてみよう"
+		if vball_phase == 3 and Global.is_leg_pain:
+			return "脚のことを誰かに相談してみよう"
+	match stage_bucket:
 		"home":
 			if band == "high":
-				return "今日は休むのを優先しよう  [E] 調べる  [G] 記録"
+				return "少し休める場所を探そう  [E] 調べる  [G] 記録"
 			if band == "mid":
-				return "無理に張らず、家で整えよう  [E] 調べる  [G] 記録"
-			return "家で呼吸を整えられそうだ  [E] 調べる  [G] 記録"
+				return "家の中で落ち着ける場所を見てみよう  [E] 調べる  [G] 記録"
+			return "家で一息つけそうな物を調べよう  [E] 調べる  [G] 記録"
 		"school":
 			if band == "high":
-				return "しんどさを抱え込まない。はるかか保健室に寄ろう  [E] 話す"
+				return "しんどさを抱えすぎる前に誰かと話してみよう  [E] 話す"
 			if band == "mid":
-				return "教室が重いなら、はるかか保健室へ  [E] 話す  [G] 記録"
-			return "はるかや保健室を頼りながら通えそうだ  [E] 話す  [G] 記録"
+				return "席や保健室で少し気持ちを整えよう  [E] 話す  [G] 記録"
+			return "教室や保健室で出来ることを探そう  [E] 話す  [G] 記録"
 		"station":
 			if band == "high":
-				return "視線がきつい。ベンチで休んでから動こう  [E] 調べる"
+				return "人の少ない場所でひと息つこう  [E] 調べる"
 			if band == "mid":
-				return "人波から少し外れて気持ちを整えよう  [E] 調べる"
-			return "ベンチや自販機でひと息入れながら進もう  [E] 調べる"
-
-	var vball_phase: int = Global.vball_story_phase
-	if vball_phase == 0 and Global.senior_gym_invited:
-		return "廊下の部室に話しかけてみよう"
-	if vball_phase == 1:
-		return "体育館に向かってバレー部に話しかけよう"
-	if vball_phase == 2:
-		return "バレー部と教室、どちらも見て回ろう"
-	if vball_phase == 3 and Global.is_leg_pain:
-		return "脚のことを誰かに相談してみよう"
+				return "ベンチや自販機で気分を切り替えよう  [E] 調べる"
+			return "近くで出来る小さな行動を探そう  [E] 調べる"
 	if band == "high":
-		return "かなり張りつめている。今日は楽になれる方を選ぼう"
+		return "無理をしすぎる前に、落ち着ける場所を探そう"
 	if band == "mid":
-		return "少ししんどい。無理せず整えよう  [Q] 設定  [G] 記録"
-	return "[Q] 設定  [G] 記録  [E] インタラクト"
+		return "少し気分転換してみよう  [Q] 設定  [G] 記録"
+	return "[Q] 設定  [G] 記録  [E] 調べる"
 
 func _get_term_reflection_text(global: Node) -> String:
-	var plan_id: String = String(global.current_term_plan)
+	var stage_bucket: String = _get_stage_mood_bucket(String(global.current_stage_id))
 	var balance: int = int(global.self_confidence) - int(global.self_complex)
-	match plan_id:
+	match stage_bucket:
 		"home":
 			if balance >= 0:
-				return "家で呼吸を整える時間が、今の体を少し受け止める助けになった。"
-			return "家にいれば落ち着く。でも外を思うと、まだ少し肩に力が入る。"
+				return "家で少し力を抜けたぶん、次の学期もやっていけそうな気がする。"
+			return "家にいても落ち着ききれなかった。次は休み方をもう少し探したい。"
 		"school":
 			if balance >= 0:
-				return "教室にいるだけでも前進だ。視線の中で過ごした時間が、小さな自信になっている。"
-			return "学校にいるだけで気が張る日もあった。今学期は、そのしんどさもはっきり残った。"
+				return "学校で揺れながらも、前より少しだけ自分の高さを受け止められている。"
+			return "学校ではまだ気持ちが揺れやすい。それでも残った出来事は次につながっていく。"
 		"station":
 			if balance >= 0:
-				return "人の多い場所でも、見える景色が少し変わった。この高さを面白いと思えた瞬間がある。"
-			return "外の視線は想像以上に重かった。駅前に出るたび、肩が固くなるのを感じた。"
-	return "今学期の過ごし方が、少しずつ心と体の輪郭を作っていく。"
+				return "人の多い場所でも、前より自分の居場所を見失わずにいられた。"
+			return "人の視線に気持ちは揺れたけれど、その感覚ももう無視できない自分の一部だ。"
+	return "今学期の出来事が少しずつ積み重なって、次の気持ちの置き場を作っていく。"
 
 func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 	var global = get_node_or_null("/root/Global")
@@ -879,9 +871,10 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		return ""
 	for hotspot_id in TERM_HOTSPOT_ORDER:
 		var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
-		if String(hotspot_data.get("plan", "")) != String(global.current_term_plan):
-			continue
 		if _resolve_stage_id(String(hotspot_data.get("stage_id", ""))) != String(global.current_stage_id):
+			continue
+		var height_min: float = float(hotspot_data.get("height_min", 0.0))
+		if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
 			continue
 		var matched: bool = false
 		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
@@ -909,6 +902,9 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	if not global or not TERM_HOTSPOTS.has(hotspot_id):
 		return
 	var hotspot_data: Dictionary = TERM_HOTSPOTS[hotspot_id]
+	var height_min: float = float(hotspot_data.get("height_min", 0.0))
+	if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
+		return
 	global.mark_term_hotspot_done(hotspot_id)
 	var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
 	if stress_delta != 0:
@@ -917,6 +913,10 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	var memory_note: String = String(hotspot_data.get("memory_note", ""))
 	if memory_note != "":
 		global.append_term_memory_note(memory_note)
+	var pose_name: String = String(hotspot_data.get("pose", ""))
+	if pose_name != "" and player:
+		_dialogue_restore_pose = String(player.pose)
+		player.pose = pose_name
 	global.save_settings()
 	_nearby_term_hotspot = ""
 	_start_dialogue(
@@ -925,14 +925,17 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	)
 
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
-	if _in_dialogue or _measurement_showing or _term_choice_showing: return
-	if not _dialogues.has(npc_id): return
+	if _in_dialogue or _measurement_showing or _term_choice_showing:
+		return
+	if not _dialogues.has(npc_id):
+		return
 	var npc_data: Dictionary = _dialogues[npc_id]
-	if not npc_data.has(key): return
+	if not npc_data.has(key):
+		return
 
-	var _g = get_node_or_null("/root/Global")
-	if _g:
-		_g.record_event(npc_id + "_" + key)
+	var global = get_node_or_null("/root/Global")
+	if global:
+		global.record_event(npc_id + "_" + key)
 	_current_dialogue_npc = npc_id
 	_current_dialogue_key = key
 	_dialogue_lines = _build_dialogue_sequence(npc_id, key)
@@ -1049,7 +1052,7 @@ func _advance_dialogue() -> void:
 	_show_dialogue_line()
 
 func _end_dialogue() -> void:
-	var should_show_term_choice: bool = false
+	var should_show_term_choice := false
 	var global = get_node_or_null("/root/Global")
 	if global and global.pending_term_choice and _is_term_intro_dialogue():
 		should_show_term_choice = true
@@ -1060,7 +1063,10 @@ func _end_dialogue() -> void:
 	dialogue_hint_label.show()
 	get_tree().paused = false
 	dialogue_panel.hide()
-	# measure_invite 終了 → はるかがプレイヤーに追随し始める
+	if player and _dialogue_restore_pose != "":
+		player.pose = _dialogue_restore_pose
+		_dialogue_restore_pose = ""
+
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
 		if global:
 			global.haruka_following = true
@@ -1068,7 +1074,6 @@ func _end_dialogue() -> void:
 			if child.has_meta("is_npc") and child.get("npc_id") == "haruka":
 				child.follow_target = player
 				break
-	# ─── バレー部ストーリー後処理 ────────────────────────────────
 	elif _current_dialogue_npc == "senior" and _current_dialogue_key == "first_meet":
 		if global and global.vball_story_phase == 0:
 			global.vball_story_phase = 1
@@ -1082,14 +1087,10 @@ func _end_dialogue() -> void:
 			global.vball_joined = false
 			global.vball_story_phase = 5
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
-		if global and global.current_term_plan == "school":
+		if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)):
 			call_deferred("_start_dialogue", "player", "term_school")
 	elif _should_run_school_day_transition(global):
 		call_deferred("_run_school_day_transition")
-	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "vball_join_cheer":
-		pass # 特に後処理なし
-	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "haruka_after_summer":
-		pass # 特に後処理なし
 
 	if should_show_term_choice:
 		call_deferred("_show_term_choice_panel")
@@ -1099,7 +1100,7 @@ func _should_run_school_day_transition(global: Node) -> bool:
 		return false
 	if _current_dialogue_npc != "player" or _current_dialogue_key != "term_school":
 		return false
-	if global == null or String(global.current_term_plan) != "school":
+	if global == null:
 		return false
 	return StageBuilder.is_school_classroom_stage(String(global.current_stage_id))
 
@@ -1125,7 +1126,7 @@ func _run_school_day_transition() -> void:
 	overlay.add_child(center)
 
 	var text_label := Label.new()
-	text_label.text = "授業が始まった。"
+	text_label.text = "放課後になった。"
 	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	text_label.add_theme_font_size_override("font_size", 34)
@@ -1147,7 +1148,7 @@ func _run_school_day_transition() -> void:
 	global.current_stage_id = "school_hallway"
 	_load_stage()
 
-	text_label.text = "放課後。"
+	text_label.text = "帰り道のことを考える。"
 	var outro_tween := create_tween()
 	outro_tween.tween_property(text_label, "modulate:a", 1.0, 0.2)
 	outro_tween.tween_interval(0.9)
@@ -1267,7 +1268,7 @@ func _interact_with_npc(npc: Node) -> void:
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
 		elif npc_id == "haruka":
-			if global and global.current_term_plan == "school" and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
+			if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
 				key = "term_school_haruka_support"
 				global.mark_term_hotspot_done("school_haruka_support")
 			elif global and global.is_leg_pain and vball_phase == 3:
@@ -1824,13 +1825,9 @@ func _update_ui():
 	var age_val: int = global.age if global else 0
 	var term_val: int = global.term if global else 0
 	var stress_val: int = global.stress if global else 0
-	var term_plan: String = global.current_term_plan if global else ""
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
 	text += "%d歳 / %s\n" % [age_val, Global.get_school_term_label(age_val, term_val)]
-	if term_plan != "":
-		var plan_data: Dictionary = TERM_CHOICES.get(term_plan, {})
-		text += "今学期の方針: %s\n" % String(plan_data.get("title", term_plan))
 	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
 	var confidence_val: int = global.self_confidence if global else 0
 	var complex_val: int = global.self_complex if global else 0
@@ -1847,102 +1844,141 @@ func _update_ui():
 	text += "F12: Screenshot save\n"
 	status_label.text = text
 
+func _queue_dialogue_event_once(global: Node, event_id: String, npc_id: String, dialogue_key: String) -> void:
+	if global == null:
+		return
+	if global.has_pending_event(event_id):
+		return
+	if global.has_experienced_event("%s_%s" % [npc_id, dialogue_key]):
+		return
+	global.queue_event(event_id)
+
+func _get_first_visit_dialogue_key(stage_id: String) -> String:
+	if StageBuilder.is_gymnasium_stage(stage_id):
+		return "npc_firstvisit_gymnasium"
+	return ""
+
+func _is_public_milestone_stage(stage_id: String) -> bool:
+	return stage_id == "station" or stage_id == "train" or stage_id == "outdoor"
+
+func _queue_stage_arrival_events(global: Node, stage_id: String, was_first_visit: bool) -> void:
+	if global == null:
+		return
+	if was_first_visit:
+		var first_visit_key: String = _get_first_visit_dialogue_key(stage_id)
+		if first_visit_key != "":
+			_queue_dialogue_event_once(global, "npc_firstvisit_%s" % stage_id, "generic", first_visit_key)
+	var height_cm: float = float(global.current_params.get("height", 0.0))
+	if height_cm >= 170.0 and StageBuilder.is_school_stage(stage_id):
+		_queue_dialogue_event_once(global, "npc_talk_tall", "generic", "npc_talk_tall")
+	if height_cm >= 180.0 and _is_public_milestone_stage(stage_id):
+		_queue_dialogue_event_once(global, "npc_talk_huge", "generic", "npc_talk_huge")
+	if height_cm >= 190.0:
+		_queue_dialogue_event_once(global, "npc_talk_veryhuge", "generic", "npc_talk_veryhuge")
+
+func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> void:
+	if global == null or ev == "":
+		return
+	if ev == "semester_start":
+		if StageBuilder.is_school_classroom_stage(stage_id):
+			await get_tree().create_timer(0.5).timeout
+			_start_dialogue("teacher", "semester_start")
+			if not global.senior_gym_invited:
+				global.senior_gym_invited = true
+				global.queue_event("gym_senior_invite")
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "gym_senior_invite":
+		if StageBuilder.is_gymnasium_stage(stage_id):
+			await get_tree().create_timer(0.8).timeout
+			_start_dialogue("senior", "first_meet")
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "npc_talk_tall":
+		if StageBuilder.is_school_stage(stage_id):
+			await get_tree().create_timer(0.45).timeout
+			_start_dialogue("generic", "npc_talk_tall")
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "npc_talk_huge":
+		if _is_public_milestone_stage(stage_id):
+			await get_tree().create_timer(0.45).timeout
+			_start_dialogue("generic", "npc_talk_huge")
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "npc_talk_veryhuge":
+		await get_tree().create_timer(0.35).timeout
+		_start_dialogue("generic", "npc_talk_veryhuge")
+	elif ev.begins_with("npc_firstvisit_"):
+		if ev == "npc_firstvisit_%s" % stage_id:
+			var first_visit_key: String = _get_first_visit_dialogue_key(stage_id)
+			if first_visit_key != "":
+				await get_tree().create_timer(0.45).timeout
+				_start_dialogue("generic", first_visit_key)
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "summer_growth":
+		if stage_id == "room":
+			await get_tree().create_timer(0.8).timeout
+			var summer_key = "summer_growth"
+			if global.vball_joined and global.vball_story_phase >= 2:
+				summer_key = "summer_growth_vball"
+			_start_dialogue("player", summer_key)
+			if global.vball_story_phase >= 2 and global.vball_story_phase < 6:
+				global.vball_story_phase = 6
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "vball_tell_senior":
+		if StageBuilder.is_gymnasium_stage(stage_id):
+			await get_tree().create_timer(0.8).timeout
+			_start_dialogue("senior", "pain_concern")
+		else:
+			global.pending_events.push_front(ev)
+	elif ev == "entrance_ceremony":
+		if stage_id == "myroom":
+			await get_tree().create_timer(1.2).timeout
+			_start_dialogue("player", _get_entrance_dialogue_key(global.age))
+		else:
+			global.pending_events.push_front(ev)
+
 func _load_stage():
 	var global = get_node_or_null("/root/Global")
 	var stage_id = global.current_stage_id if global else "room"
 	stage_id = _resolve_stage_id(String(stage_id))
+	var was_first_visit := false
 	if global:
 		global.current_stage_id = stage_id
+		was_first_visit = global.is_first_visit(stage_id)
 		global.record_stage_visit(stage_id)
+		_queue_stage_arrival_events(global, stage_id, was_first_visit)
 	_sync_player_stage_appearance(stage_id)
-	
-	# 床や障害物を生成
-	StageBuilder.build_stage(stage_id, self , p, global.age if global else 0)
-	
+
+	StageBuilder.build_stage(stage_id, self, p, global.age if global else 0)
 	_spawn_npcs(stage_id)
 
-	# 自動セーブ（スロット選択済みの場合）
 	if global and global.current_slot >= 1:
 		global.save_slot(global.current_slot)
-	
-	# プレイヤーの初期位置をリセット
+
 	if player:
-		# 少し上に配置して落とす
 		player.position = Vector2(100 * p, 0)
-		
-		# --- カメラの調整 ---
 		var cam = player.get_node_or_null("Camera2D")
 		if cam:
 			var m = player.get("m")
 			if m and m.has("height"):
-				# キャラクターの身長の40〜50%あたり（腰〜胸付近）を中心にする
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
-			# 地面は y=50 のため、足元＋少しの余白だけ映るように余裕を持たせる
 			cam.limit_bottom = 250
-		var bump_handler := Callable(self , "_on_player_head_bump")
+		var bump_handler := Callable(self, "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)
 
-	# ペンディングイベントを処理（始業式は教室に入ったときのみ発火）
 	if global:
-		var ev = global.pop_next_event()
-		if ev == "semester_start":
-			if StageBuilder.is_school_classroom_stage(stage_id):
-				await get_tree().create_timer(0.5).timeout
-				_start_dialogue("teacher", "semester_start")
-				# 1学期（初回）のみ先輩招待をキュー
-				if not global.senior_gym_invited:
-					global.senior_gym_invited = true
-					global.queue_event("gym_senior_invite")
-			else:
-				global.pending_events.push_front(ev) # 教室に入るまで保留
-		elif ev == "gym_senior_invite":
-			if StageBuilder.is_gymnasium_stage(stage_id):
-				await get_tree().create_timer(0.8).timeout
-				_start_dialogue("senior", "first_meet")
-			else:
-				global.pending_events.push_front(ev) # 体育館に入るまで保留
-		elif ev == "term_home":
-			if stage_id == "room":
-				await get_tree().create_timer(0.5).timeout
-				_start_dialogue("player", "term_home")
-			else:
-				global.pending_events.push_front(ev)
-		elif ev == "term_station":
-			if stage_id == "station":
-				await get_tree().create_timer(0.5).timeout
-				_start_dialogue("player", "term_station")
-			else:
-				global.pending_events.push_front(ev)
-		elif ev == "summer_growth":
-			if stage_id == "room":
-				await get_tree().create_timer(0.8).timeout
-				# バレー部加入済みの場合は専用ダイアログを使う（未加入ルートも保護）
-				var summer_key = "summer_growth"
-				if global.vball_joined and global.vball_story_phase >= 2:
-					summer_key = "summer_growth_vball"
-				_start_dialogue("player", summer_key)
-				# バレー部ストーリーが進行中なら夏後フェーズへ
-				if global.vball_story_phase >= 2 and global.vball_story_phase < 6:
-					global.vball_story_phase = 6
-			else:
-				global.pending_events.push_front(ev) # room に入るまで保留
-		elif ev == "vball_tell_senior":
-			if StageBuilder.is_gymnasium_stage(stage_id):
-				await get_tree().create_timer(0.8).timeout
-				_start_dialogue("senior", "pain_concern")
-			else:
-				global.pending_events.push_front(ev) # 体育館に入るまで保留
-		elif ev == "entrance_ceremony":
-			if stage_id == "myroom":
-				await get_tree().create_timer(1.2).timeout
-				_start_dialogue("player", _get_entrance_dialogue_key(global.age))
-			else:
-				global.pending_events.push_front(ev) # myroom に入るまで保留
+		await _handle_pending_stage_event(global, stage_id, global.pop_next_event())
 
 func _get_entrance_dialogue_key(age: int) -> String:
-	if age <= 6: return "entrance_elementary"
-	if age <= 12: return "entrance_middle"
+	if age <= 6:
+		return "entrance_elementary"
+	if age <= 12:
+		return "entrance_middle"
 	return "entrance_high"
 
 func _on_player_head_bump(obs_id: String, obs_height_cm: float) -> void:
@@ -2289,14 +2325,11 @@ func _show_measurement_result() -> void:
 	var detail = "年齢：%d歳  %s\n" % [a, Global.get_school_term_label(a, global.term)]
 	detail += "同学年平均：%.1f cm  （差：%+.1f cm）\n\n" % [avg_h, diff_avg]
 	detail += global.get_measurement_comment(diff_avg)
-	if global.current_term_plan != "":
-		var plan_data: Dictionary = TERM_CHOICES.get(String(global.current_term_plan), {})
-		detail += "\n\n【今学期の手触り】\n"
-		detail += "%s\n" % String(plan_data.get("title", global.current_term_plan))
-		detail += "stress %d / 100 (%s)\n" % [int(global.stress), _get_stress_state_text(int(global.stress))]
-		if global.term_memory_note != "":
-			detail += "%s\n" % String(global.term_memory_note)
-		detail += _get_term_reflection_text(global)
+	detail += "\n\n【今学期の手触り】\n"
+	detail += "stress %d / 100 (%s)\n" % [int(global.stress), _get_stress_state_text(int(global.stress))]
+	if global.term_memory_note != "":
+		detail += "%s\n" % String(global.term_memory_note)
+	detail += _get_term_reflection_text(global)
 	measurement_content_label.text = detail
 	_reset_measurement_content_scroll()
 
