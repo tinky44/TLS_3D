@@ -50,6 +50,7 @@
 var sit_context: Dictionary = {
     "seat_h_cm": -1.0,   # 座面高さ [cm]
     "desk_h_cm": -1.0,   # 机の高さ [cm]（-1 = 机なし）
+    "seat_x": INF,       # 椅子の X 座標（起立後の配置に使う。INF = 未設定）
 }
 ```
 
@@ -65,10 +66,24 @@ chair_node.set_meta("desk_height_cm", 60.0)   # 対応する机の高さ
 
 ```gdscript
 func _on_sit_interacted(chair_node: Node) -> void:
+    # X 軸: キャラを椅子の位置にスナップ（pose計算には使わないが起立時のために保存）
+    player.global_position.x = chair_node.global_position.x
+    player.sit_context["seat_x"]  = chair_node.global_position.x
     player.sit_context["seat_h_cm"] = float(chair_node.get_meta("seat_height_cm", 40.0))
     player.sit_context["desk_h_cm"] = float(chair_node.get_meta("desk_height_cm", -1.0))
     player.set_pose_immediately("chair_sit")
+
+# 起立時: 椅子の横（少し離れた位置）に立たせる場合
+func _on_stand_up() -> void:
+    if player.sit_context["seat_x"] != INF:
+        player.global_position.x = player.sit_context["seat_x"] + 30.0  # 椅子の右横
+    player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0, "seat_x": INF}
+    player.set_pose_immediately("normal")
 ```
+
+> **X軸の設計判断**
+> - `player.global_position.x` への直接スナップが主な処理（PoseCalculator 不関与）
+> - `sit_context["seat_x"]` は「起立後にどこへ戻すか」のために保持する補助データ
 
 **PoseCalculator の変更（CharacterPoseCalculator.gd）**
 
