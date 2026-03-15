@@ -55,16 +55,16 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_r_angle = -60
         y_crotch = -15.0 * p
     elif pose == "chair_sit":
-        # 椅子に座る: 腰をほぼ直角、膝が90度、腕は膝の上に置く感じ
-        waist_angle = PI * 0.5
+        # 椅子に座る: 胴体はほぼ直立、太ももが水平、すねが垂直 → 足が床につく
+        waist_angle = 0.1
         leg_l_angle = -90
         leg_r_angle = -90
         knee_l = PI * 0.5
         knee_r = PI * 0.5
-        arm_l_angle = -30
-        arm_r_angle = -30
-        var thigh_down = thigh_l * cos(leg_l_angle * PI / 180)
-        y_crotch = -max(thigh_down, 5.0 * p)
+        arm_l_angle = -50
+        arm_r_angle = -50
+        # 太ももが水平・すねが垂直のとき、股の高さ = すねの長さ
+        y_crotch = -shin_l
     elif pose == "reach_low":
         waist_angle = 0.12
         leg_l_angle = -2
@@ -82,15 +82,15 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_l_angle = -20
         arm_r_angle = -165
     elif pose == "sleep":
-        # 寝る（簡易版）: 体育座りをさらに深くして頭を前に倒す
-        waist_angle = PI * 0.85
+        # 寝る: 体を大きく前傾させて床近くで丸まる（床埋め防止のため waist_angle を抑制）
+        waist_angle = 1.2
         leg_l_angle = -120
         leg_r_angle = -120
-        knee_l = PI * 0.65
-        knee_r = PI * 0.65
-        arm_l_angle = -80
-        arm_r_angle = -80
-        y_crotch = -12.0 * p
+        knee_l = PI * 0.72
+        knee_r = PI * 0.72
+        arm_l_angle = 20
+        arm_r_angle = 20
+        y_crotch = -15.0 * p
     elif is_crouching:
         var target_px = visual_height_cm * p
         var min_t = 0.0
