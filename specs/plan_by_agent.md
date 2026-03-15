@@ -1,184 +1,613 @@
-# plan_by_agent.md — AIエージェントのメモ帳
+# 追加ストーリー実装メモ
 
 更新日: 2026-03-15
 
----
+## 目的
 
-## chair_sit 改善設計：椅子高さ依存の座りシステム
+現状はバレー部ルートだけがまとまった物語として存在している。  
+ここに、小学校・中学校・高校それぞれで「高身長がどう見られるか」が変わっていくイベント群を追加したい。
 
-### 問題の整理
+このメモでは、次の観点で実装方針を整理する。
 
-現在の `chair_sit` は `y_crotch = -shin_l`（すねの長さ固定）で計算している。
-実際には以下が必要：
+- 現行コードのどこに乗せるのが自然か
+- どのイベントを `pending_events` / `TERM_HOTSPOTS` / NPC 会話で作るべきか
+- どのフラグを追加すべきか
+- バレー部イベントとどう共存させるか
+- 実装の優先順位
 
-1. **椅子高さへの追従** ─ 尻（股関節）の位置 = 椅子の座面高さ
-2. **足の床 IK** ─ すねの長さと座面高さから、膝の曲げ角を自動計算
-3. **机の制約** ─ 机がある場合に膝が机より上に来ないよう脚を伸ばす
+## 前提整理
 
----
+### 現行の物語レイヤー
 
-### 幾何学的根拠
+現状のイベントは、ほぼ次の3レイヤーで動いている。
 
-```
-座面高 H, すね長 shin_l の関係（横から見た図）
+1. `Global.pending_events`
+   学期開始、夏休み明け、特定の会話後などに自動再生するイベントキュー。
+2. `MainScene.gd` の NPC 会話分岐
+   `haruka` / `senior` のような固有 NPC に対して、状態に応じて会話キーを切り替える。
+3. `TERM_HOTSPOTS`
+   学期ごとに一度だけ触れる場所イベント。プレイヤーの能動的な行動と結びつけやすい。
 
-  hip (H) ───────── knee
-              thigh (水平)
-                       │
-                       │ shin (角度 θ)
-                       │
-            ankle ─────┘  ← 足が床 (Y=0) にある条件
+この構造はかなり相性がよいので、新規ストーリーもまずはこの3レイヤーの組み合わせで増やすのがよい。
 
-  shin_y_component = sin(θ) × shin_l = H  →  θ = asin(H / shin_l)
-```
+### 現在の年齢帯
 
-- `shin_l >= H` のとき: θ = `asin(H / shin_l)` — すねが前方に傾いて床に届く（高身長の典型）
-- `shin_l < H` のとき: θ = `PI/2`（垂直）— 足が床に届かず宙に浮く（幼児が高い椅子に座る等）
+実装上の学校段階は次の通り。
 
----
+- 小学校期: `6-11歳`
+- 中学校期: `12-14歳`
+- 高校期: `15-17歳`
 
-### 実装フェーズ
+仕様書の文言と少しズレる箇所があるので、追加イベントの条件はこの実装基準で合わせる。
 
-#### Phase 1 ─ 座面高さの受け渡し
+### 現状の問題
 
-**目的**: 椅子インタラクション時に座面高さを player に伝える。
+バレー部は `vball_story_phase` の専用フラグで進んでいるが、この方式をイベントごとに増やすと `Global.gd` がすぐに肥大化する。  
+そのため、バレー部は当面そのまま残しつつ、新規イベントは辞書ベースで増やせる形に寄せたい。
 
-**追加データ（SkeletalPlayer.gd）**
+## 基本方針
 
-```gdscript
-# 座りコンテキスト（-1 = 未設定、固定値にフォールバック）
-var sit_context: Dictionary = {
-    "seat_h_cm": -1.0,   # 座面高さ [cm]
-    "desk_h_cm": -1.0,   # 机の高さ [cm]（-1 = 机なし）
-    "seat_x": INF,       # 椅子の X 座標（起立後の配置に使う。INF = 未設定）
-}
-```
+### 1. 新規イベントは「年齢帯ごとの小さな物語群」として追加する
 
-**椅子オブジェクト（StageBuilder.gd）**
+いきなり第二の大ルートを作るより、各学年で1つか2つの印象的な出来事を増やす方が現行ループに合う。
 
-```gdscript
-# 椅子ノードにメタを付与
-chair_node.set_meta("seat_height_cm", 40.0)   # 小学校の椅子 = 40cm
-chair_node.set_meta("desk_height_cm", 60.0)   # 対応する机の高さ
-```
+- 小学校期: 他人との身長差を自覚し始める
+- 中学校期: 周囲の成長と自分の急成長がぶつかる
+- 高校期: 身長が「魅力」「才能」「進路」に変わる
 
-**インタラクション時（MainScene.gd または椅子スクリプト）**
+### 2. 自動イベントは各学期に1本までを目安にする
 
-```gdscript
-func _on_sit_interacted(chair_node: Node) -> void:
-    # X 軸: キャラを椅子の位置にスナップ（pose計算には使わないが起立時のために保存）
-    player.global_position.x = chair_node.global_position.x
-    player.sit_context["seat_x"]  = chair_node.global_position.x
-    player.sit_context["seat_h_cm"] = float(chair_node.get_meta("seat_height_cm", 40.0))
-    player.sit_context["desk_h_cm"] = float(chair_node.get_meta("desk_height_cm", -1.0))
-    player.set_pose_immediately("chair_sit")
+`pending_events` は1回のステージロードで先頭1件しか消化しない。  
+そのため、毎学期の自動イベントを積みすぎると渋滞しやすい。
 
-# 起立時: 椅子の横（少し離れた位置）に立たせる場合
-func _on_stand_up() -> void:
-    if player.sit_context["seat_x"] != INF:
-        player.global_position.x = player.sit_context["seat_x"] + 30.0  # 椅子の右横
-    player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0, "seat_x": INF}
-    player.set_pose_immediately("normal")
-```
+おすすめの役割分担は次の通り。
 
-> **X軸の設計判断**
-> - `player.global_position.x` への直接スナップが主な処理（PoseCalculator 不関与）
-> - `sit_context["seat_x"]` は「起立後にどこへ戻すか」のために保持する補助データ
+- 大きい節目: `pending_events`
+- プレイヤーが触れて体験する出来事: `TERM_HOTSPOTS`
+- 人間関係の続き物: NPC 会話分岐
 
-**PoseCalculator の変更（CharacterPoseCalculator.gd）**
+### 3. バレー部とは独立した「成長イベント層」を作る
+
+ユーザー案にある急成長イベントは、バレー部の文脈だけに閉じない方が強い。  
+バレー部参加中でも、非参加でも起きる「身体の変化そのもの」として持つべき。
+
+バレー部側では必要なら専用リアクションを足すが、本体は別イベントにする。
+
+## 追加したいデータ構造
+
+### `Global.gd`
+
+新規イベント向けに、専用変数を増やし続ける代わりに辞書を追加したい。
 
 ```gdscript
-elif pose == "chair_sit":
-    var raw_seat_h_cm: float = player.get("sit_context", {}).get("seat_h_cm", -1.0)
-    var seat_h_px: float = (raw_seat_h_cm if raw_seat_h_cm > 0 else m["leg"] * 0.45) * p
-
-    waist_angle = 0.1
-    leg_l_angle = -90
-    leg_r_angle = -90
-    knee_l = PI * 0.5  # とりあえず垂直（Phase 2 で計算式に置き換え）
-    knee_r = PI * 0.5
-    arm_l_angle = -50
-    arm_r_angle = -50
-    y_crotch = -seat_h_px
+var story_flags: Dictionary = {}
+var story_phases: Dictionary = {}
+var story_term_flags: Dictionary = {}
 ```
 
----
+使い分けは次の想定。
 
-#### Phase 2 ─ 足の床 IK（すね角度の自動計算）
+- `story_flags`
+  一度きりの既読管理。例: `elem_umbrella_done`
+- `story_phases`
+  続き物の進行度。例: `high_romance = 2`
+- `story_term_flags`
+  今学期だけの一時状態。`advance_term()` でリセットする。例: `middle_growth_spurt_this_term`
 
-**目的**: すねの長さと座面高さから `knee_l` を計算して、足を床に届かせる。
+補助メソッドも追加したい。
+
+- `get_story_phase(story_id: String) -> int`
+- `set_story_phase(story_id: String, phase: int) -> void`
+- `has_story_flag(flag_id: String) -> bool`
+- `set_story_flag(flag_id: String, value: bool = true) -> void`
+- `has_story_term_flag(flag_id: String) -> bool`
+- `set_story_term_flag(flag_id: String, value: bool = true) -> void`
+
+保存対象は `save_settings()` / `save_slot()` / `load_slot()` にまとめて追加する。
+
+### なぜ辞書に寄せるか
+
+- イベントごとに `xxx_phase` を生やし続けなくて済む
+- 年齢帯別にストーリーを足しやすい
+- 今後、バレー部以外の部活や恋愛を足しても破綻しにくい
+
+## イベントの起動レイヤー設計
+
+### `pending_events` に向くもの
+
+- 学期開始時の大きな出来事
+- 家で受ける通知や手紙
+- 夏休み明けや急成長など、時間経過そのものに紐づくもの
+- 一度だけ見せたい導入イベント
+
+### `TERM_HOTSPOTS` に向くもの
+
+- 校庭・駅・部屋など、その場所で体験してほしいもの
+- プレイヤーが「見に行く」ことで気づくイベント
+- 学期メモと相性がよいイベント
+
+### NPC 会話分岐に向くもの
+
+- はるかとの継続的な関係
+- 先輩、先生、保護者との相談
+- 恋愛、勧誘のように段階的な会話が必要なもの
+
+## 候補イベントの実装案
+
+## 1. 小学校期イベント
+
+### 1-1. 雨の日の傘イベント
+
+#### 狙い
+
+「大きいことの不便さ」が、まだ優しさと子どもっぽさの混ざる形で出る導入イベントにする。
+
+#### 実装レイヤー
+
+- 主導: `pending_events`
+- 補助: はるか会話 or 主人公モノローグ
+
+#### 推奨フロー
+
+1. 小学校期の学校ルート開始時、未体験なら `elem_umbrella_day` をキューする
+2. `outdoor` に入ったとき発火
+3. はるかと相合い傘、または登校中モノローグを再生
+4. 身長差で文面を分岐させる
+
+#### 分岐案
+
+- 身長差が小さい:
+  一応入れる
+- 身長差が中くらい:
+  肩や袖が濡れる
+- 身長差が大きい:
+  傘の中心が合わず、ほぼ機能しない
+
+現在の会話では `15cm / 35cm` の差分バケットが既にあるので、この基準を再利用すると統一感が出る。
+
+#### 必要フラグ
+
+- `story_flags["elem_umbrella_done"]`
+
+#### 実装メモ
+
+- 最初は雨演出なしでよい
+- まずは会話だけで成立させる
+- 後から必要なら `outdoor` に簡易雨オーバーレイを足す
+
+### 1-2. 男子に揶揄われる / 助けてくれる子がいる
+
+#### 狙い
+
+「見られる側になる」最初の痛みと、完全な孤立ではない救いの両方を入れる。
+
+#### 実装レイヤー
+
+- 主導: `TERM_HOTSPOTS`
+- 設置先候補: `schoolyard` ベース stage
+
+#### 推奨ホットスポット
+
+新規 hotspot を1つ追加する。
+
+- `elementary_playground_tease`
+  - stage: `schoolyard`
+  - obs_id: `jungle_gym` または `horizontal_bar_low`
+  - prompt: `遊具の近くへ行く`
+
+#### 推奨フロー
+
+1. 校庭で遊具に近づく
+2. 男子のひやかしが入る
+3. はるか、または別の子が間に入る
+4. 主人公の受け止め方を選ぶ
+
+#### 分岐案
+
+- `diff < 15cm`
+  まだ「少し背が高い」程度で軽い反応
+- `15cm <= diff < 35cm`
+  からかいが強い
+- `diff >= 35cm`
+  からかいより「ちょっと怖い」「すごい」が勝ち、揶揄が減る
+
+ここで、ユーザー案の「身長が伸びると揶揄われなくなる」を表現できる。  
+完全に平和になるのではなく、反応の質が「笑い」から「距離」へ変わるのがポイント。
+
+#### 必要フラグ
+
+- `story_phases["elem_tease"]`
+  - 0: 未体験
+  - 1: 揶揄フェーズ
+  - 2: 揶揄されなくなった後
+
+#### 実装メモ
+
+- 最初は新 NPC を増やさず、`generic` + `haruka` の会話で成立させる
+- 後で必要なら `kind_classmate` のような固有 NPC を追加する
+
+### 1-3. ランドセルを卒業
+
+#### 狙い
+
+小学校期の終わりを「物理サイズ」と「生活の持ち物」の両方で締める。
+
+#### 実装レイヤー
+
+- 主導: `TERM_HOTSPOTS`
+- 設置先: `myroom` の `randoseru`
+- 補助: 進学イベントキュー
+
+`myroom` には既に `randoseru` オブジェクトがあるので、これを使うのが自然。
+
+#### 推奨フロー
+
+1. 小学校最終学期か、中学進学直後に `myroom` の `randoseru` へ触れる
+2. 「小さく見える」「もう肩に合わない」などのモノローグ
+3. 選択肢
+   - 片づける
+   - 少し名残惜しく見る
+   - 持ってみる
+
+#### 反映先
+
+- `term_memory_note`
+- `self_confidence` / `self_complex`
+
+#### 必要フラグ
+
+- `story_flags["randoseru_farewell_done"]`
+
+#### 実装メモ
+
+- これは比較的ローコスト
+- 新規ステージも新規 NPC も不要
+- 小学校編の締めとしてかなり強い
+
+## 2. 中学校期イベント
+
+### 2-1. 男子の「背が伸びた自慢」
+
+#### 狙い
+
+周囲の男子がようやく成長期に入り始めるが、それでも主人公との差は埋まらない、という中学特有の空気を出す。
+
+#### 実装レイヤー
+
+- 主導: 自動イベント or hallway 会話
+- 発火場所候補: `school_hallway_middle` または `school_middle`
+
+#### 推奨フロー
+
+1. 中学校期の学校ルート開始後、`middle_boys_growth_talk` をキュー
+2. `school_hallway_middle` で発火
+3. 「俺も最近5cm伸びた」みたいな会話が聞こえる
+4. 主人公が自分との差を意識するモノローグ
+
+#### 分岐案
+
+- 主人公の身長がまだ高い程度:
+  追いつかれそうな気配を少し感じる
+- 主人公がかなり高い:
+  自慢話がまるで別世界に見える
+
+#### 必要フラグ
+
+- `story_flags["middle_boys_growth_talk_done"]`
+
+#### 実装メモ
+
+- これは `generic` の会話だけで成立する
+- 新しい core NPC を作らなくても十分実装できる
+
+### 2-2. 急成長イベント
+
+#### 狙い
+
+バレー部ルートの一部ではなく、「誰にでも起きうる身体の暴走」として急成長を独立させる。
+
+#### 実装レイヤー
+
+- 主導: `pending_events`
+- 補助: 測定後コメント、はるか / 先輩リアクション
+
+#### 推奨仕様
+
+中学校期から高校初期の間、一定条件で `growth_spurt` を発生させる。
+
+条件案:
+
+- 年齢が `12-15歳`
+- 通常成長量が大きかった学期
+- あるいは固定確率
+
+効果案:
+
+- 学期更新時に追加で `+4cm 〜 +8cm`
+- `queue_event("growth_spurt")`
+
+#### 発火位置
+
+- `room` または `myroom`
+
+まずは家での違和感として見せるのが自然。  
+その後に保健室や学校で余波を出す。
+
+#### バレー部との共存
+
+これはユーザー要望通り、競合してよい。
+考え方としては次の通り。
+
+- `summer_growth` は季節イベント
+- `growth_spurt` は身体イベント
+- `vball_story_phase` は部活イベント
+
+この3つは別レイヤーとして扱う。
+
+バレー部参加中なら、先輩の会話に一言追加する程度で十分。
+急成長の本体は共有イベントにする。
+
+#### `summer_growth` との重複について
+
+`advance_term()` は夏学期に `+10cm` の追加成長を加えた上で `summer_growth` をキューする。
+`growth_spurt`（`+4〜8cm`）が同じ学期に重なると合計 `+14〜18cm` になる。
+
+**これは仕様。** 夏に急成長が重なるケースを「特別に激しい成長期」として表現する意図がある。
+実装時に排他制御は不要。
+
+#### 必要フラグ
+
+- `story_term_flags["growth_spurt_this_term"]`
+- `story_flags["growth_spurt_seen_first"]`
+- 必要なら `story_phases["growth_spurt_count"]`
+
+#### 実装メモ
+
+- このイベントは優先度が高い
+- 世界観全体の成長物語を太くできる
+- バレー部以外のプレイでも印象に残る
+
+## 3. 高校期イベント
+
+### 3-1. 恋する / 恋される
+
+#### 狙い
+
+高校期では、身長が単なる悩みではなく「人を惹きつける要素」にもなることを描く。
+
+#### 実装レイヤー
+
+- 主導: NPC 会話分岐
+- 補助: `pending_events`
+
+#### 方針
+
+最初から本格恋愛ルートにせず、まずは短い2段階か3段階のエピソードにする。
+
+初期版の構成案:
+
+1. `high_romance_notice`
+   - 学校または学園街で「見られている」「気になる人がいる」と気づく
+2. `high_romance_followup`
+   - はるかに相談する、または手紙を受け取る
+3. `high_romance_choice`
+   - 向き合う / 距離を置く / 今は保留
+
+#### 実装上の割り切り
+
+最初は新しい常駐 NPC を作らなくてもよい。
+
+- 手紙
+- 噂
+- はるか経由の相談
+- 主人公モノローグ
+
+この4つでかなり成立する。  
+反応が良ければ、その後 `admirer` のような固有 NPC を追加する。
+
+#### 必要フラグ
+
+- `story_phases["high_romance"]`
+  - 0: 未開始
+  - 1: 気づいた
+  - 2: 接触あり
+  - 3: 返答済み
+
+#### 実装メモ
+
+- 高校期は `gakuenmachi` が使えるので、学校外の空気も出しやすい
+- バレー部と同時進行してもよいが、主導権は取らせすぎない方がよい
+
+### 3-2. スポーツ団体からの勧誘
+
+#### 狙い
+
+高校期では、身長が「進路」「才能」として外部から評価されるフェーズに入る。  
+バレー部ルートの延長ではなく、社会からの視線として描きたい。
+
+#### 実装レイヤー
+
+- 主導: `pending_events`
+- 補助: `senior` / `teacher` / 保護者会話
+
+#### 推奨トリガ
+
+次のいずれかを満たしたら候補に入れる。
+
+- `age >= 15`
+- `height >= 190`
+- `gymnasium_basket` 既体験
+- `npc_talk_veryhuge` を見ている
+
+この条件なら、バレー部未加入でも勧誘が発生できる。
+
+#### 推奨フロー
+
+1. `high_scout_contact` をキュー
+2. `room` で手紙、または `gakuenmachi` で声をかけられる
+3. 「一度見学する」「今は断る」「家族やはるかに相談する」を選ぶ
+4. 返答だけで終わってもよいし、将来の進路イベントの種にしてもよい
+
+#### 必要フラグ
+
+- `story_phases["high_scout"]`
+  - 0: 未接触
+  - 1: 接触済み
+  - 2: 相談済み
+  - 3: 方針決定
+
+#### 実装メモ
+
+- これも新規 NPC 必須ではない
+- `speaker: "スポーツ団体スタッフ"` の会話だけで初期版は成立する
+- 先輩がいる場合だけ追加セリフを差し込むと、既存ルートともつながる
+
+## 優先度の高い実装順
+
+いきなり全部やるより、次の順で増やすのが安全。
+
+### 第1段階: 今の実装にそのまま乗るもの
+
+- ランドセル卒業
+- 中学の急成長イベント
+- 高校のスポーツ勧誘
+
+理由:
+
+- 新規 NPC なしで成立しやすい
+- 既存の `pending_events` / hotspot / 家イベントに乗せやすい
+- 世界観の広がりが大きい
+
+### 第2段階: 学校内の空気を増やすもの
+
+- 小学校の揶揄いイベント
+- 中学の男子成長自慢
+
+理由:
+
+- `generic` の活用で増やせる
+- 年齢帯の違いが出しやすい
+
+### 第3段階: 演出か新NPCが欲しいもの
+
+- 傘イベント
+- 恋愛イベント
+
+理由:
+
+- 傘は雨演出があると強い
+- 恋愛は相手の見せ方を詰めたくなる
+
+## 実装タスク分解
+
+### 1. 基盤
+
+- `Global.gd` に `story_flags / story_phases / story_term_flags` を追加
+- save/load 対応
+- `advance_term()` で `story_term_flags` を初期化
+- 学年帯に応じてイベントを判定する helper を追加
+
+### 2. イベントキュー拡張
+
+- `MainScene.gd::_handle_pending_stage_event()` に新規 event id を追加
+- `advance_term()` または学期ルート選択後に、年齢帯に応じたキュー追加関数を呼ぶ
+
+例:
 
 ```gdscript
-elif pose == "chair_sit":
-    # ... (Phase 1 の y_crotch, waist_angle, leg_angle は同じ)
-
-    # すね IK
-    var ratio: float = clampf(seat_h_px / shin_l, 0.0, 1.0)
-    if ratio <= 1.0:
-        # 足が床に届く: アークサインでかかとを床に合わせる
-        knee_l = asin(ratio)          # 高身長ほど小さな角度（すねが前方傾斜）
-    else:
-        # 足が宙に浮く（座面が高すぎ or 身長が低い）
-        knee_l = PI * 0.5             # すな垂直・宙ぶらりん
-    knee_r = knee_l
+func _queue_age_story_events() -> void:
+	if age >= 6 and age <= 11:
+		...
+	elif age >= 12 and age <= 14:
+		...
+	else:
+		...
 ```
 
-**高身長への影響のイメージ**
+### 3. ホットスポット追加
 
-| 身長 | shin_l | 座面 40cm | knee_l | 見え方 |
-|------|--------|-----------|--------|--------|
-| 150cm | 32.4cm | 40 > shin → 宙 | PI/2 | 足が浮く |
-| 170cm | 36.7cm | 40 > shin → 宙 | PI/2 | ギリギリ浮く |
-| 185cm | 39.9cm | 40 ≈ shin | ≈PI/2 | ほぼ垂直 |
-| 200cm | 43.2cm | 40 < shin | asin(40/43.2)≈68° | すねが前傾 |
-| 220cm | 47.5cm | 40 < shin | asin(40/47.5)≈57° | 脚が大きく前に出る |
+追加候補:
 
----
+- `randoseru_farewell`
+- `schoolyard_playground_tease`
 
-#### Phase 3 ─ 机の制約（脚の前方伸ばし）
+必要なら後で追加:
 
-**目的**: 机がある場合に、膝が机の天板より上に来ないよう太ももを前傾させる。
+- `schoolyard_middle_growth_compare`
+- `gakuenmachi_romance_notice`
 
-現状の設計（`leg_l_angle = -90`、太もも水平）では：
-- 膝の高さ = 座面高さ H
-- 机の高さ D > H であれば膝は机より下 → 問題なし
-- ただし太ももが完全水平のため、極端に長い場合は机に膝が当たる演出になる
+### 4. 会話DB追加
 
-**制約チェック式**
+`DialogueDatabase.gd` に年齢帯別キーを増やす。
 
-```gdscript
-var desk_h_cm: float = player.sit_context.get("desk_h_cm", -1.0)
-if desk_h_cm > 0.0:
-    var knee_h_px = seat_h_px  # 太もも水平の場合、膝高さ = 座面高さ
-    var desk_h_px = desk_h_cm * p
-    if knee_h_px > desk_h_px:
-        # 膝が机より上: 太ももを下げ気味にして膝を机の下に収める
-        # Δangle = asin((knee_h_px - desk_h_px) / thigh_l)
-        var delta = asin(clampf((knee_h_px - desk_h_px) / thigh_l, 0.0, 0.9))
-        leg_l_angle = -90 + rad_to_deg(delta)  # 太ももを少し下向きに
-        leg_r_angle = leg_l_angle
-        # 連動: y_crotch も再調整が必要
-```
+追加候補キー:
 
----
+- `player.elem_umbrella_day`
+- `player.randoseru_farewell`
+- `generic.elem_tease_boys`
+- `generic.middle_boys_growth_talk`
+- `player.growth_spurt`
+- `haruka.growth_spurt_followup`
+- `player.high_romance_notice`
+- `haruka.high_romance_consult`
+- `scout.first_contact`
 
-### 変更ファイルまとめ
+`scout` は最初は NPC 配置なしの会話データだけでもよい。
 
-| ファイル | 変更内容 |
-|---|---|
-| `SkeletalPlayer.gd` | `sit_context` 辞書を追加 |
-| `StageBuilder.gd` | 椅子ノードに `seat_height_cm`・`desk_height_cm` メタ付与 |
-| `MainScene.gd` | インタラクション時に `sit_context` をセット |
-| `CharacterPoseCalculator.gd` | `chair_sit` ブランチで Phase 1→2→3 の計算を使用 |
+## 競合と注意点
 
----
+### 1. イベントの渋滞
 
-### 実装順
+`pending_events` は先頭1件だけ処理されるので、同じタイミングで大量に積まない。  
+特に `semester_start` の直後に何本も学年イベントを積むのは避ける。
 
-| Phase | 内容 | 難度 | 対応 issue |
-|---|---|---|---|
-| **1** | 座面高さの受け渡し（`sit_context` + メタ） | 小 | #58 |
-| **2** | すね IK（`asin` でかかとを床に合わせる） | 小 | #58 |
-| **3** | 机の制約（太もも前傾・膝を机下に収める） | 中 | #58 |
+対策:
 
-Phase 1・2 は独立して着手可能。Phase 3 は机オブジェクトのメタ設計が前提。
+- 1学期に自動イベントは1本まで
+- それ以外は hotspot と NPC に逃がす
+
+### 2. バレー部との優先順位
+
+`senior` の分岐は現状ハードコードされている。  
+そのため、高校イベントを `senior` に集めすぎると複雑になる。
+
+対策:
+
+- 勧誘は `senior` 本人ではなく外部スタッフ主体にする
+- 恋愛は `haruka` 相談かモノローグ主体にする
+- `senior` は追加リアクション担当に留める
+
+### 3. 小学校イベントの終わり方
+
+「揶揄われなくなる」は、完全解決ではなく「反応の質が変わる」として描く方がこのゲームに合う。  
+世界が優しくなるのではなく、見られ方が変わるという設計がよい。
+
+## おすすめの最初の1セット
+
+最初に実装するなら、次の3本がバランスがよい。
+
+1. `randoseru_farewell`
+2. `growth_spurt`
+3. `high_scout_contact`
+
+この3本だけでも、
+
+- 小学校の終わり
+- 中学の身体変化
+- 高校の進路
+
+が入るので、バレー部以外にも時間の流れが感じられるようになる。
+
+## 結論
+
+追加イベントは、バレー部のような単一路線をもう1本増やすより、  
+「学年ごとに1つずつ象徴的な出来事を積む」方が現行実装に合っている。
+
+そのための進め方は次の通り。
+
+1. まず `story_flags / story_phases` を導入して、バレー部以外のイベントの置き場を作る
+2. `pending_events` で大きな節目を追加する
+3. `TERM_HOTSPOTS` で場所に紐づく体験を増やす
+4. `haruka` と `generic` を活かして、年齢帯ごとの空気を変える
+
+この方針なら、今ある構造を壊さずに「小学校の痛み」「中学の急変」「高校の可能性」を順番に足していける。
