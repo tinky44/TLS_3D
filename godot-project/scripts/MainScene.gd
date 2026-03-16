@@ -29,6 +29,8 @@ var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
 var _nearby_term_hotspot: String = ""
+var _nearby_obs_id: String = ""
+var _nearby_standup: bool = false
 var _nearby_bed: bool = false
 
 # アクションヒントパネル（Q キーで切り替え）
@@ -61,6 +63,7 @@ var _dialogue_index: int = 0
 var _current_dialogue_npc: String = ""
 var _current_dialogue_key: String = ""
 var _dialogue_restore_pose: String = ""
+var _sit_front_nodes: Array = []  # 着席中に前面表示した obs ノードのリスト
 var _choice_buttons: Array = []
 var _choice_selected_index: int = -1
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
@@ -110,6 +113,8 @@ const TERM_HOTSPOT_ORDER = [
 	"station_bench",
 	"station_vending",
 	"gymnasium_basket",
+	"randoseru_farewell",
+	"schoolyard_tease",
 ]
 const TERM_HOTSPOTS: Dictionary = {
 	"home_mirror": {
@@ -124,11 +129,15 @@ const TERM_HOTSPOTS: Dictionary = {
 	},
 	"home_table": {
 		"stage_id": "room",
-		"obs_ids": ["table", "chair"],
+		"obs_ids": ["chair_left", "chair_right", "table"],
+		"trigger_obs_ids": ["chair_left", "chair_right"],
 		"prompt": "食卓で一息つく",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_home_table",
-		"pose": "chair_sit"
+		"pose": "chair_sit",
+		"seat_height_cm": 45.0,
+		"desk_height_cm": 72.0,
+		"repeatable": true
 	},
 	"school_seat": {
 		"stage_id": "school",
@@ -137,9 +146,11 @@ const TERM_HOTSPOTS: Dictionary = {
 		"dialogue_npc": "player",
 		"dialogue_key": "term_school_seat",
 		"pose": "chair_sit",
+		"sit_dir": -1,
 		"stress_delta": 2,
 		"feedback": "席に座ると少しだけ視線を意識する",
-		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。"
+		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。",
+		"repeatable": true
 	},
 	"school_infirmary": {
 		"stage_id": "infirmary",
@@ -158,7 +169,9 @@ const TERM_HOTSPOTS: Dictionary = {
 		"pose": "chair_sit",
 		"stress_delta": -4,
 		"feedback": "人波から少し距離を取れた",
-		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。"
+		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。",
+		"seat_height_cm": 45.0,
+		"repeatable": true
 	},
 	"station_vending": {
 		"stage_id": "station",
@@ -169,7 +182,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"pose": "reach_low",
 		"stress_delta": 3,
 		"feedback": "立ち止まると視線が集まりやすい",
-		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。"
+		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。",
+		"repeatable": true
 	},
 	"gymnasium_basket": {
 		"stage_id": "gymnasium",
@@ -181,7 +195,29 @@ const TERM_HOTSPOTS: Dictionary = {
 		"height_min": 185.0,
 		"stress_delta": -5,
 		"feedback": "手を上げた瞬間、体の伸びやかさに少し気持ちがほぐれた。",
-		"memory_note": "バスケゴールに手を伸ばしたら、いつもより高さが近く感じられた。"
+		"memory_note": "バスケゴールに手を伸ばしたら、いつもより高さが近く感じられた。",
+		"repeatable": true
+	},
+	"randoseru_farewell": {
+		"stage_id": "myroom",
+		"obs_id": "randoseru",
+		"prompt": "ランドセルを見る",
+		"dialogue_npc": "player",
+		"dialogue_key": "randoseru_farewell",
+		"age_min": 11,
+		"story_flag_done": "randoseru_farewell_done",
+		"memory_note": "引き出しの中のランドセルを取り出し、しばらく眺めた。"
+	},
+	"schoolyard_tease": {
+		"stage_id": "schoolyard",
+		"obs_id": "jungle_gym",
+		"prompt": "遊具の近くへ行く",
+		"dialogue_npc": "player",
+		"dialogue_key": "elem_tease",
+		"age_max": 11,
+		"stress_delta": 2,
+		"feedback": "視線を感じる場所では少し気を張ってしまう",
+		"memory_note": "校庭の遊具の近くで、男子に声をかけられた。"
 	}
 }
 
@@ -441,7 +477,7 @@ func _setup_dialogue_panel() -> void:
 	dialogue_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var bg = StyleBoxFlat.new()
-	bg.bg_color = Color("#1a1a2e")
+	bg.bg_color = Color(0.1, 0.1, 0.18, 0.5)
 	bg.border_color = Color("#e8c872")
 	bg.border_width_top = 2
 	bg.content_margin_left = 24
@@ -903,10 +939,23 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		var height_min: float = float(hotspot_data.get("height_min", 0.0))
 		if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
 			continue
+		var age_min: int = int(hotspot_data.get("age_min", 0))
+		var age_max: int = int(hotspot_data.get("age_max", 9999))
+		var cur_age: int = int(global.age)
+		if age_min > 0 and cur_age < age_min:
+			continue
+		if age_max < 9999 and cur_age > age_max:
+			continue
+		var story_flag_done: String = String(hotspot_data.get("story_flag_done", ""))
+		if story_flag_done != "" and global.has_story_flag(story_flag_done):
+			continue
 		var matched: bool = false
+		# trigger_obs_ids が指定されている場合はそちらを優先（obs_ids は前面描画用途も兼ねるため）
+		var trigger_ids: Variant = hotspot_data.get("trigger_obs_ids", null)
 		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
-		if hotspot_obs_ids is Array:
-			for candidate in hotspot_obs_ids:
+		var check_ids: Variant = trigger_ids if trigger_ids is Array else hotspot_obs_ids
+		if check_ids is Array:
+			for candidate in check_ids:
 				if String(candidate) == obs_id:
 					matched = true
 					break
@@ -915,7 +964,9 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		if not matched:
 			continue
 		if global.has_term_hotspot_done(hotspot_id):
-			return ""
+			# repeatable なホットスポットはセリフ済みでもインタラクト可能
+			if not bool(hotspot_data.get("repeatable", false)):
+				return ""
 		return hotspot_id
 	return ""
 
@@ -932,17 +983,111 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	var height_min: float = float(hotspot_data.get("height_min", 0.0))
 	if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
 		return
+	# repeatable なホットスポットは「初回かどうか」を記録してからマーク
+	var already_done: bool = global.has_term_hotspot_done(hotspot_id)
 	global.mark_term_hotspot_done(hotspot_id)
-	var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
-	if stress_delta != 0:
-		global.add_stress(stress_delta)
-		_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
-	var memory_note: String = String(hotspot_data.get("memory_note", ""))
-	if memory_note != "":
-		global.append_term_memory_note(memory_note)
+	# ストーリー系副作用（フラグ・ストレス・記憶）は初回のみ
+	if not already_done:
+		var story_flag_done: String = String(hotspot_data.get("story_flag_done", ""))
+		if story_flag_done != "" and global.has_method("set_story_flag"):
+			global.set_story_flag(story_flag_done)
+		var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
+		if stress_delta != 0:
+			global.add_stress(stress_delta)
+			_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
+		var memory_note: String = String(hotspot_data.get("memory_note", ""))
+		if memory_note != "":
+			global.append_term_memory_note(memory_note)
 	var pose_name: String = String(hotspot_data.get("pose", ""))
 	if pose_name != "" and player:
 		_dialogue_restore_pose = String(player.pose)
+		# chair_sit の場合は座面・机の高さを sit_context にセット、机を前面表示
+		if pose_name == "chair_sit" and player.get("sit_context") != null:
+			var seat_h: float = float(hotspot_data.get("seat_height_cm", -1.0))
+			var desk_h: float = float(hotspot_data.get("desk_height_cm", -1.0))
+			var hotspot_obs_ids: Array = []
+			var oi = hotspot_data.get("obs_ids", null)
+			if oi is Array:
+				hotspot_obs_ids = oi
+			else:
+				var single = String(hotspot_data.get("obs_id", ""))
+				if single != "":
+					hotspot_obs_ids = [single]
+			_sit_front_nodes.clear()
+			for child in get_children():
+				if not child.has_meta("obs_id"):
+					continue
+				var o_id: String = String(child.get_meta("obs_id"))
+				if not (o_id in hotspot_obs_ids):
+					continue
+				var oh: float = float(child.get_meta("obs_height_cm", 0.0))
+				if ("chair" in o_id or "bench" in o_id or "seat" in o_id) and seat_h < 0.0:
+					seat_h = oh
+				elif "desk" in o_id or "table" in o_id:
+					if desk_h < 0.0:
+						desk_h = oh
+					# 机を前面に描画
+					child.z_index = 1
+					_sit_front_nodes.append(child)
+			player.sit_context = {"seat_h_cm": seat_h, "desk_h_cm": desk_h}
+		# 向きの設定: obs_id から判定 → fallback として hotspot の sit_dir を使用
+		var sit_dir_val: int = int(hotspot_data.get("sit_dir", 0))
+		if _nearby_obs_id == "chair_right":
+			player.dir = -1  # 右椅子 → 左向き
+		elif _nearby_obs_id == "chair_left":
+			player.dir = 1   # 左椅子 → 右向き
+		elif sit_dir_val != 0:
+			player.dir = sit_dir_val
+		# 背もたれにキャラクターの背中を合わせるためX位置を補正
+		# chair_left/right: _nearby_obs_id から直接、その他: hotspot obs_ids の中から最近接 chair を探す
+		var chair_node_target: Node = null
+		var chair_obs_id_for_pos: String = ""
+		if "chair_left" in _nearby_obs_id or "chair_right" in _nearby_obs_id:
+			chair_obs_id_for_pos = _nearby_obs_id
+			for obs_child in get_children():
+				if obs_child.has_meta("obs_id") and String(obs_child.get_meta("obs_id")) == _nearby_obs_id:
+					chair_node_target = obs_child
+					break
+		elif pose_name == "chair_sit":
+			# hotspot の全 obs_ids から "chair" を含む最近接ノードを探す
+			var all_obs_v = hotspot_data.get("obs_ids", null)
+			var all_obs_arr: Array = []
+			if all_obs_v is Array:
+				all_obs_arr = all_obs_v
+			elif hotspot_data.has("obs_id"):
+				all_obs_arr = [String(hotspot_data.get("obs_id", ""))]
+			var min_chair_dist: float = INF
+			for obs_child in get_children():
+				if not obs_child.has_meta("obs_id"):
+					continue
+				var oc_id: String = String(obs_child.get_meta("obs_id"))
+				if "chair" not in oc_id:
+					continue
+				if not (oc_id in all_obs_arr):
+					continue
+				var chair_cx: float = (float(obs_child.get_meta("obs_x")) + float(obs_child.get_meta("obs_x2"))) / 2.0 * player.CM_TO_PX
+				var dist: float = absf(player.position.x - chair_cx)
+				if dist < min_chair_dist:
+					min_chair_dist = dist
+					chair_obs_id_for_pos = oc_id
+					chair_node_target = obs_child
+		if chair_node_target != null:
+			var obs_x_cm := float(chair_node_target.get_meta("obs_x"))
+			var obs_x2_cm := float(chair_node_target.get_meta("obs_x2"))
+			var c2p: float = player.CM_TO_PX
+			var m_dict: Dictionary = player.m
+			var head_val: float
+			if m_dict.has("headWidth"):
+				head_val = float(m_dict["headWidth"])
+			else:
+				head_val = float(m_dict.get("head", 22.0)) * 0.702
+			var half_t: float = head_val * c2p * 0.85 / 2.0
+			if "chair_left" in chair_obs_id_for_pos:
+				# dir=1: 背面 = player.x - half_t → 背もたれ右面に合わせる
+				player.position.x = obs_x_cm * c2p + 8.0 + half_t
+			else:
+				# dir=-1 (flip): 背面 = player.x + half_t → 背もたれ左面に合わせる
+				player.position.x = obs_x2_cm * c2p - 8.0 - half_t
 		if player.has_method("set_pose_immediately"):
 			player.call("set_pose_immediately", pose_name)
 		else:
@@ -952,10 +1097,32 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 				drawer.queue_redraw()
 	global.save_settings()
 	_nearby_term_hotspot = ""
-	_start_dialogue(
-		String(hotspot_data.get("dialogue_npc", "player")),
-		String(hotspot_data.get("dialogue_key", "default"))
-	)
+	# セリフは初回のみ（repeatable なホットスポットの2回目以降はスキップ）
+	if not already_done:
+		_start_dialogue(
+			String(hotspot_data.get("dialogue_npc", "player")),
+			String(hotspot_data.get("dialogue_key", "default"))
+		)
+
+func _do_standup() -> void:
+	if not player:
+		return
+	var restore_pose: String = _dialogue_restore_pose if _dialogue_restore_pose != "" else "normal"
+	if player.has_method("set_pose_immediately"):
+		player.call("set_pose_immediately", restore_pose)
+	else:
+		player.pose = restore_pose
+		var drawer := player.get_node_or_null("CharacterDrawer")
+		if drawer:
+			drawer.queue_redraw()
+	if player.get("sit_context") != null:
+		player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0}
+	for n in _sit_front_nodes:
+		if is_instance_valid(n):
+			n.z_index = -1
+	_sit_front_nodes.clear()
+	_dialogue_restore_pose = ""
+	_nearby_standup = false
 
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	if _in_dialogue or _measurement_showing or _term_choice_showing:
@@ -1125,6 +1292,8 @@ func _process_choice_action(action: String, global: Node) -> void:
 				global.vball_joined = false
 				global.is_leg_pain = false
 				global.vball_story_phase = 7
+			"high_scout_interest":
+				global.set_story_phase("high_scout", 1)
 
 func _advance_dialogue() -> void:
 	if _choice_pending: return
@@ -1153,7 +1322,14 @@ func _end_dialogue() -> void:
 			var drawer := player.get_node_or_null("CharacterDrawer")
 			if drawer:
 				drawer.queue_redraw()
+		if _dialogue_restore_pose != "chair_sit" and player.get("sit_context") != null:
+			player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0}
 		_dialogue_restore_pose = ""
+	# 前面表示していた机ノードを元の z_index に戻す
+	for n in _sit_front_nodes:
+		if is_instance_valid(n):
+			n.z_index = -1
+	_sit_front_nodes.clear()
 
 	if _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":
 		if global:
@@ -1582,13 +1758,24 @@ func _update_bubble():
 		elif hotspot_id != "":
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
-			_nearby_term_hotspot = hotspot_id
 			_nearby_bed = false
-			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
+			_nearby_obs_id = String(obs_id)
+			# 着席中かつ chair_sit ホットスポットなら「立ち上がる」に切り替え
+			var hotspot_pose: String = String(TERM_HOTSPOTS[hotspot_id].get("pose", ""))
+			if player and String(player.pose) == "chair_sit" and hotspot_pose == "chair_sit":
+				_nearby_term_hotspot = ""
+				_nearby_standup = true
+				bubble_label.text += "\n[E] 立ち上がる"
+			else:
+				_nearby_term_hotspot = hotspot_id
+				_nearby_standup = false
+				bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
 		elif obs_id.begins_with("door_to_"):
 			var lock_message: String = _get_transition_lock_message(String(obs_id))
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
+			_nearby_obs_id = ""
+			_nearby_standup = false
 			_nearby_bed = false
 			if lock_message != "":
 				_nearby_transition_door = ""
@@ -1600,12 +1787,16 @@ func _update_bubble():
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
 			_nearby_term_hotspot = ""
+			_nearby_obs_id = ""
+			_nearby_standup = false
 			_nearby_bed = false
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
+			_nearby_obs_id = ""
+			_nearby_standup = false
 			_nearby_bed = false
 
 		bubble_panel.show()
@@ -1614,6 +1805,8 @@ func _update_bubble():
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
 		_nearby_term_hotspot = ""
+		_nearby_obs_id = ""
+		_nearby_standup = false
 		_nearby_bed = false
 		if _in_dialogue or _measurement_showing or _term_choice_showing or _sleep_menu_showing:
 			bubble_panel.hide()
@@ -2168,6 +2361,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					_advance_dialogue()
 			elif _measurement_showing:
 				_on_close_measurement_pressed()
+			elif _nearby_standup:
+				_do_standup()
 			elif _nearby_bed:
 				_trigger_bed_interaction()
 			elif _nearby_term_hotspot != "":
@@ -2481,6 +2676,32 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 		else:
 			_defer_pending_stage_event(global, ev)
 			return false
+	elif ev == "growth_spurt":
+		if stage_id == "room" or stage_id == "myroom":
+			await get_tree().create_timer(1.0).timeout
+			_start_dialogue("player", "growth_spurt")
+			return true
+		else:
+			_defer_pending_stage_event(global, ev)
+			return false
+	elif ev == "high_scout_contact":
+		if stage_id in ["room", "myroom", "gakuenmachi"]:
+			await get_tree().create_timer(0.8).timeout
+			_start_dialogue("player", "high_scout_contact")
+			global.set_story_flag("high_scout_done")
+			return true
+		else:
+			_defer_pending_stage_event(global, ev)
+			return false
+	elif ev == "middle_boys_growth_talk":
+		if stage_id == "school_hallway_middle":
+			await get_tree().create_timer(0.6).timeout
+			_start_dialogue("generic", "middle_boys_growth_talk")
+			global.set_story_flag("middle_boys_growth_talk_done")
+			return true
+		else:
+			_defer_pending_stage_event(global, ev)
+			return false
 	return false
 
 func _load_stage():
@@ -2725,6 +2946,36 @@ func _spawn_npcs(stage_id: String) -> void:
 		_spawn_stage_npc(npc_scene, 1120.0, classmate_params.get(stage_suffix, classmate_params["middle"]), classmate_appearance, "", 30.0)
 		if stage_suffix == "high":
 			_spawn_stage_npc(npc_scene, 760.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 45.0)
+
+	elif StageBuilder.is_schoolyard_stage(stage_id):
+		if stage_suffix == "elementary":
+			# 小学校の男子同級生（遊具エリアにいる）
+			_spawn_stage_npc(npc_scene, 880.0, {
+				"height": 124.0, "ratio": 5.9, "legRatio": 45.0, "sex": "male"
+			}, {
+				"hair_style": "short", "hair_color": "#3a2e28",
+				"tops_type": "t_shirt", "tops_color": "#4a7fc1",
+				"bottoms_type": "pants", "bottoms_color": "#444466",
+				"shoes_type": "sneakers", "shoes_color": "#eeeeee"
+			}, "", 70.0)
+			_spawn_stage_npc(npc_scene, 1080.0, {
+				"height": 127.0, "ratio": 6.0, "legRatio": 45.0, "sex": "male"
+			}, {
+				"hair_style": "short", "hair_color": "#5a4030",
+				"tops_type": "t_shirt", "tops_color": "#cc5544",
+				"bottoms_type": "pants", "bottoms_color": "#334455",
+				"shoes_type": "sneakers", "shoes_color": "#cccccc"
+			}, "", 80.0)
+		elif stage_suffix == "middle":
+			# 中学校の男子（体操服風）
+			_spawn_stage_npc(npc_scene, 1500.0, {
+				"height": 155.0, "ratio": 6.5, "legRatio": 45.0, "sex": "male"
+			}, {
+				"hair_style": "short", "hair_color": "#2e2620",
+				"tops_type": "t_shirt", "tops_color": "#ffffff",
+				"bottoms_type": "pants", "bottoms_color": "#1a1a2e",
+				"shoes_type": "sneakers", "shoes_color": "#dddddd"
+			}, "", 90.0)
 
 	elif StageBuilder.is_gymnasium_stage(stage_id):
 		_spawn_stage_npc(npc_scene, 1200.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 90.0)

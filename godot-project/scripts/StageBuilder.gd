@@ -14,9 +14,9 @@ const STAGES = {
             {"id": "kitchen_counter", "x": 440, "x2": 640, "height": 80, "type": "ground"},
             {"id": "range_hood", "x": 550, "x2": 640, "height": 180, "type": "overhead"},
             {"id": "wall_clock", "x": 650, "x2": 690, "height": 200, "type": "background"},
-            {"id": "chair", "x": 700, "x2": 740, "height": 45, "type": "ground"},
+            {"id": "chair_left", "x": 700, "x2": 740, "height": 45, "type": "ground"},
             {"id": "table", "x": 760, "x2": 900, "height": 70, "type": "ground"},
-            {"id": "window_1", "x": 920, "x2": 1050, "height": 160, "type": "background"},
+            {"id": "chair_right", "x": 910, "x2": 950, "height": 45, "type": "ground"},
             {"id": "door_to_myroom", "x": 1080, "x2": 1155, "height": 200, "type": "overhead"},
             {"id": "side_door", "x": 1375, "x2": 1405, "height": 200, "type": "overhead"},
             {"id": "washstand", "x": 1450, "x2": 1550, "height": 180, "type": "background"},
@@ -2422,7 +2422,11 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         var back = ColorRect.new()
         back.color = Color(0.6, 0.4, 0.2)
         back.size = Vector2(8, 40)
-        back.position = Vector2(cr.position.x + w_px - 8, cr.position.y - 40)
+        # chair_left は背もたれを左側（外側）に配置
+        if "chair_left" in o_id:
+            back.position = Vector2(cr.position.x, cr.position.y - 40)
+        else:
+            back.position = Vector2(cr.position.x + w_px - 8, cr.position.y - 40)
         node.add_child(back)
 
     elif o_id == "refrigerator":
@@ -3709,7 +3713,7 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
                 return "テーブル（%dcm）。少し低く感じるかもしれません。" % oh
             else:
                 return "テーブル（%dcm）です。" % oh
-        "chair":
+        "chair", "chair_left", "chair_right":
             return "椅子（%dcm）。" % oh
         "window_1":
             if h > oh:

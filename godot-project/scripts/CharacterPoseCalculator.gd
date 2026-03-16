@@ -55,16 +55,34 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_r_angle = -60
         y_crotch = -15.0 * p
     elif pose == "chair_sit":
-        # 椅子に座る: 腰をほぼ直角、膝が90度、腕は膝の上に置く感じ
-        waist_angle = PI * 0.5
+        # Phase 1: 座面高さを sit_context から取得（未設定時はすね長さで代用）
+        var raw_seat_h_cm: float = -1.0
+        var raw_desk_h_cm: float = -1.0
+        var sc = player.get("sit_context")
+        if sc is Dictionary:
+            raw_seat_h_cm = float(sc.get("seat_h_cm", -1.0))
+            raw_desk_h_cm = float(sc.get("desk_h_cm", -1.0))
+        var seat_h_px: float = (raw_seat_h_cm if raw_seat_h_cm > 0.0 else m["leg"] * 0.45) * p
+
+        waist_angle = 0.1
         leg_l_angle = -90
         leg_r_angle = -90
-        knee_l = PI * 0.5
-        knee_r = PI * 0.5
-        arm_l_angle = -30
-        arm_r_angle = -30
-        var thigh_down = thigh_l * cos(leg_l_angle * PI / 180)
-        y_crotch = -max(thigh_down, 5.0 * p)
+        arm_l_angle = -50
+        arm_r_angle = -50
+        y_crotch = -seat_h_px
+
+        # Phase 2: すね IK — asin でかかとを床に合わせる
+        var ratio: float = clampf(seat_h_px / shin_l, 0.0, 1.0)
+        knee_l = asin(ratio)
+        knee_r = knee_l
+
+        # Phase 3: 机の制約 — 膝が机天板より上に来ないよう太ももを下げる
+        if raw_desk_h_cm > 0.0:
+            var desk_h_px: float = raw_desk_h_cm * p
+            if seat_h_px > desk_h_px:
+                var delta: float = asin(clampf((seat_h_px - desk_h_px) / thigh_l, 0.0, 0.9))
+                leg_l_angle = -90 + rad_to_deg(delta)
+                leg_r_angle = leg_l_angle
     elif pose == "reach_low":
         waist_angle = 0.12
         leg_l_angle = -2
@@ -82,15 +100,15 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_l_angle = -20
         arm_r_angle = -165
     elif pose == "sleep":
-        # 寝る（簡易版）: 体育座りをさらに深くして頭を前に倒す
-        waist_angle = PI * 0.85
+        # 寝る: 体を大きく前傾させて床近くで丸まる（床埋め防止のため waist_angle を抑制）
+        waist_angle = 1.2
         leg_l_angle = -120
         leg_r_angle = -120
-        knee_l = PI * 0.65
-        knee_r = PI * 0.65
-        arm_l_angle = -80
-        arm_r_angle = -80
-        y_crotch = -12.0 * p
+        knee_l = PI * 0.72
+        knee_r = PI * 0.72
+        arm_l_angle = 20
+        arm_r_angle = 20
+        y_crotch = -15.0 * p
     elif is_crouching:
         var target_px = visual_height_cm * p
         var min_t = 0.0

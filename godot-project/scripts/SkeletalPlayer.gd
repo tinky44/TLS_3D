@@ -44,6 +44,12 @@ var _camera_shake_active: bool = false
 var smooth_d: Dictionary = {}
 const POSE_LERP_SPEED: float = 7.0
 
+# 着席コンテキスト（-1 = 未設定、固定値にフォールバック）
+var sit_context: Dictionary = {
+	"seat_h_cm": -1.0,  # 座面高さ [cm]
+	"desk_h_cm": -1.0,  # 机の高さ [cm]（-1 = 机なし）
+}
+
 func _ready() -> void:
 	collision_layer = 0
 	collision_mask |= 4
