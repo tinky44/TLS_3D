@@ -2762,11 +2762,17 @@ func _load_stage():
 		if cam:
 			var stage_width_px := int(float(StageBuilder.STAGES[stage_id]["width"]) * p) if StageBuilder.STAGES.has(stage_id) else 0
 			var m = player.get("m")
+			var ceiling_h = StageBuilder.STAGES[stage_id].get("ceiling_height", null) if StageBuilder.STAGES.has(stage_id) else null
+			var is_gym: bool = stage_id == "gymnasium" or StageBuilder.is_gymnasium_stage(stage_id)
 			if m and m.has("height"):
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
+			# 体育館: zoom アウトで視野を広げる。limit_bottom が天井を自動的に映す範囲に押し上げる
+			cam.zoom = Vector2(0.75, 0.75) if is_gym and ceiling_h != null else Vector2(1.0, 1.0)
 			cam.limit_left = 0
 			cam.limit_right = stage_width_px
-			cam.limit_bottom = 250
+			# 体育館: limit_bottom=333 → 上端が約420cm（840px）に固定される
+			# 計算: top = limit_bottom - viewport_height_world = 333 - (880/0.75) ≈ -840px
+			cam.limit_bottom = 333 if is_gym and ceiling_h != null else 250
 		var bump_handler := Callable(self, "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)

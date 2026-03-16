@@ -1209,11 +1209,12 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
         gym_bg.z_index = -5
         var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
         var stage_w_px = stage_data["width"] * cm_to_px
-        # 上部（天井付近）: 濃いグレー
+        # 上部（天井付近）: 濃いグレー（zoom=0.75時のビューポート上端余白分200px上方に延伸）
+        var extra_above := 200.0
         var gym_upper = ColorRect.new()
         gym_upper.color = Color(0.35, 0.35, 0.38)
-        gym_upper.position = Vector2(0, -ceil_h_px)
-        gym_upper.size = Vector2(stage_w_px, ceil_h_px * 0.25)
+        gym_upper.position = Vector2(0, -ceil_h_px - extra_above)
+        gym_upper.size = Vector2(stage_w_px, ceil_h_px * 0.25 + extra_above)
         gym_bg.add_child(gym_upper)
         # 下部（壁面）: 明るいグレー
         var gym_wall = ColorRect.new()
