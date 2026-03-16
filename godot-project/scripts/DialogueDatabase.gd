@@ -306,6 +306,81 @@ const DATA: Dictionary = {
 			{"speaker": "お母さん", "text": "制服も買い直しだし、バレー部のユニフォームも作り直しね。"},
 			{"speaker": "（主人公）", "text": "……来学期、部活に戻れるかな。脚の具合も気になるし。"},
 		],
+		"randoseru_farewell": [
+			{"speaker": "（主人公）", "text": "……ランドセル。いつの間にか、小さく見える。"},
+			{
+				"speaker": "（主人公）",
+				"text": "持ってみようか、どうしよう。",
+				"choices": [
+					{"label": "片づける", "next": "randoseru_farewell_pack", "emotion": "confidence", "action": "stress:-2,note:ランドセルを静かに片づけた。"},
+					{"label": "少し名残惜しく眺める", "next": "randoseru_farewell_look", "action": "note:ランドセルをしばらく眺めた。"},
+					{"label": "肩に当ててみる", "next": "randoseru_farewell_hold", "action": "stress:+1"},
+				]
+			},
+		],
+		"randoseru_farewell_pack": [
+			{"speaker": "（主人公）", "text": "棚の奥にしまう。もうここに入学式はない。"},
+		],
+		"randoseru_farewell_look": [
+			{"speaker": "（主人公）", "text": "少しの間、眺めてから棚に戻した。"},
+			{"speaker": "（主人公）", "text": "小さく見えるけど、このランドセルの頃は全部ちゃんとあった。"},
+		],
+		"randoseru_farewell_hold": [
+			{"speaker": "（主人公）", "text": "肩に合わない。持ち方も、もうよく分からない。"},
+			{"speaker": "（主人公）", "text": "……似合わなくなったんだ。"},
+		],
+		"growth_spurt": [
+			{"speaker": "（主人公）", "text": "……なんか、いつもと高さが違う気がする。"},
+			{"speaker": "（主人公）", "text": "床から目線まで、急に遠くなった感じがした。"},
+			{"speaker": "お母さん", "text": "ちょっと、また伸びた？ この学期だけで随分変わったわね。"},
+			{"speaker": "（主人公）", "text": "……そういう時期なのかな。自分でも、よく分からない。"},
+		],
+		"high_scout_contact": [
+			{"speaker": "（主人公）", "text": "封筒が届いていた。差出人は、地域のスポーツクラブ。"},
+			{"speaker": "（主人公）", "text": "「一度見学に来てみませんか」"},
+			{
+				"speaker": "（主人公）",
+				"text": "……どうしよう。",
+				"choices": [
+					{"label": "見学してみたい", "next": "high_scout_consider", "emotion": "confidence", "action": "high_scout_interest,note:スポーツクラブからの勧誘を前向きに受け取った。"},
+					{"label": "今は断る", "next": "high_scout_decline", "action": "note:スポーツクラブからの勧誘を断った。"},
+					{"label": "はるかに相談してみる", "next": "high_scout_consult", "action": "note:勧誘のことをはるかに相談した。"},
+				]
+			},
+		],
+		"high_scout_consider": [
+			{"speaker": "（主人公）", "text": "外から「才能があるかも」と言われるのは、やっぱりちょっとうれしかった。"},
+			{"speaker": "（主人公）", "text": "まず、見学だけでいい。それから考えよう。"},
+		],
+		"high_scout_decline": [
+			{"speaker": "（主人公）", "text": "今は、外の話に乗る気になれない。"},
+			{"speaker": "（主人公）", "text": "もう少し、自分のペースで行きたい。"},
+		],
+		"high_scout_consult": [
+			{"speaker": "（主人公）", "text": "はるかなら、どう思うだろう。"},
+			{"speaker": "はるか", "text": "え、クラブの人から手紙？ すごいじゃん！"},
+			{"speaker": "はるか", "text": "行ってみたら？ 見るだけでもいいと思うよ。"},
+		],
+		"elem_tease": [
+			{"speaker": "男子", "text": "ねえ、なんか背高くない？"},
+			{"speaker": "男子", "text": "どんだけ伸びるんだよ。"},
+			{
+				"speaker": "（主人公）",
+				"text": "（どう返せばいい？）",
+				"choices": [
+					{"label": "気にしないでいる", "next": "elem_tease_ignore", "emotion": "confidence", "action": "stress:-2"},
+					{"label": "少しだけへこむ", "next": "elem_tease_sad", "emotion": "complex", "action": "stress:+3"},
+				]
+			},
+		],
+		"elem_tease_ignore": [
+			{"speaker": "（主人公）", "text": "……気にしない。でも、少しだけ耳に残る。"},
+			{"speaker": "はるか", "text": "気にすることないよ。あの子たち、別に悪気はないと思うし。"},
+		],
+		"elem_tease_sad": [
+			{"speaker": "（主人公）", "text": "（ちょっと、痛かった。）"},
+			{"speaker": "はるか", "text": "ねえ、気にしなくていいよ。そのままのあなたで全然いい。"},
+		],
 	},
 	"generic": {
 		"first_meet": [
@@ -340,6 +415,12 @@ const DATA: Dictionary = {
 		],
 		"npc_firstvisit_gymnasium": [
 			{"speaker": "体育教師", "text": "おっ、新しい顔か。君、バレー部に向いてそうだな。"},
+		],
+		"middle_boys_growth_talk": [
+			{"speaker": "男子", "text": "俺、最近5cm伸びたぞ！"},
+			{"speaker": "男子", "text": "マジ？ 俺も！ 最近ぐっと来た感じがする。"},
+			{"speaker": "（主人公）", "text": "（5cm。それが大きな話になってる。私は……）"},
+			{"speaker": "（主人公）", "text": "（今学期だけでもっと伸びてるけど、黙ってよう。）"},
 		],
 		"huge": [
 			{"speaker": "人", "text": "モデルさんみたい！"},

@@ -60,6 +60,11 @@ var vball_story_phase: int = 0 # 0=未出会い 1=廊下で出会った 2=入部
 var is_leg_pain: bool = false # 脚の痛みフラグ（歩行変化に影響）
 var vball_joined: bool = false # バレー部入部フラグ
 
+# ─── 汎用ストーリーフラグ ──────────────────────────────────────────────
+var story_flags: Dictionary = {}      # 一度きりのイベント既読管理 (flag_id -> bool)
+var story_phases: Dictionary = {}     # 続き物の進行度 (story_id -> int)
+var story_term_flags: Dictionary = {} # 今学期だけの一時状態（advance_termでリセット）
+
 # ─── 感情パラメータ ────────────────────────────────────────────
 var self_confidence: int = 0 # 自信：高身長を肯定的に受け入れた選択の累積
 var self_complex: int = 0 # コンプレックス：高身長を否定的に感じた選択の累積
@@ -250,6 +255,24 @@ func has_pending_event(event_id: String) -> bool:
 func has_experienced_event(event_id: String) -> bool:
 	return experienced_events.has(event_id)
 
+func get_story_phase(story_id: String) -> int:
+	return int(story_phases.get(story_id, 0))
+
+func set_story_phase(story_id: String, phase: int) -> void:
+	story_phases[story_id] = phase
+
+func has_story_flag(flag_id: String) -> bool:
+	return bool(story_flags.get(flag_id, false))
+
+func set_story_flag(flag_id: String, value: bool = true) -> void:
+	story_flags[flag_id] = value
+
+func has_story_term_flag(flag_id: String) -> bool:
+	return bool(story_term_flags.get(flag_id, false))
+
+func set_story_term_flag(flag_id: String, value: bool = true) -> void:
+	story_term_flags[flag_id] = value
+
 func add_stress(amount: int) -> void:
 	stress = int(clamp(stress + amount, 0, 100))
 
@@ -351,6 +374,15 @@ func advance_term() -> void:
 	if term >= 6 and (term - 6) % 3 == 1:
 		current_params["height"] += 10.0
 		queue_event("summer_growth")
+	# 急成長イベント: 中学〜高校初期（12〜15歳）で確率発生
+	# summer_growth と重なった場合も仕様として許容（+14〜18cmになりうる）
+	story_term_flags = {}
+	if age >= 12 and age <= 15 and get_base_growth(age) >= 3.0 and randf() < 0.40:
+		current_params["height"] += randf_range(4.0, 8.0)
+		set_story_term_flag("growth_spurt_this_term")
+		if not has_story_flag("growth_spurt_seen_first"):
+			set_story_flag("growth_spurt_seen_first")
+		queue_event("growth_spurt")
 	# 身長に合わせて頭身を自動更新（最大9頭身）
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
@@ -362,6 +394,12 @@ func advance_term() -> void:
 		current_appearance["hat_type"] = "school_hat" if age < 12 else "none"
 	record_growth_history("growth")
 	queue_event("semester_start") # 学期開始イベントを予約
+	# 男子成長自慢: 中学期に初回のみ
+	if age >= 12 and age <= 14 and not has_story_flag("middle_boys_growth_talk_done"):
+		queue_event("middle_boys_growth_talk")
+	# スポーツ勧誘: 高校期 + 十分な身長（185cm超）
+	if age >= 15 and not has_story_flag("high_scout_done") and float(current_params["height"]) >= 185.0:
+		queue_event("high_scout_contact")
 	haruka_invited_this_term = false
 	haruka_following = false
 	# 学校段階が変わるとき（小4進級・中学・高校・卒業）に選択ダイアログを表示
@@ -553,6 +591,12 @@ func load_settings():
 		visited_stages = visited_stages_value if visited_stages_value is Dictionary else {}
 		var experienced_events_value: Variant = config.get_value("Player", "experienced_events", experienced_events)
 		experienced_events = experienced_events_value if experienced_events_value is Array else []
+		var sf: Variant = config.get_value("Player", "story_flags", story_flags)
+		story_flags = sf if sf is Dictionary else {}
+		var sp: Variant = config.get_value("Player", "story_phases", story_phases)
+		story_phases = sp if sp is Dictionary else {}
+		var stf: Variant = config.get_value("Player", "story_term_flags", story_term_flags)
+		story_term_flags = stf if stf is Dictionary else {}
 		for key in current_appearance.keys():
 			current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
 		for key in system_settings.keys():
@@ -586,6 +630,9 @@ func save_settings():
 	config.set_value("Player", "pending_events", pending_events.duplicate())
 	config.set_value("Player", "visited_stages", visited_stages.duplicate(true))
 	config.set_value("Player", "experienced_events", experienced_events.duplicate())
+	config.set_value("Player", "story_flags", story_flags.duplicate(true))
+	config.set_value("Player", "story_phases", story_phases.duplicate(true))
+	config.set_value("Player", "story_term_flags", story_term_flags.duplicate(true))
 	for key in current_appearance.keys():
 		config.set_value("Appearance", key, current_appearance[key])
 	for key in system_settings.keys():
@@ -624,6 +671,9 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "vball_joined", vball_joined)
 	config.set_value(section, "is_leg_pain", is_leg_pain)
 	config.set_value(section, "pending_events", pending_events.duplicate())
+	config.set_value(section, "story_flags", story_flags.duplicate(true))
+	config.set_value(section, "story_phases", story_phases.duplicate(true))
+	config.set_value(section, "story_term_flags", story_term_flags.duplicate(true))
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
@@ -695,6 +745,12 @@ func load_slot(slot: int) -> bool:
 	visited_stages = vs if vs is Dictionary else {}
 	var ev = config.get_value(section, "experienced_events", [])
 	experienced_events = ev if ev is Array else []
+	var sf: Variant = config.get_value(section, "story_flags", {})
+	story_flags = sf if sf is Dictionary else {}
+	var sp: Variant = config.get_value(section, "story_phases", {})
+	story_phases = sp if sp is Dictionary else {}
+	var stf: Variant = config.get_value(section, "story_term_flags", {})
+	story_term_flags = stf if stf is Dictionary else {}
 	current_slot = slot
 	return true
 

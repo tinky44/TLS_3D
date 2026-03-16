@@ -111,6 +111,8 @@ const TERM_HOTSPOT_ORDER = [
 	"station_bench",
 	"station_vending",
 	"gymnasium_basket",
+	"randoseru_farewell",
+	"schoolyard_tease",
 ]
 const TERM_HOTSPOTS: Dictionary = {
 	"home_mirror": {
@@ -186,6 +188,27 @@ const TERM_HOTSPOTS: Dictionary = {
 		"stress_delta": -5,
 		"feedback": "手を上げた瞬間、体の伸びやかさに少し気持ちがほぐれた。",
 		"memory_note": "バスケゴールに手を伸ばしたら、いつもより高さが近く感じられた。"
+	},
+	"randoseru_farewell": {
+		"stage_id": "myroom",
+		"obs_id": "randoseru",
+		"prompt": "ランドセルを見る",
+		"dialogue_npc": "player",
+		"dialogue_key": "randoseru_farewell",
+		"age_min": 11,
+		"story_flag_done": "randoseru_farewell_done",
+		"memory_note": "引き出しの中のランドセルを取り出し、しばらく眺めた。"
+	},
+	"schoolyard_tease": {
+		"stage_id": "schoolyard",
+		"obs_id": "jungle_gym",
+		"prompt": "遊具の近くへ行く",
+		"dialogue_npc": "player",
+		"dialogue_key": "elem_tease",
+		"age_max": 11,
+		"stress_delta": 2,
+		"feedback": "視線を感じる場所では少し気を張ってしまう",
+		"memory_note": "校庭の遊具の近くで、男子に声をかけられた。"
 	}
 }
 
@@ -907,6 +930,16 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		var height_min: float = float(hotspot_data.get("height_min", 0.0))
 		if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
 			continue
+		var age_min: int = int(hotspot_data.get("age_min", 0))
+		var age_max: int = int(hotspot_data.get("age_max", 9999))
+		var cur_age: int = int(global.age)
+		if age_min > 0 and cur_age < age_min:
+			continue
+		if age_max < 9999 and cur_age > age_max:
+			continue
+		var story_flag_done: String = String(hotspot_data.get("story_flag_done", ""))
+		if story_flag_done != "" and global.has_story_flag(story_flag_done):
+			continue
 		var matched: bool = false
 		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
 		if hotspot_obs_ids is Array:
@@ -937,6 +970,9 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
 		return
 	global.mark_term_hotspot_done(hotspot_id)
+	var story_flag_done: String = String(hotspot_data.get("story_flag_done", ""))
+	if story_flag_done != "" and global.has_method("set_story_flag"):
+		global.set_story_flag(story_flag_done)
 	var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
 	if stress_delta != 0:
 		global.add_stress(stress_delta)
@@ -1158,6 +1194,8 @@ func _process_choice_action(action: String, global: Node) -> void:
 				global.vball_joined = false
 				global.is_leg_pain = false
 				global.vball_story_phase = 7
+			"high_scout_interest":
+				global.set_story_phase("high_scout", 1)
 
 func _advance_dialogue() -> void:
 	if _choice_pending: return
@@ -2521,6 +2559,32 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 		else:
 			_defer_pending_stage_event(global, ev)
 			return false
+	elif ev == "growth_spurt":
+		if stage_id == "room" or stage_id == "myroom":
+			await get_tree().create_timer(1.0).timeout
+			_start_dialogue("player", "growth_spurt")
+			return true
+		else:
+			_defer_pending_stage_event(global, ev)
+			return false
+	elif ev == "high_scout_contact":
+		if stage_id in ["room", "myroom", "gakuenmachi"]:
+			await get_tree().create_timer(0.8).timeout
+			_start_dialogue("player", "high_scout_contact")
+			global.set_story_flag("high_scout_done")
+			return true
+		else:
+			_defer_pending_stage_event(global, ev)
+			return false
+	elif ev == "middle_boys_growth_talk":
+		if stage_id == "school_hallway_middle":
+			await get_tree().create_timer(0.6).timeout
+			_start_dialogue("generic", "middle_boys_growth_talk")
+			global.set_story_flag("middle_boys_growth_talk_done")
+			return true
+		else:
+			_defer_pending_stage_event(global, ev)
+			return false
 	return false
 
 func _load_stage():
@@ -2765,6 +2829,36 @@ func _spawn_npcs(stage_id: String) -> void:
 		_spawn_stage_npc(npc_scene, 1120.0, classmate_params.get(stage_suffix, classmate_params["middle"]), classmate_appearance, "", 30.0)
 		if stage_suffix == "high":
 			_spawn_stage_npc(npc_scene, 760.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 45.0)
+
+	elif StageBuilder.is_schoolyard_stage(stage_id):
+		if stage_suffix == "elementary":
+			# 小学校の男子同級生（遊具エリアにいる）
+			_spawn_stage_npc(npc_scene, 880.0, {
+				"height": 124.0, "ratio": 5.9, "legRatio": 45.0, "sex": "male"
+			}, {
+				"hair_style": "short", "hair_color": "#3a2e28",
+				"tops_type": "t_shirt", "tops_color": "#4a7fc1",
+				"bottoms_type": "pants", "bottoms_color": "#444466",
+				"shoes_type": "sneakers", "shoes_color": "#eeeeee"
+			}, "", 70.0)
+			_spawn_stage_npc(npc_scene, 1080.0, {
+				"height": 127.0, "ratio": 6.0, "legRatio": 45.0, "sex": "male"
+			}, {
+				"hair_style": "short", "hair_color": "#5a4030",
+				"tops_type": "t_shirt", "tops_color": "#cc5544",
+				"bottoms_type": "pants", "bottoms_color": "#334455",
+				"shoes_type": "sneakers", "shoes_color": "#cccccc"
+			}, "", 80.0)
+		elif stage_suffix == "middle":
+			# 中学校の男子（体操服風）
+			_spawn_stage_npc(npc_scene, 1500.0, {
+				"height": 155.0, "ratio": 6.5, "legRatio": 45.0, "sex": "male"
+			}, {
+				"hair_style": "short", "hair_color": "#2e2620",
+				"tops_type": "t_shirt", "tops_color": "#ffffff",
+				"bottoms_type": "pants", "bottoms_color": "#1a1a2e",
+				"shoes_type": "sneakers", "shoes_color": "#dddddd"
+			}, "", 90.0)
 
 	elif StageBuilder.is_gymnasium_stage(stage_id):
 		_spawn_stage_npc(npc_scene, 1200.0, {"height": 168.0, "ratio": 7.1, "legRatio": 45.0, "sex": "female"}, {}, "senior", 90.0)
