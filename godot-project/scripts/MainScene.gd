@@ -29,6 +29,7 @@ var _nearby_transition_door: String = ""
 var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
 var _nearby_term_hotspot: String = ""
+var _nearby_obs_id: String = ""
 var _nearby_bed: bool = false
 
 # アクションヒントパネル（Q キーで切り替え）
@@ -127,7 +128,8 @@ const TERM_HOTSPOTS: Dictionary = {
 	},
 	"home_table": {
 		"stage_id": "room",
-		"obs_ids": ["table", "chair"],
+		"obs_ids": ["chair_left", "chair_right", "table"],
+		"trigger_obs_ids": ["chair_left", "chair_right"],
 		"prompt": "食卓で一息つく",
 		"dialogue_npc": "player",
 		"dialogue_key": "term_home_table",
@@ -941,9 +943,12 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		if story_flag_done != "" and global.has_story_flag(story_flag_done):
 			continue
 		var matched: bool = false
+		# trigger_obs_ids が指定されている場合はそちらを優先（obs_ids は前面描画用途も兼ねるため）
+		var trigger_ids: Variant = hotspot_data.get("trigger_obs_ids", null)
 		var hotspot_obs_ids: Variant = hotspot_data.get("obs_ids", null)
-		if hotspot_obs_ids is Array:
-			for candidate in hotspot_obs_ids:
+		var check_ids: Variant = trigger_ids if trigger_ids is Array else hotspot_obs_ids
+		if check_ids is Array:
+			for candidate in check_ids:
 				if String(candidate) == obs_id:
 					matched = true
 					break
@@ -1012,6 +1017,11 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 					child.z_index = 1
 					_sit_front_nodes.append(child)
 			player.sit_context = {"seat_h_cm": seat_h, "desk_h_cm": desk_h}
+		# 椅子の種類に応じてプレイヤーの向きを設定
+		if _nearby_obs_id == "chair_right":
+			player.dir = -1  # 右椅子 → 左向き
+		elif _nearby_obs_id == "chair_left":
+			player.dir = 1   # 左椅子 → 右向き
 		if player.has_method("set_pose_immediately"):
 			player.call("set_pose_immediately", pose_name)
 		else:
@@ -1661,12 +1671,14 @@ func _update_bubble():
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
 			_nearby_term_hotspot = hotspot_id
+			_nearby_obs_id = String(obs_id)
 			_nearby_bed = false
 			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
 		elif obs_id.begins_with("door_to_"):
 			var lock_message: String = _get_transition_lock_message(String(obs_id))
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
+			_nearby_obs_id = ""
 			_nearby_bed = false
 			if lock_message != "":
 				_nearby_transition_door = ""
@@ -1678,12 +1690,14 @@ func _update_bubble():
 			_nearby_transition_door = ""
 			_nearby_height_scale = true
 			_nearby_term_hotspot = ""
+			_nearby_obs_id = ""
 			_nearby_bed = false
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
+			_nearby_obs_id = ""
 			_nearby_bed = false
 
 		bubble_panel.show()
@@ -1692,6 +1706,7 @@ func _update_bubble():
 		_nearby_transition_door = ""
 		_nearby_height_scale = false
 		_nearby_term_hotspot = ""
+		_nearby_obs_id = ""
 		_nearby_bed = false
 		if _in_dialogue or _measurement_showing or _term_choice_showing or _sleep_menu_showing:
 			bubble_panel.hide()
