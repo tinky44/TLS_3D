@@ -146,6 +146,7 @@ const TERM_HOTSPOTS: Dictionary = {
 		"dialogue_npc": "player",
 		"dialogue_key": "term_school_seat",
 		"pose": "chair_sit",
+		"sit_dir": -1,
 		"stress_delta": 2,
 		"feedback": "席に座ると少しだけ視線を意識する",
 		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。",
@@ -1029,35 +1030,64 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 					child.z_index = 1
 					_sit_front_nodes.append(child)
 			player.sit_context = {"seat_h_cm": seat_h, "desk_h_cm": desk_h}
-		# 椅子の種類に応じてプレイヤーの向きを設定
+		# 向きの設定: obs_id から判定 → fallback として hotspot の sit_dir を使用
+		var sit_dir_val: int = int(hotspot_data.get("sit_dir", 0))
 		if _nearby_obs_id == "chair_right":
 			player.dir = -1  # 右椅子 → 左向き
 		elif _nearby_obs_id == "chair_left":
 			player.dir = 1   # 左椅子 → 右向き
+		elif sit_dir_val != 0:
+			player.dir = sit_dir_val
 		# 背もたれにキャラクターの背中を合わせるためX位置を補正
-		if ("chair_left" in _nearby_obs_id or "chair_right" in _nearby_obs_id):
+		# chair_left/right: _nearby_obs_id から直接、その他: hotspot obs_ids の中から最近接 chair を探す
+		var chair_node_target: Node = null
+		var chair_obs_id_for_pos: String = ""
+		if "chair_left" in _nearby_obs_id or "chair_right" in _nearby_obs_id:
+			chair_obs_id_for_pos = _nearby_obs_id
+			for obs_child in get_children():
+				if obs_child.has_meta("obs_id") and String(obs_child.get_meta("obs_id")) == _nearby_obs_id:
+					chair_node_target = obs_child
+					break
+		elif pose_name == "chair_sit":
+			# hotspot の全 obs_ids から "chair" を含む最近接ノードを探す
+			var all_obs_v = hotspot_data.get("obs_ids", null)
+			var all_obs_arr: Array = []
+			if all_obs_v is Array:
+				all_obs_arr = all_obs_v
+			elif hotspot_data.has("obs_id"):
+				all_obs_arr = [String(hotspot_data.get("obs_id", ""))]
+			var min_chair_dist: float = INF
 			for obs_child in get_children():
 				if not obs_child.has_meta("obs_id"):
 					continue
-				if String(obs_child.get_meta("obs_id")) != _nearby_obs_id:
+				var oc_id: String = String(obs_child.get_meta("obs_id"))
+				if "chair" not in oc_id:
 					continue
-				var obs_x_cm := float(obs_child.get_meta("obs_x"))
-				var obs_x2_cm := float(obs_child.get_meta("obs_x2"))
-				var c2p: float = player.CM_TO_PX
-				var m_dict: Dictionary = player.m
-				var head_val: float
-				if m_dict.has("headWidth"):
-					head_val = float(m_dict["headWidth"])
-				else:
-					head_val = float(m_dict.get("head", 22.0)) * 0.702
-				var half_t: float = head_val * c2p * 0.85 / 2.0
-				if "chair_left" in _nearby_obs_id:
-					# dir=1: 背面 = player.x - half_t → 背もたれ右面に合わせる
-					player.position.x = obs_x_cm * c2p + 8.0 + half_t
-				else:
-					# dir=-1 (flip): 背面 = player.x + half_t → 背もたれ左面に合わせる
-					player.position.x = obs_x2_cm * c2p - 8.0 - half_t
-				break
+				if not (oc_id in all_obs_arr):
+					continue
+				var chair_cx: float = (float(obs_child.get_meta("obs_x")) + float(obs_child.get_meta("obs_x2"))) / 2.0 * player.CM_TO_PX
+				var dist: float = absf(player.position.x - chair_cx)
+				if dist < min_chair_dist:
+					min_chair_dist = dist
+					chair_obs_id_for_pos = oc_id
+					chair_node_target = obs_child
+		if chair_node_target != null:
+			var obs_x_cm := float(chair_node_target.get_meta("obs_x"))
+			var obs_x2_cm := float(chair_node_target.get_meta("obs_x2"))
+			var c2p: float = player.CM_TO_PX
+			var m_dict: Dictionary = player.m
+			var head_val: float
+			if m_dict.has("headWidth"):
+				head_val = float(m_dict["headWidth"])
+			else:
+				head_val = float(m_dict.get("head", 22.0)) * 0.702
+			var half_t: float = head_val * c2p * 0.85 / 2.0
+			if "chair_left" in chair_obs_id_for_pos:
+				# dir=1: 背面 = player.x - half_t → 背もたれ右面に合わせる
+				player.position.x = obs_x_cm * c2p + 8.0 + half_t
+			else:
+				# dir=-1 (flip): 背面 = player.x + half_t → 背もたれ左面に合わせる
+				player.position.x = obs_x2_cm * c2p - 8.0 - half_t
 		if player.has_method("set_pose_immediately"):
 			player.call("set_pose_immediately", pose_name)
 		else:
