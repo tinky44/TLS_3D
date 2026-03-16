@@ -189,7 +189,7 @@ const STAGES = {
     "gymnasium": {
         "name": "体育館",
         "width": 3200,
-        "ceiling_height": 800,
+        "ceiling_height": 400,
         "obstacles": [
             {"id": "door_to_school_hallway", "x": 80, "x2": 220, "height": 200, "type": "overhead"},
             {"id": "gym_storage", "x": 280, "x2": 450, "height": 200, "type": "background"},
@@ -275,19 +275,19 @@ const STAGES = {
     "gymnasium_elementary": {
         "name": "小学校の体育館",
         "width": 3200,
-        "ceiling_height": 800,
+        "ceiling_height": 400,
         "obstacles": []
     },
     "gymnasium_middle": {
         "name": "中学校の体育館",
         "width": 3200,
-        "ceiling_height": 800,
+        "ceiling_height": 400,
         "obstacles": []
     },
     "gymnasium_high": {
         "name": "高校の体育館",
         "width": 3200,
-        "ceiling_height": 800,
+        "ceiling_height": 400,
         "obstacles": []
     },
     "station": {
@@ -1159,16 +1159,17 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
             yard_sky = Color(0.42, 0.64, 0.92)
             yard_ground = Color(0.58, 0.76, 0.92)
             yard_building = Color(0.72, 0.74, 0.80)
-        # 空（上）
+        # 空（上）: 400cm以上は上空の青
         var sy_sky = ColorRect.new()
         sy_sky.color = yard_sky
-        sy_sky.position = Vector2(0, -600 * cm_to_px)
+        sy_sky.position = Vector2(0, -800 * cm_to_px)
         sy_sky.size = Vector2(stage_w_px, 400 * cm_to_px)
         sy_bg.add_child(sy_sky)
+        # 地平線付近の空: 0〜400cmを地面色グラデーション的に見せる（描画高さ400cm確保）
         var sy_sky_btm = ColorRect.new()
         sy_sky_btm.color = yard_ground
-        sy_sky_btm.position = Vector2(0, -200 * cm_to_px)
-        sy_sky_btm.size = Vector2(stage_w_px, 200 * cm_to_px)
+        sy_sky_btm.position = Vector2(0, -400 * cm_to_px)
+        sy_sky_btm.size = Vector2(stage_w_px, 400 * cm_to_px)
         sy_bg.add_child(sy_sky_btm)
         # 学校校舎（左端、door_to_school_hallway の背後）
         var sc_x = 40 * cm_to_px
@@ -1200,6 +1201,39 @@ static func build_stage(stage_id: String, parent_node: Node2D, cm_to_px: float, 
             foliage.size = Vector2(80 * cm_to_px, 80 * cm_to_px)
             sy_bg.add_child(foliage)
         parent_node.add_child(sy_bg)
+
+    # 体育館ステージ: 壁・天井の背景
+    elif is_gymnasium_stage(stage_id) and stage_data.get("ceiling_height") != null:
+        var gym_bg = Node2D.new()
+        gym_bg.set_meta("is_stage_obj", true)
+        gym_bg.z_index = -5
+        var ceil_h_px = stage_data["ceiling_height"] * cm_to_px
+        var stage_w_px = stage_data["width"] * cm_to_px
+        # 上部（天井付近）: 濃いグレー
+        var gym_upper = ColorRect.new()
+        gym_upper.color = Color(0.35, 0.35, 0.38)
+        gym_upper.position = Vector2(0, -ceil_h_px)
+        gym_upper.size = Vector2(stage_w_px, ceil_h_px * 0.25)
+        gym_bg.add_child(gym_upper)
+        # 下部（壁面）: 明るいグレー
+        var gym_wall = ColorRect.new()
+        gym_wall.color = Color(0.72, 0.72, 0.70)
+        gym_wall.position = Vector2(0, -ceil_h_px * 0.75)
+        gym_wall.size = Vector2(stage_w_px, ceil_h_px * 0.75)
+        gym_bg.add_child(gym_wall)
+        # 天井ライン（梁の雰囲気）
+        var gym_beam = ColorRect.new()
+        gym_beam.color = Color(0.28, 0.28, 0.30)
+        gym_beam.position = Vector2(0, -ceil_h_px)
+        gym_beam.size = Vector2(stage_w_px, 6)
+        gym_bg.add_child(gym_beam)
+        # 壁と天井部の見切り線
+        var gym_molding = ColorRect.new()
+        gym_molding.color = Color(0.50, 0.50, 0.52)
+        gym_molding.position = Vector2(0, -ceil_h_px * 0.75 - 3)
+        gym_molding.size = Vector2(stage_w_px, 6)
+        gym_bg.add_child(gym_molding)
+        parent_node.add_child(gym_bg)
 
     # 駅ステージ: 改札・ホームの背景
     elif stage_id == "station" and stage_data.get("ceiling_height") != null:
@@ -3545,7 +3579,7 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         # 体育館のバスケゴール（天井からぶら下がる）
         cr.color = Color(0, 0, 0, 0)
         var gym_bk_x = obs["x"] * cm_to_px
-        var ceil_h_cm = 800.0  # 体育館の天井高
+        var ceil_h_cm = 400.0  # 体育館の天井高（400cm）
         # リングの高さは305cm（h_pxはbasketball_boardの高さ350cmなのでオフセット計算）
         # basketball_boardのheight=350、リング高さ305cm → h_pxはボード上端
         var ring_height_cm = 305.0

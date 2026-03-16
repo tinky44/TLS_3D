@@ -1417,9 +1417,7 @@ func _run_school_day_transition() -> void:
 	intro_tween.tween_property(text_label, "modulate:a", 0.0, 0.2)
 	await intro_tween.finished
 
-	# 放課後は廊下ではなく教室に残る（廊下は生徒が出ていく途中の場所）
-	global.current_stage_id = _resolve_stage_id("school")
-	_load_stage()
+	# 放課後はイベント開始前の位置にとどまる（ステージ変更なし）
 
 	text_label.text = "帰り道のことを考える。"
 	var outro_tween := create_tween()
