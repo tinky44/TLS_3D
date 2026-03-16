@@ -158,10 +158,18 @@ func _physics_process(delta: float) -> void:
 
 	is_walking = (velocity.x != 0)
 	if is_walking:
-		# 屈み時は歩幅が短くなるため、visual_height比でwalk_phaseを速く進めてスライド感を防ぐ
-		# 直立時: factor≈1.0 / 半屈み: factor≈2.0 → 単位距離あたりの歩数が増える
-		var full_h: float = float(m.get("height", visual_height_cm)) if m and not m.is_empty() else visual_height_cm
-		var crouch_speed_factor: float = full_h / maxf(visual_height_cm, full_h * 0.3)
+		# 屈み時は脚の水平変位率が落ちるため、walk_phase 進み速度を補正してスライド感を防ぐ
+		# speed_factor = (直立時の足水平変位率) / (屈み時の足水平変位率)
+		# 変位率 = thigh_ratio * cos(base_leg) + shin_ratio * cos(base_leg + knee)
+		var crouch_speed_factor := 1.0
+		if not m.is_empty() and visual_height_cm < float(m.get("height", visual_height_cm)) - 0.1:
+			var l_fac := CharacterPoseCalculator.get_l_fac(visual_height_cm, m, CM_TO_PX)
+			if l_fac > 0.0:
+				var base_leg_rad := -100.0 * l_fac * PI / 180.0
+				var knee_rad     := PI * 0.7 * l_fac
+				var stride_crouch := 0.55 * cos(base_leg_rad) + 0.45 * cos(base_leg_rad + knee_rad)
+				var stride_normal := 0.55 + 0.45 * cos(0.1)  # 直立時(knee≈0.1rad)
+				crouch_speed_factor = stride_normal / maxf(stride_crouch, 0.05)
 		walk_phase += walk_speed * _leg_pain_factor * crouch_speed_factor * delta
 	else:
 		walk_phase = lerp_angle(walk_phase, 0.0, 10.0 * delta)

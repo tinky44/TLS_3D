@@ -244,6 +244,27 @@ static func _eval_crouch_height(t: float, p: float, th: float, sh: float, wl: fl
     
     return (th + sh) - crotch_y + tor_h + neck_h + hd_radius
 
+# 現在の visual_height_cm から屈み深さ l_fac を逆算する
+# l_fac = 0.0: 直立 / l_fac > 0: 屈み深さ
+# walk_phase の速度補正に使う用途向け
+static func get_l_fac(visual_height_cm: float, m: Dictionary, p: float) -> float:
+    if m.is_empty() or visual_height_cm >= float(m.get("height", 0.0)) - 0.1:
+        return 0.0
+    var thigh_l = (m["leg"] * 0.55) * p
+    var shin_l  = (m["leg"] * 0.45) * p
+    var navel_l = (m["arm"] * 0.40) * p
+    var chest_l = (m["arm"] * 0.60) * p
+    var head_h  = m["head"] * p
+    var target_px = visual_height_cm * p
+    var min_t = 0.0
+    var max_t = 2.0
+    for _i in range(15):
+        var mid_t = (min_t + max_t) / 2.0
+        var hp = _eval_crouch_height(mid_t, p, thigh_l, shin_l, navel_l, chest_l, head_h, m)
+        if hp > target_px: min_t = mid_t
+        else: max_t = mid_t
+    return _get_crouch_params((min_t + max_t) / 2.0)["l"]
+
 # 各関節の終点座標を計算するヘルパー
 static func rotated_point(px: float, py: float, length: float, rad: float) -> Vector2:
     return Vector2(px + cos(rad) * length, py + sin(rad) * length)
