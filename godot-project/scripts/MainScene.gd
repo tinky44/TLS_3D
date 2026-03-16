@@ -1034,6 +1034,30 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 			player.dir = -1  # 右椅子 → 左向き
 		elif _nearby_obs_id == "chair_left":
 			player.dir = 1   # 左椅子 → 右向き
+		# 背もたれにキャラクターの背中を合わせるためX位置を補正
+		if ("chair_left" in _nearby_obs_id or "chair_right" in _nearby_obs_id):
+			for obs_child in get_children():
+				if not obs_child.has_meta("obs_id"):
+					continue
+				if String(obs_child.get_meta("obs_id")) != _nearby_obs_id:
+					continue
+				var obs_x_cm := float(obs_child.get_meta("obs_x"))
+				var obs_x2_cm := float(obs_child.get_meta("obs_x2"))
+				var c2p: float = player.CM_TO_PX
+				var m_dict: Dictionary = player.m
+				var head_val: float
+				if m_dict.has("headWidth"):
+					head_val = float(m_dict["headWidth"])
+				else:
+					head_val = float(m_dict.get("head", 22.0)) * 0.702
+				var half_t: float = head_val * c2p * 0.85 / 2.0
+				if "chair_left" in _nearby_obs_id:
+					# dir=1: 背面 = player.x - half_t → 背もたれ右面に合わせる
+					player.position.x = obs_x_cm * c2p + 8.0 + half_t
+				else:
+					# dir=-1 (flip): 背面 = player.x + half_t → 背もたれ左面に合わせる
+					player.position.x = obs_x2_cm * c2p - 8.0 - half_t
+				break
 		if player.has_method("set_pose_immediately"):
 			player.call("set_pose_immediately", pose_name)
 		else:
