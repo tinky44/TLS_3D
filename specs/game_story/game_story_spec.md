@@ -150,5 +150,3 @@
 | `stress` | 学期内のしんどさ。休む・話すことで変動 | 遊具のそばに近づく(+2)、保健室で話す(−) |
 
 ---
-
-*Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>*
