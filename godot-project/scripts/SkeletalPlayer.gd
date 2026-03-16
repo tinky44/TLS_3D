@@ -19,7 +19,7 @@ var is_walking: bool = false
 var walk_phase: float = 0.0
 var walk_speed: float = 12.0
 var pose: String = "normal"
-var appearance: Dictionary = {}  # 驕ｨ・ｺ邵ｺ・ｮ邵ｺ・ｨ邵ｺ繝ｻCharacterDrawer 邵ｺ・ｯ Global.current_appearance 郢ｧ蜑・ｽｽ・ｿ騾包ｽｨ
+var appearance: Dictionary = {}  # 空のとき CharacterDrawer は Global.current_appearance を使用
 var receives_global_stress: bool = true
 
 var auto_crouch: bool = true
@@ -40,13 +40,15 @@ var _head_bump_shake_left: float = 0.0
 var _camera_base_offset: Vector2 = Vector2.ZERO
 var _camera_shake_active: bool = false
 
-# 郢晄亢繝ｻ郢ｧ・ｺ鬩包ｽｷ驕假ｽｻ邵ｺ・ｮ髯ｬ諞ｺ菫｣騾包ｽｨ
+# ポーズ遷移の補間用
 var smooth_d: Dictionary = {}
 const POSE_LERP_SPEED: float = 7.0
 
-# 騾ｹﾂ陝ｶ・ｭ郢ｧ・ｳ郢晢ｽｳ郢昴・縺冗ｹｧ・ｹ郢晁肩・ｼ繝ｻ1 = 隴幢ｽｪ髫ｪ・ｭ陞ｳ螢ｹﾂ竏晏ｴ玖楜螢ｼﾂ・､邵ｺ・ｫ郢晁ｼ斐°郢晢ｽｼ郢晢ｽｫ郢晁・繝｣郢ｧ・ｯ繝ｻ繝ｻvar sit_context: Dictionary = {
-	"seat_h_cm": -1.0,  # 陟趣ｽｧ鬮ｱ・｢鬯ｮ蛟･・・[cm]
-	"desk_h_cm": -1.0,  # 隴幢ｽｺ邵ｺ・ｮ鬯ｮ蛟･・・[cm]繝ｻ繝ｻ1 = 隴幢ｽｺ邵ｺ・ｪ邵ｺ證ｦ・ｼ繝ｻ}
+# 着席コンテキスト（-1 = 未設定、固定値にフォールバック）
+var sit_context: Dictionary = {
+	"seat_h_cm": -1.0,  # 座面高さ [cm]
+	"desk_h_cm": -1.0,  # 机の高さ [cm]（-1 = 机なし）
+}
 
 func _ready() -> void:
 	collision_layer = 0
@@ -86,7 +88,9 @@ func refresh_movement_tuning() -> void:
 	var leg_cm: float = float(m.get("leg", BASE_LEG_CM))
 	var leg_scale: float = clampf(leg_cm / BASE_LEG_CM, 0.65, 1.8)
 
-	# 髢ｼ螢ｹ窶ｲ鬮滂ｽｷ邵ｺ繝ｻ竓・ｸｺ・ｩ闕ｳﾂ雎・ｽｩ邵ｺ蠕｡・ｼ・ｸ邵ｺ・ｳ郢ｧ荵昴・邵ｺ・ｧ邵ｲ竏晉√鬨ｾ・ｲ鬨ｾ貅ｷ・ｺ・ｦ邵ｺ・ｰ邵ｺ鬘鯉ｽｺ・ｫ鬮滂ｽｷ邵ｺ・ｫ陟｢諛環ｧ邵ｺ・ｦ闔ｨ・ｸ邵ｺ・ｰ邵ｺ蜷ｶﾂ繝ｻ	# 雎・ｽｩ髯ｦ蠕後Θ郢晢ｽｳ郢晄亢繝ｻ郢晏生繝ｻ郢ｧ・ｹ鬨ｾ貅ｷ・ｺ・ｦ髫ｪ・ｭ陞ｳ螢ｹ竊鍋ｸｺ・ｮ邵ｺ・ｿ髴托ｽｽ陟戊侭・・ｸｺ蟶卍竏ｬ・ｶ・ｳ鬩穂ｹ昴・邵ｺ・ｨ邵ｺ・ｮ郢ｧ・ｺ郢晢ｽｬ郢ｧ蜻域､帷ｸｺ蛹ｻ・狗ｸｲ繝ｻ	SPEED = base_move_speed * leg_scale
+	# 脚が長いほど一歩が伸びるので、前進速度だけ身長に応じて伸ばす。
+	# 歩行テンポはベース速度設定にのみ追従させ、足運びとのズレを抑える。
+	SPEED = base_move_speed * leg_scale
 	walk_speed = BASE_WALK_SPEED * (base_move_speed / BASE_MOVE_SPEED)
 
 func _process(delta: float) -> void:
@@ -134,7 +138,7 @@ func _physics_process(delta: float) -> void:
 
 	_handle_input()
 
-	# 髢ｼ螢ｹ繝ｻ騾槫ｸ吮茜郢晁ｼ釆帷ｹｧ・ｰ邵ｺ・ｫ郢ｧ蛹ｻ・矩ｨｾ貅ｷ・ｺ・ｦ髯ｬ諛茨ｽｭ・｣
+	# 脚の痛みフラグによる速度補正
 	var _leg_pain_factor = 1.0
 	if has_node("/root/Global"):
 		var _g = get_node("/root/Global")
@@ -143,7 +147,7 @@ func _physics_process(delta: float) -> void:
 
 	var direction := Input.get_axis("ui_left", "ui_right")
 
-	# 陞ｻ蛹ｻ竏ｩ隴弱ｅ繝ｻ雎・ｽｩ陝ｷ繝ｻ窶ｲ驕擾ｽｭ邵ｺ荳岩・郢ｧ蜿･繝ｻ邵ｺ・ｰ邵ｺ驢搾ｽｧ・ｻ陷肴坩ﾂ貅ｷ・ｺ・ｦ郢ｧ蜑・ｽｸ荵晢ｿ｡邵ｺ・ｦ郢ｧ・ｹ郢晢ｽｩ郢ｧ・､郢晉判笏郢ｧ蟶昜ｺ溽ｸｺ繝ｻ	# crouch_mult = stride_crouch / stride_normal (陞ｳ貅ｷ譟題ｱ・ｽｩ陝ｷ繝ｻ繝ｻ雎育坩邏ｫ)
+	# 屈み時は歩幅が短くなる分だけ移動速度を下げてスライド感を防ぐ
 	var crouch_speed_mult := 1.0
 	if pose == "normal" and not m.is_empty():
 		crouch_speed_mult = maxf(
@@ -308,7 +312,8 @@ func _get_target_visual_height_cm() -> float:
 	if pose == "taiiku_suwari":
 		target_h_cm = m["height"] * 0.5
 	elif pose == "chair_sit":
-		target_h_cm = m["height"] * 0.55  # 隶繝ｻ・ｭ闊後・鬯ｮ蛟･・・崕繝ｻ・ｼ驛√・邵ｺ荵晢ｽ芽叉螂・ｽｼ繝ｻ	elif pose == "sleep":
+		target_h_cm = m["height"] * 0.55  # 椅子の高さ分（腰から上）
+	elif pose == "sleep":
 		target_h_cm = m["height"] * 0.35
 	elif pose == "normal":
 		if target_crouch_cm > 0:
