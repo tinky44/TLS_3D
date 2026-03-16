@@ -312,10 +312,19 @@ func _process_generic_reaction(delta: float, player_m: Dictionary, dist_x: float
 		_current_reaction_key = reaction_key
 		_show_reaction_text(_get_reaction_text(reaction_key), 1.2)
 
+	# 不感帯: 十分離れていれば逃げるのをやめる（往復バグ防止）
+	# REACTION_DIST の半分以上の距離があれば avoid_dir をゼロに向かわせる
+	var avoid_dead_zone: float = REACTION_DIST * 0.55
 	if reaction_key == "very_huge":
-		_avoid_dir = sign(dist_x)
+		if abs(dist_x) >= avoid_dead_zone:
+			_avoid_dir = lerp(_avoid_dir, 0.0, 8.0 * delta)
+		else:
+			_avoid_dir = sign(dist_x)
 	elif reaction_key == "huge":
-		_avoid_dir = sign(dist_x) * 0.45
+		if abs(dist_x) >= avoid_dead_zone:
+			_avoid_dir = lerp(_avoid_dir, 0.0, 8.0 * delta)
+		else:
+			_avoid_dir = sign(dist_x) * 0.45
 	else:
 		_avoid_dir = 0.0
 

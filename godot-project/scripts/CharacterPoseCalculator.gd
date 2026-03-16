@@ -138,9 +138,12 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_l_angle = base_arm - walk_amp * 0.4 * sin(walk_phase)
         arm_r_angle = base_arm - walk_amp * 0.4 * sin(walk_phase + PI)
         
-        var dy1 = thigh_l * cos(leg_l_angle * PI / 180) + shin_l * cos(leg_l_angle * PI / 180 + knee_l)
-        var dy2 = thigh_l * cos(leg_r_angle * PI / 180) + shin_l * cos(leg_r_angle * PI / 180 + knee_r)
-        y_crotch = - max(dy1, dy2)
+        # y_crotch は歩行スウィング成分を除いた基準角度で計算する。
+        # 歩行フェーズ込みの leg_*_angle を使うと腰が上下にブレて
+        # 「滑るように見える」バグが発生するため。
+        var base_leg_rad = base_leg * PI / 180.0
+        var dy_base = thigh_l * cos(base_leg_rad) + shin_l * cos(base_leg_rad + knee_l)
+        y_crotch = -dy_base
     else:
         var stress_pose: float = stress_ratio * (0.35 if is_walking else 1.0)
         waist_angle = 0.20 * stress_pose

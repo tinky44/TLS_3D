@@ -256,24 +256,24 @@ const NPC_STRESS_OPENERS: Dictionary = {
 }
 const STRESS_IDLE_MONOLOGUES: Dictionary = {
 	"home": {
-		"low": "家の中なら、少し肩の力を抜けそう。",
-		"mid": "今日は家で整えたい。無理に背筋を張らなくていい。",
-		"high": "今日は人の目より、自分を休ませるほうを優先しよう。",
+		"low": "家の中では、ちょっと気が楽だ。",
+		"mid": "家ではゆっくりしたい。外みたいに背筋を張らなくていい。",
+		"high": "今日は疲れた。少し横になりたい。",
 	},
 	"school": {
-		"low": "学校でも、少しずつ居場所を作れる気がする。",
-		"mid": "教室に入る前に、一度呼吸を整えたい。",
-		"high": "このまま抱え込むのはきつい。はるかか保健室を頼ろう。",
+		"low": "今日は授業に集中できそう。",
+		"mid": "教室に入る前に、少し深呼吸しよう。",
+		"high": "しんどい。はるかか保健室に声をかけよう。",
 	},
 	"station": {
-		"low": "外は落ち着かないけど、歩き方は自分で選べる。",
-		"mid": "視線は気になる。まずは人の流れから少し外れよう。",
-		"high": "今は人波が重い。ベンチで呼吸を整えてから動こう。",
+		"low": "混んでるけど、まあ大丈夫。",
+		"mid": "視線が気になる。人の波を少し外れたい。",
+		"high": "人が多くて疲れてきた。ベンチで休もう。",
 	},
 	"default": {
-		"low": "今日の背丈で、今日の過ごし方を選んでいこう。",
-		"mid": "少し気持ちが揺れてる。急がず整えていこう。",
-		"high": "今日は張りつめすぎてる。ひとつずつ、楽になれる方を選ぼう。",
+		"low": "今日はわりと落ち着いてる。",
+		"mid": "少し気持ちが揺れてる。ゆっくり行こう。",
+		"high": "気持ちが張りつめてる。少し休まないと。",
 	},
 }
 
@@ -837,6 +837,14 @@ func _build_dialogue_sequence(npc_id: String, key: String) -> Array:
 		return base_lines
 	if not STRESS_PREFIX_KEYS.has(key):
 		return base_lines
+	# 初対面（first_meet相当）のキーには感情openerを追加しない
+	if key == "first_meet":
+		return base_lines
+	# Globalで面識なしのNPCには感情openerを追加しない
+	var global = get_node_or_null("/root/Global")
+	if global and npc_id != "" and npc_id != "generic":
+		if not global.met_npcs.has(npc_id):
+			return base_lines
 	var opener: Dictionary = _get_stress_dialogue_opener(npc_id)
 	if opener.is_empty():
 		return base_lines
@@ -916,17 +924,17 @@ func _get_term_reflection_text(global: Node) -> String:
 	match stage_bucket:
 		"home":
 			if balance >= 0:
-				return "家で少し力を抜けたぶん、次の学期もやっていけそうな気がする。"
-			return "家にいても落ち着ききれなかった。次は休み方をもう少し探したい。"
+				return "家でゆっくりできたから、次の学期も何とかなりそう。"
+			return "家にいてもなんとなく落ち着けなかった。次は早めに休みたい。"
 		"school":
 			if balance >= 0:
-				return "学校で揺れながらも、前より少しだけ自分の高さを受け止められている。"
-			return "学校ではまだ気持ちが揺れやすい。それでも残った出来事は次につながっていく。"
+				return "色々あったけど、以前よりは学校に慣れてきた気がする。"
+			return "学校はまだしんどい。でも来学期も行くしかない。"
 		"station":
 			if balance >= 0:
-				return "人の多い場所でも、前より自分の居場所を見失わずにいられた。"
-			return "人の視線に気持ちは揺れたけれど、その感覚ももう無視できない自分の一部だ。"
-	return "今学期の出来事が少しずつ積み重なって、次の気持ちの置き場を作っていく。"
+				return "人の多い場所も、だんだんやり過ごせるようになってきた。"
+			return "視線が気になるのはいつも通りだった。ベンチで一息つけただけよかった。"
+	return "今学期も色々あった。来学期はもう少し楽になるといいな。"
 
 func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 	var global = get_node_or_null("/root/Global")
@@ -1409,7 +1417,8 @@ func _run_school_day_transition() -> void:
 	intro_tween.tween_property(text_label, "modulate:a", 0.0, 0.2)
 	await intro_tween.finished
 
-	global.current_stage_id = "school_hallway"
+	# 放課後は廊下ではなく教室に残る（廊下は生徒が出ていく途中の場所）
+	global.current_stage_id = _resolve_stage_id("school")
 	_load_stage()
 
 	text_label.text = "帰り道のことを考える。"
@@ -2065,6 +2074,14 @@ func _setup_pause_menu() -> void:
 	pause_save_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_vbox.add_child(pause_save_label)
 	
+	var skip_term_btn = Button.new()
+	skip_term_btn.text = "学期をスキップ"
+	skip_term_btn.custom_minimum_size = Vector2(250, 50)
+	skip_term_btn.add_theme_font_size_override("font_size", 18)
+	skip_term_btn.focus_mode = Control.FOCUS_NONE
+	skip_term_btn.pressed.connect(_on_skip_term_pressed)
+	left_vbox.add_child(skip_term_btn)
+
 	var title_btn = Button.new()
 	title_btn.text = "タイトルに戻る"
 	title_btn.custom_minimum_size = Vector2(250, 50)
@@ -2072,7 +2089,7 @@ func _setup_pause_menu() -> void:
 	title_btn.focus_mode = Control.FOCUS_NONE
 	title_btn.pressed.connect(_on_title_pressed)
 	left_vbox.add_child(title_btn)
-	
+
 	var quit_btn = Button.new()
 	quit_btn.text = "ゲームを終了する"
 	quit_btn.custom_minimum_size = Vector2(250, 50)
@@ -2453,6 +2470,20 @@ func _on_quit_pressed() -> void:
 	else:
 		get_tree().quit()
 
+func _on_skip_term_pressed() -> void:
+	# ポーズメニューを閉じて学期をスキップする
+	_toggle_pause()
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	# 学期末測定イベントをキューに積む（term_end_measurementと同じ流れ）
+	if not global.has_pending_event("term_end_measurement"):
+		global.queue_event("term_end_measurement")
+	global.current_stage_id = "myroom"
+	if player and player.has_method("update_measurements"):
+		player.call("update_measurements")
+	_load_stage()
+
 func _update_actions_hud() -> void:
 	if not action_label:
 		return
@@ -2622,6 +2653,10 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			_defer_pending_stage_event(global, ev)
 			return false
 	elif ev == "npc_talk_veryhuge":
+		# 家の中では街のNPCのつぶやきは発火しない
+		if stage_id == "room" or stage_id == "myroom":
+			_defer_pending_stage_event(global, ev)
+			return false
 		await get_tree().create_timer(0.35).timeout
 		_start_dialogue("generic", "npc_talk_veryhuge")
 		return true

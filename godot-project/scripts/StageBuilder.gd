@@ -197,7 +197,7 @@ const STAGES = {
             {"id": "gym_bench", "x": 2200, "x2": 2500, "height": 42, "type": "ground"},
             {"id": "gym_window_1", "x": 600, "x2": 780, "height": 500, "type": "background"},
             {"id": "gym_window_2", "x": 900, "x2": 1080, "height": 500, "type": "background"},
-            {"id": "basketball_board", "x": 3050, "x2": 3150, "height": 350, "type": "background"}
+            {"id": "basketball_board", "x": 2800, "x2": 2920, "height": 350, "type": "background"}
         ]
     },
     "school_hallway_elementary": {
@@ -2050,6 +2050,39 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
         st_sign_ruby.z_index = -1
         node.add_child(st_sign_ruby)
 
+    elif o_id == "door_to_school" or o_id == "door_to_schoolyard" or o_id == "door_to_infirmary" or o_id == "door_to_gymnasium":
+        # 学校廊下内の各出入口ドア（ガラス入りアルミ引き戸スタイル）
+        cr.color = Color(0, 0, 0, 0)
+        var hs_x = obs["x"] * cm_to_px
+        # ドア枠（アルミ系暗い色）
+        var hs_frame = ColorRect.new()
+        hs_frame.color = Color(0.30, 0.22, 0.16)
+        hs_frame.position = Vector2(hs_x, -h_px)
+        hs_frame.size = Vector2(w_px, h_px)
+        hs_frame.z_index = -1
+        node.add_child(hs_frame)
+        # ガラス上半分（半透明）
+        var hs_glass = ColorRect.new()
+        hs_glass.color = Color(0.62, 0.78, 0.90, 0.58)
+        hs_glass.position = Vector2(hs_x + 10, -h_px + 10)
+        hs_glass.size = Vector2(w_px - 20, h_px * 0.52)
+        hs_glass.z_index = -1
+        node.add_child(hs_glass)
+        # 中間横桟
+        var hs_bar = ColorRect.new()
+        hs_bar.color = Color(0.22, 0.16, 0.10)
+        hs_bar.position = Vector2(hs_x, -h_px + h_px * 0.52 + 8)
+        hs_bar.size = Vector2(w_px, 8)
+        hs_bar.z_index = -1
+        node.add_child(hs_bar)
+        # ドアノブ
+        var hs_knob = ColorRect.new()
+        hs_knob.color = Color(0.78, 0.68, 0.18)
+        hs_knob.position = Vector2(hs_x + w_px * 0.22, -h_px * 0.52)
+        hs_knob.size = Vector2(10, 18)
+        hs_knob.z_index = -1
+        node.add_child(hs_knob)
+
     elif "door" in o_id:
         # 元の梁（上枠）の色をドアの枠色に合わせる
         cr.color = Color(0.24, 0.16, 0.12)
@@ -3525,28 +3558,28 @@ static func _build_obstacle(obs: Dictionary, parent: Node2D, cm_to_px: float, st
             chain.size = Vector2(4, (ceil_h_cm - ring_height_cm - 30) * cm_to_px)
             chain.z_index = -1
             node.add_child(chain)
-        # バックボード
+        # バックボード（白く目立つ色に変更して視認性向上）
         var gym_board_h = 60 * cm_to_px
         var gym_board_w = w_px * 0.85
         var gym_bk_board = ColorRect.new()
-        gym_bk_board.color = Color(0.78, 0.88, 0.95, 0.80)  # 半透明アクリル
+        gym_bk_board.color = Color(0.96, 0.96, 0.96, 0.95)  # ほぼ白で視認しやすく
         gym_bk_board.position = Vector2(gym_bk_x + w_px * 0.075, ring_y - gym_board_h * 0.6)
         gym_bk_board.size = Vector2(gym_board_w, gym_board_h)
         gym_bk_board.z_index = -1
         node.add_child(gym_bk_board)
         var gym_bk_frame = ReferenceRect.new()
         gym_bk_frame.editor_only = false
-        gym_bk_frame.border_color = Color(0.40, 0.45, 0.55)
-        gym_bk_frame.border_width = 3.0
+        gym_bk_frame.border_color = Color(0.15, 0.15, 0.20)  # 濃い枠線で輪郭を強調
+        gym_bk_frame.border_width = 4.0
         gym_bk_frame.position = gym_bk_board.position
         gym_bk_frame.size = gym_bk_board.size
         gym_bk_frame.z_index = -1
         node.add_child(gym_bk_frame)
-        # リング
+        # リング（オレンジ色を鮮やかにし、太さも増して目立つようにする）
         var gym_ring = ColorRect.new()
-        gym_ring.color = Color(0.92, 0.42, 0.08)
-        gym_ring.position = Vector2(gym_bk_x + w_px * 0.1, ring_y - 4)
-        gym_ring.size = Vector2(w_px * 0.80, 8)
+        gym_ring.color = Color(1.0, 0.38, 0.0)  # より鮮やかなオレンジ
+        gym_ring.position = Vector2(gym_bk_x + w_px * 0.1, ring_y - 6)
+        gym_ring.size = Vector2(w_px * 0.80, 12)  # 高さを8→12に増やして目立つように
         gym_ring.z_index = -1
         node.add_child(gym_ring)
         # ネット
@@ -3855,10 +3888,12 @@ static func get_obstacle_comment(obs_id: String, h: float, oh: float) -> String:
             else:
                 return "うんてい（高さ%dcm）。\n小学生の定番遊具です。" % oh
         "basketball_board":
-            if h > oh * 0.85:
+            if h > oh:
+                return "体育館のバスケゴール（リング高%dcm）。\nあなた（%dcm）はリングより高い！ダンクできそう！" % [oh, h]
+            elif h > oh * 0.85:
                 return "体育館のバスケゴール（リング高%dcm）。\nリングがだいぶ低く見えてきた！" % oh
             else:
-                return "体育館のバスケゴール（リング高%dcm）。\n天井から吊り下がっています。" % oh
+                return "体育館のバスケゴール（リング高%dcm）。\nステージ右端に設置されています。近づいてみましょう。" % oh
         "notice_board_town":
             return "掲示板です。学園祭や部活の張り紙が目に入ります。"
         "school_gate_middle":
@@ -4112,7 +4147,7 @@ static func _gymnasium_obstacles(stage_id: String) -> Array:
         {"id": "gym_bench", "x": 2200, "x2": 2500, "height": 42, "type": "ground"},
         {"id": "gym_window_1", "x": 600, "x2": 780, "height": 500, "type": "background"},
         {"id": "gym_window_2", "x": 900, "x2": 1080, "height": 500, "type": "background"},
-        {"id": "basketball_board", "x": 3050, "x2": 3150, "height": 350, "type": "background"}
+        {"id": "basketball_board", "x": 2800, "x2": 2920, "height": 350, "type": "background"}
     ]
 
 static func _get_school_stage_suffix(age: int) -> String:

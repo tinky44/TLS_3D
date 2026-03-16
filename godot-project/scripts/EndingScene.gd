@@ -31,11 +31,25 @@ func _ready() -> void:
 	var init_p:  Dictionary = global.initial_params  if not global.initial_params.is_empty()  else _fallback_params(global)
 	var init_ap: Dictionary = global.initial_appearance if not global.initial_appearance.is_empty() else global.current_appearance
 
+	# はるかの体型をゲーム内の設定（年齢連動平均身長）に合わせて動的に構築
+	var haruka_core: Dictionary = global.core_npcs.get("haruka", {}) if global.get("core_npcs") != null else {}
+	var haruka_height: float = HARUKA_PARAMS["height"]
+	if haruka_core.get("height_mode", "") == "avg":
+		haruka_height = global.get_avg_height(global.age) + haruka_core.get("height_base", 155.0) - 158.5
+	var haruka_params_dynamic := HARUKA_PARAMS.duplicate()
+	haruka_params_dynamic["height"] = haruka_height
+
+	# 外見もcore_npcsの定義を優先（fallbackはHARUKA_APPEARANCE）
+	var haruka_appearance_dynamic: Dictionary = HARUKA_APPEARANCE.duplicate()
+	var haruka_core_appearance: Dictionary = haruka_core.get("appearance", {}) as Dictionary
+	for k in haruka_core_appearance.keys():
+		haruka_appearance_dynamic[k] = haruka_core_appearance[k]
+
 	# [ 左: 初期シルエット(α0.3) ] [ 中: はるか ] [ 右: 現在のキャラ ]
 	var slots := [
-		{"params": init_p,                    "appearance": init_ap,                   "x": vp.x * 0.22, "alpha": 0.3},
-		{"params": HARUKA_PARAMS,             "appearance": HARUKA_APPEARANCE,          "x": vp.x * 0.46, "alpha": 1.0},
-		{"params": global.current_params,     "appearance": global.current_appearance,  "x": vp.x * 0.72, "alpha": 1.0},
+		{"params": init_p,                     "appearance": init_ap,                      "x": vp.x * 0.22, "alpha": 0.3},
+		{"params": haruka_params_dynamic,       "appearance": haruka_appearance_dynamic,     "x": vp.x * 0.46, "alpha": 1.0},
+		{"params": global.current_params,       "appearance": global.current_appearance,     "x": vp.x * 0.72, "alpha": 1.0},
 	]
 
 	# Global の current_params を一時的に各キャラ用に差し替えて update_measurements() を実行
@@ -68,9 +82,16 @@ func _spawn_player(slot: Dictionary, ground_y: float, global: Node) -> void:
 	player.process_mode = Node.PROCESS_MODE_DISABLED
 	player.position     = Vector2(slot["x"], ground_y)
 	player.facing       = "front"
-	player.modulate.a   = slot["alpha"]
-
-	add_child(player)  # _ready() → update_measurements() がここで走る
+	var alpha: float = slot["alpha"]
+	if alpha < 1.0:
+		# CanvasGroup を使って子ノード全体をまとめてオフスクリーン合成することで
+		# 素体が服の下から透けて見えるアルファブレンドの問題を防ぐ
+		var canvas_group := CanvasGroup.new()
+		canvas_group.modulate.a = alpha
+		add_child(canvas_group)
+		canvas_group.add_child(player)
+	else:
+		add_child(player)  # _ready() → update_measurements() がここで走る
 
 	# 外見を上書き（CharacterDrawer が player.appearance を優先する）
 	player.appearance = slot["appearance"].duplicate(true)

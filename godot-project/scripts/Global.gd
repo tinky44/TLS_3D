@@ -89,7 +89,7 @@ var core_npcs: Dictionary = {
 		"is_student": true,
 		"greet_events": [
 			"ねえ、最近また伸びた？",
-			"一緒に歩くとすぐ見つけられるね。",
+			"人混みでもすぐ分かるよ、頭が出てるから。",
 			"今日も目線、高いなあ。"
 		],
 		"appearance": {
