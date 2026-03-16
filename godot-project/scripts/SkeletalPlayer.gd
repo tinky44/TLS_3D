@@ -158,7 +158,11 @@ func _physics_process(delta: float) -> void:
 
 	is_walking = (velocity.x != 0)
 	if is_walking:
-		walk_phase += walk_speed * _leg_pain_factor * delta
+		# 屈み時は歩幅が短くなるため、visual_height比でwalk_phaseを速く進めてスライド感を防ぐ
+		# 直立時: factor≈1.0 / 半屈み: factor≈2.0 → 単位距離あたりの歩数が増える
+		var full_h: float = float(m.get("height", visual_height_cm)) if m and not m.is_empty() else visual_height_cm
+		var crouch_speed_factor: float = full_h / maxf(visual_height_cm, full_h * 0.3)
+		walk_phase += walk_speed * _leg_pain_factor * crouch_speed_factor * delta
 	else:
 		walk_phase = lerp_angle(walk_phase, 0.0, 10.0 * delta)
 
