@@ -30,6 +30,7 @@ var _nearby_height_scale: bool = false
 var _nearby_npc: Node = null # Eキーで話しかけられる近くのNPC
 var _nearby_term_hotspot: String = ""
 var _nearby_obs_id: String = ""
+var _nearby_standup: bool = false
 var _nearby_bed: bool = false
 
 # アクションヒントパネル（Q キーで切り替え）
@@ -135,7 +136,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"dialogue_key": "term_home_table",
 		"pose": "chair_sit",
 		"seat_height_cm": 45.0,
-		"desk_height_cm": 72.0
+		"desk_height_cm": 72.0,
+		"repeatable": true
 	},
 	"school_seat": {
 		"stage_id": "school",
@@ -146,7 +148,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"pose": "chair_sit",
 		"stress_delta": 2,
 		"feedback": "席に座ると少しだけ視線を意識する",
-		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。"
+		"memory_note": "教室の自分の席に座り、視線の中で過ごす実感が残った。",
+		"repeatable": true
 	},
 	"school_infirmary": {
 		"stage_id": "infirmary",
@@ -166,7 +169,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"stress_delta": -4,
 		"feedback": "人波から少し距離を取れた",
 		"memory_note": "駅のベンチで一息つき、人の流れを少し離れて眺めた。",
-		"seat_height_cm": 45.0
+		"seat_height_cm": 45.0,
+		"repeatable": true
 	},
 	"station_vending": {
 		"stage_id": "station",
@@ -177,7 +181,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"pose": "reach_low",
 		"stress_delta": 3,
 		"feedback": "立ち止まると視線が集まりやすい",
-		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。"
+		"memory_note": "駅の自販機の前で、立ち止まるだけでも目立つと感じた。",
+		"repeatable": true
 	},
 	"gymnasium_basket": {
 		"stage_id": "gymnasium",
@@ -189,7 +194,8 @@ const TERM_HOTSPOTS: Dictionary = {
 		"height_min": 185.0,
 		"stress_delta": -5,
 		"feedback": "手を上げた瞬間、体の伸びやかさに少し気持ちがほぐれた。",
-		"memory_note": "バスケゴールに手を伸ばしたら、いつもより高さが近く感じられた。"
+		"memory_note": "バスケゴールに手を伸ばしたら、いつもより高さが近く感じられた。",
+		"repeatable": true
 	},
 	"randoseru_farewell": {
 		"stage_id": "myroom",
@@ -957,7 +963,9 @@ func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 		if not matched:
 			continue
 		if global.has_term_hotspot_done(hotspot_id):
-			return ""
+			# repeatable なホットスポットはセリフ済みでもインタラクト可能
+			if not bool(hotspot_data.get("repeatable", false)):
+				return ""
 		return hotspot_id
 	return ""
 
@@ -974,17 +982,21 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 	var height_min: float = float(hotspot_data.get("height_min", 0.0))
 	if height_min > 0.0 and float(global.current_params.get("height", 0.0)) < height_min:
 		return
+	# repeatable なホットスポットは「初回かどうか」を記録してからマーク
+	var already_done: bool = global.has_term_hotspot_done(hotspot_id)
 	global.mark_term_hotspot_done(hotspot_id)
-	var story_flag_done: String = String(hotspot_data.get("story_flag_done", ""))
-	if story_flag_done != "" and global.has_method("set_story_flag"):
-		global.set_story_flag(story_flag_done)
-	var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
-	if stress_delta != 0:
-		global.add_stress(stress_delta)
-		_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
-	var memory_note: String = String(hotspot_data.get("memory_note", ""))
-	if memory_note != "":
-		global.append_term_memory_note(memory_note)
+	# ストーリー系副作用（フラグ・ストレス・記憶）は初回のみ
+	if not already_done:
+		var story_flag_done: String = String(hotspot_data.get("story_flag_done", ""))
+		if story_flag_done != "" and global.has_method("set_story_flag"):
+			global.set_story_flag(story_flag_done)
+		var stress_delta: int = int(hotspot_data.get("stress_delta", 0))
+		if stress_delta != 0:
+			global.add_stress(stress_delta)
+			_show_stress_feedback(stress_delta, String(hotspot_data.get("feedback", "")))
+		var memory_note: String = String(hotspot_data.get("memory_note", ""))
+		if memory_note != "":
+			global.append_term_memory_note(memory_note)
 	var pose_name: String = String(hotspot_data.get("pose", ""))
 	if pose_name != "" and player:
 		_dialogue_restore_pose = String(player.pose)
@@ -1031,10 +1043,32 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 				drawer.queue_redraw()
 	global.save_settings()
 	_nearby_term_hotspot = ""
-	_start_dialogue(
-		String(hotspot_data.get("dialogue_npc", "player")),
-		String(hotspot_data.get("dialogue_key", "default"))
-	)
+	# セリフは初回のみ（repeatable なホットスポットの2回目以降はスキップ）
+	if not already_done:
+		_start_dialogue(
+			String(hotspot_data.get("dialogue_npc", "player")),
+			String(hotspot_data.get("dialogue_key", "default"))
+		)
+
+func _do_standup() -> void:
+	if not player:
+		return
+	var restore_pose: String = _dialogue_restore_pose if _dialogue_restore_pose != "" else "normal"
+	if player.has_method("set_pose_immediately"):
+		player.call("set_pose_immediately", restore_pose)
+	else:
+		player.pose = restore_pose
+		var drawer := player.get_node_or_null("CharacterDrawer")
+		if drawer:
+			drawer.queue_redraw()
+	if player.get("sit_context") != null:
+		player.sit_context = {"seat_h_cm": -1.0, "desk_h_cm": -1.0}
+	for n in _sit_front_nodes:
+		if is_instance_valid(n):
+			n.z_index = -1
+	_sit_front_nodes.clear()
+	_dialogue_restore_pose = ""
+	_nearby_standup = false
 
 func _start_dialogue(npc_id: String, key: String = "default") -> void:
 	if _in_dialogue or _measurement_showing or _term_choice_showing:
@@ -1670,15 +1704,24 @@ func _update_bubble():
 		elif hotspot_id != "":
 			_nearby_transition_door = ""
 			_nearby_height_scale = false
-			_nearby_term_hotspot = hotspot_id
-			_nearby_obs_id = String(obs_id)
 			_nearby_bed = false
-			bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
+			_nearby_obs_id = String(obs_id)
+			# 着席中かつ chair_sit ホットスポットなら「立ち上がる」に切り替え
+			var hotspot_pose: String = String(TERM_HOTSPOTS[hotspot_id].get("pose", ""))
+			if player and String(player.pose) == "chair_sit" and hotspot_pose == "chair_sit":
+				_nearby_term_hotspot = ""
+				_nearby_standup = true
+				bubble_label.text += "\n[E] 立ち上がる"
+			else:
+				_nearby_term_hotspot = hotspot_id
+				_nearby_standup = false
+				bubble_label.text += "\n[E] %s" % _get_term_hotspot_prompt(hotspot_id)
 		elif obs_id.begins_with("door_to_"):
 			var lock_message: String = _get_transition_lock_message(String(obs_id))
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
 			_nearby_obs_id = ""
+			_nearby_standup = false
 			_nearby_bed = false
 			if lock_message != "":
 				_nearby_transition_door = ""
@@ -1691,6 +1734,7 @@ func _update_bubble():
 			_nearby_height_scale = true
 			_nearby_term_hotspot = ""
 			_nearby_obs_id = ""
+			_nearby_standup = false
 			_nearby_bed = false
 			bubble_label.text += "\n[Eキー] 身長を測る"
 		else:
@@ -1698,6 +1742,7 @@ func _update_bubble():
 			_nearby_height_scale = false
 			_nearby_term_hotspot = ""
 			_nearby_obs_id = ""
+			_nearby_standup = false
 			_nearby_bed = false
 
 		bubble_panel.show()
@@ -1707,6 +1752,7 @@ func _update_bubble():
 		_nearby_height_scale = false
 		_nearby_term_hotspot = ""
 		_nearby_obs_id = ""
+		_nearby_standup = false
 		_nearby_bed = false
 		if _in_dialogue or _measurement_showing or _term_choice_showing or _sleep_menu_showing:
 			bubble_panel.hide()
@@ -2261,6 +2307,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					_advance_dialogue()
 			elif _measurement_showing:
 				_on_close_measurement_pressed()
+			elif _nearby_standup:
+				_do_standup()
 			elif _nearby_bed:
 				_trigger_bed_interaction()
 			elif _nearby_term_hotspot != "":
