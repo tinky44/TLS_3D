@@ -28,21 +28,21 @@ const ACHIEVEMENTS: Dictionary = {
 		"value": 200,
 	},
 	"height_230": {
-		"name": "空に近い場所",
+		"name": "どこまで大きく...",
 		"desc": "身長が230cmを超えた。",
 		"icon": "ruler",
 		"trigger": "height",
 		"value": 230,
 	},
 	"height_250": {
-		"name": "250cmの景色",
+		"name": "天井を見下ろして",
 		"desc": "身長が250cmを超えた。",
 		"icon": "ruler",
 		"trigger": "height",
 		"value": 250,
 	},
 	"height_270": {
-		"name": "270cm、人外の領域",
+		"name": "ギネス記録...?",
 		"desc": "身長が270cmを超えた。",
 		"icon": "ruler",
 		"trigger": "height",
@@ -134,14 +134,14 @@ const ACHIEVEMENTS: Dictionary = {
 
 	# ===== 出会い =====
 	"meet_haruka": {
-		"name": "はるかとの出会い",
+		"name": "親友",
 		"desc": "クラスメートのはるかに声をかけてもらった。",
 		"icon": "heart",
 		"trigger": "met_npc",
 		"key": "haruka",
 	},
 	"meet_senior": {
-		"name": "先輩との出会い",
+		"name": "先輩",
 		"desc": "廊下でバレー部の先輩に声をかけられた。",
 		"icon": "volleyball",
 		"trigger": "vball_phase",
@@ -157,7 +157,7 @@ const ACHIEVEMENTS: Dictionary = {
 		"key": "vball_joined",
 	},
 	"vball_pain_ach": {
-		"name": "成長痛",
+		"name": "膝がミシミシ",
 		"desc": "バレー部の練習中、脚が痛み始めた。",
 		"icon": "heart",
 		"trigger": "vball_phase",
