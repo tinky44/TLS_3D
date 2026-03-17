@@ -52,3 +52,6 @@ var head_r: float
 # プレイヤー参照（look_pitch, look_head_angle など取得用）
 var look_pitch: float
 var look_head_angle: float
+
+# 現在のポーズ名（ポーズ別描画分岐用）
+var pose: String = "normal"

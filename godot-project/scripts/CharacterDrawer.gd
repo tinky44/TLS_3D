@@ -91,6 +91,8 @@ func _draw() -> void:
 	ctx.look_pitch = look_pitch if look_pitch != null else 0.0
 	var look_head_angle = player.get("look_head_angle")
 	ctx.look_head_angle = look_head_angle if look_head_angle != null else 0.0
+	var player_pose = player.get("pose")
+	ctx.pose = String(player_pose) if player_pose != null else "normal"
 
 	if flip:
 		draw_set_transform(Vector2.ZERO, 0, Vector2(-1, 1))
