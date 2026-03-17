@@ -146,10 +146,19 @@ func _physics_process(delta: float) -> void:
 			_leg_pain_factor = 0.5
 
 	var direction := Input.get_axis("ui_left", "ui_right")
+
+	# 屈み時は歩幅が短くなる分だけ移動速度を下げてスライド感を防ぐ
+	var crouch_speed_mult := 1.0
+	if pose == "normal" and not m.is_empty():
+		crouch_speed_mult = maxf(
+			CharacterPoseCalculator.get_crouch_stride_ratio(visual_height_cm, m, CM_TO_PX),
+			0.2
+		)
+
 	if pose != "normal":
 		velocity.x = move_toward(velocity.x, 0, SPEED)
 	elif direction:
-		velocity.x = direction * SPEED * _leg_pain_factor
+		velocity.x = direction * SPEED * _leg_pain_factor * crouch_speed_mult
 		dir = int(sign(direction))
 		if not (Input.is_action_pressed("ui_up") or Input.is_action_pressed("ui_down")):
 			facing = "side"
@@ -270,14 +279,18 @@ func _update_smooth_pose(delta: float) -> void:
 		smooth_d = target_d.duplicate()
 		return
 	var pose_t = clamp(POSE_LERP_SPEED * delta, 0.0, 1.0)
-	# 腰がほぼ直立に戻っていれば、脚・腕の角度はラグなしで追従させる
-	var waist_settled: bool = abs(smooth_d.get("waist_angle", 0.0)) < 0.05
+	# 腰の目標姿勢に追いついたら、歩行の脚振りは遅延させない。
+	var current_waist: float = float(smooth_d.get("waist_angle", target_d.get("waist_angle", 0.0)))
+	var target_waist: float = float(target_d.get("waist_angle", current_waist))
+	var current_crotch: float = float(smooth_d.get("y_crotch", target_d.get("y_crotch", 0.0)))
+	var target_crotch: float = float(target_d.get("y_crotch", current_crotch))
+	var walk_pose_settled: bool = abs(current_waist - target_waist) < 0.05 and abs(current_crotch - target_crotch) < 4.0
 	const WALK_ANGLE_KEYS = ["leg_l_angle", "leg_r_angle", "arm_l_angle", "arm_r_angle", "knee_l", "knee_r"]
 	for key in target_d:
 		var val = target_d[key]
 		if not (val is float or val is int):
 			continue
-		var t: float = 1.0 if (waist_settled and key in WALK_ANGLE_KEYS) else pose_t
+		var t: float = 1.0 if (walk_pose_settled and key in WALK_ANGLE_KEYS) else pose_t
 		smooth_d[key] = lerp(float(smooth_d.get(key, val)), float(val), t)
 
 func set_pose_immediately(new_pose: String) -> void:

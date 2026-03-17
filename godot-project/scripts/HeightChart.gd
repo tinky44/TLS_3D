@@ -7,7 +7,7 @@ var player_height_cm: float = 160.0
 var cm_to_px: float = 2.0
 
 const RULER_X := 0.0
-const MIN_CM := 100
+const MIN_CM := 0
 const MAX_CM := 230
 
 func _draw() -> void:

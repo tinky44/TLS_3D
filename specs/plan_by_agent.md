@@ -1,613 +1,278 @@
-# 追加ストーリー実装メモ
+# 実績システム 設計書
 
-更新日: 2026-03-15
+更新日: 2026-03-17
 
-## 目的
+> 目次
+> - [地図ファストトラベル](#地図ファストトラベル-設計書)
 
-現状はバレー部ルートだけがまとまった物語として存在している。  
-ここに、小学校・中学校・高校それぞれで「高身長がどう見られるか」が変わっていくイベント群を追加したい。
+# 地図ファストトラベル 設計書
 
-このメモでは、次の観点で実装方針を整理する。
+更新日: 2026-03-17
 
-- 現行コードのどこに乗せるのが自然か
-- どのイベントを `pending_events` / `TERM_HOTSPOTS` / NPC 会話で作るべきか
-- どのフラグを追加すべきか
-- バレー部イベントとどう共存させるか
-- 実装の優先順位
+---
 
-## 前提整理
+## 概要
 
-### 現行の物語レイヤー
+現在のボタンリスト型ファストトラベル（`pause_fast_travel_panel: VBoxContainer`）を、エリアマップ型UIに刷新する。
 
-現状のイベントは、ほぼ次の3レイヤーで動いている。
+- エリア（区）ごとに背景パネルで視覚的にグループ化
+- 場所（ノード）をクリックするとそのステージへ移動
+- ノード間を線で接続して「地理的なつながり」を表現
+- 現在の年齢で行けない場所はグレーアウト（disabled）表示するが、ノードは常に表示する
+- 学校は年齢解決済みID（`school_elementary` / `school_middle` / `school_high`）を直接使用し、全て地図上に表示
 
-1. `Global.pending_events`
-   学期開始、夏休み明け、特定の会話後などに自動再生するイベントキュー。
-2. `MainScene.gd` の NPC 会話分岐
-   `haruka` / `senior` のような固有 NPC に対して、状態に応じて会話キーを切り替える。
-3. `TERM_HOTSPOTS`
-   学期ごとに一度だけ触れる場所イベント。プレイヤーの能動的な行動と結びつけやすい。
+---
 
-この構造はかなり相性がよいので、新規ストーリーもまずはこの3レイヤーの組み合わせで増やすのがよい。
+## マップ構成
 
-### 現在の年齢帯
+### エリア・ノード・エッジ定義
 
-実装上の学校段階は次の通り。
-
-- 小学校期: `6-11歳`
-- 中学校期: `12-14歳`
-- 高校期: `15-17歳`
-
-仕様書の文言と少しズレる箇所があるので、追加イベントの条件はこの実装基準で合わせる。
-
-### 現状の問題
-
-バレー部は `vball_story_phase` の専用フラグで進んでいるが、この方式をイベントごとに増やすと `Global.gd` がすぐに肥大化する。  
-そのため、バレー部は当面そのまま残しつつ、新規イベントは辞書ベースで増やせる形に寄せたい。
-
-## 基本方針
-
-### 1. 新規イベントは「年齢帯ごとの小さな物語群」として追加する
-
-いきなり第二の大ルートを作るより、各学年で1つか2つの印象的な出来事を増やす方が現行ループに合う。
-
-- 小学校期: 他人との身長差を自覚し始める
-- 中学校期: 周囲の成長と自分の急成長がぶつかる
-- 高校期: 身長が「魅力」「才能」「進路」に変わる
-
-### 2. 自動イベントは各学期に1本までを目安にする
-
-`pending_events` は1回のステージロードで先頭1件しか消化しない。  
-そのため、毎学期の自動イベントを積みすぎると渋滞しやすい。
-
-おすすめの役割分担は次の通り。
-
-- 大きい節目: `pending_events`
-- プレイヤーが触れて体験する出来事: `TERM_HOTSPOTS`
-- 人間関係の続き物: NPC 会話分岐
-
-### 3. バレー部とは独立した「成長イベント層」を作る
-
-ユーザー案にある急成長イベントは、バレー部の文脈だけに閉じない方が強い。  
-バレー部参加中でも、非参加でも起きる「身体の変化そのもの」として持つべき。
-
-バレー部側では必要なら専用リアクションを足すが、本体は別イベントにする。
-
-## 追加したいデータ構造
-
-### `Global.gd`
-
-新規イベント向けに、専用変数を増やし続ける代わりに辞書を追加したい。
-
-```gdscript
-var story_flags: Dictionary = {}
-var story_phases: Dictionary = {}
-var story_term_flags: Dictionary = {}
+```
+┌──────────────────────────┐    ┌──────────────────────┐
+│  中央町                   │    │  学園町               │
+│                           │    │  ○ 学園前駅          │
+│  ○ 自宅                   │    └──────────┬───────────┘
+│     │                     │               │
+│  ○ 中央駅 ─────────────────┼───────────────┘
+│     │                     │
+│  ○ 小学校                 │
+└────────────┬──────────────┘
+             │
+       ┌─────┴────────┐
+       │  隣町         │
+       │  ○ 中学校    │
+       └──────────────┘
 ```
 
-使い分けは次の想定。
-
-- `story_flags`
-  一度きりの既読管理。例: `elem_umbrella_done`
-- `story_phases`
-  続き物の進行度。例: `high_romance = 2`
-- `story_term_flags`
-  今学期だけの一時状態。`advance_term()` でリセットする。例: `middle_growth_spurt_this_term`
-
-補助メソッドも追加したい。
-
-- `get_story_phase(story_id: String) -> int`
-- `set_story_phase(story_id: String, phase: int) -> void`
-- `has_story_flag(flag_id: String) -> bool`
-- `set_story_flag(flag_id: String, value: bool = true) -> void`
-- `has_story_term_flag(flag_id: String) -> bool`
-- `set_story_term_flag(flag_id: String, value: bool = true) -> void`
-
-保存対象は `save_settings()` / `save_slot()` / `load_slot()` にまとめて追加する。
-
-### なぜ辞書に寄せるか
-
-- イベントごとに `xxx_phase` を生やし続けなくて済む
-- 年齢帯別にストーリーを足しやすい
-- 今後、バレー部以外の部活や恋愛を足しても破綻しにくい
-
-## イベントの起動レイヤー設計
-
-### `pending_events` に向くもの
-
-- 学期開始時の大きな出来事
-- 家で受ける通知や手紙
-- 夏休み明けや急成長など、時間経過そのものに紐づくもの
-- 一度だけ見せたい導入イベント
-
-### `TERM_HOTSPOTS` に向くもの
-
-- 校庭・駅・部屋など、その場所で体験してほしいもの
-- プレイヤーが「見に行く」ことで気づくイベント
-- 学期メモと相性がよいイベント
-
-### NPC 会話分岐に向くもの
-
-- はるかとの継続的な関係
-- 先輩、先生、保護者との相談
-- 恋愛、勧誘のように段階的な会話が必要なもの
-
-## 候補イベントの実装案
-
-## 1. 小学校期イベント
-
-### 1-1. 雨の日の傘イベント
-
-#### 狙い
-
-「大きいことの不便さ」が、まだ優しさと子どもっぽさの混ざる形で出る導入イベントにする。
-
-#### 実装レイヤー
-
-- 主導: `pending_events`
-- 補助: はるか会話 or 主人公モノローグ
-
-#### 推奨フロー
-
-1. 小学校期の学校ルート開始時、未体験なら `elem_umbrella_day` をキューする
-2. `outdoor` に入ったとき発火
-3. はるかと相合い傘、または登校中モノローグを再生
-4. 身長差で文面を分岐させる
-
-#### 分岐案
-
-- 身長差が小さい:
-  一応入れる
-- 身長差が中くらい:
-  肩や袖が濡れる
-- 身長差が大きい:
-  傘の中心が合わず、ほぼ機能しない
-
-現在の会話では `15cm / 35cm` の差分バケットが既にあるので、この基準を再利用すると統一感が出る。
-
-#### 必要フラグ
-
-- `story_flags["elem_umbrella_done"]`
-
-#### 実装メモ
-
-- 最初は雨演出なしでよい
-- まずは会話だけで成立させる
-- 後から必要なら `outdoor` に簡易雨オーバーレイを足す
-
-### 1-2. 男子に揶揄われる / 助けてくれる子がいる
-
-#### 狙い
-
-「見られる側になる」最初の痛みと、完全な孤立ではない救いの両方を入れる。
-
-#### 実装レイヤー
-
-- 主導: `TERM_HOTSPOTS`
-- 設置先候補: `schoolyard` ベース stage
-
-#### 推奨ホットスポット
-
-新規 hotspot を1つ追加する。
-
-- `elementary_playground_tease`
-  - stage: `schoolyard`
-  - obs_id: `jungle_gym` または `horizontal_bar_low`
-  - prompt: `遊具の近くへ行く`
-
-#### 推奨フロー
-
-1. 校庭で遊具に近づく
-2. 男子のひやかしが入る
-3. はるか、または別の子が間に入る
-4. 主人公の受け止め方を選ぶ
-
-#### 分岐案
-
-- `diff < 15cm`
-  まだ「少し背が高い」程度で軽い反応
-- `15cm <= diff < 35cm`
-  からかいが強い
-- `diff >= 35cm`
-  からかいより「ちょっと怖い」「すごい」が勝ち、揶揄が減る
-
-ここで、ユーザー案の「身長が伸びると揶揄われなくなる」を表現できる。  
-完全に平和になるのではなく、反応の質が「笑い」から「距離」へ変わるのがポイント。
-
-#### 必要フラグ
-
-- `story_phases["elem_tease"]`
-  - 0: 未体験
-  - 1: 揶揄フェーズ
-  - 2: 揶揄されなくなった後
-
-#### 実装メモ
-
-- 最初は新 NPC を増やさず、`generic` + `haruka` の会話で成立させる
-- 後で必要なら `kind_classmate` のような固有 NPC を追加する
-
-### 1-3. ランドセルを卒業
-
-#### 狙い
-
-小学校期の終わりを「物理サイズ」と「生活の持ち物」の両方で締める。
-
-#### 実装レイヤー
-
-- 主導: `TERM_HOTSPOTS`
-- 設置先: `myroom` の `randoseru`
-- 補助: 進学イベントキュー
-
-`myroom` には既に `randoseru` オブジェクトがあるので、これを使うのが自然。
-
-#### 推奨フロー
-
-1. 小学校最終学期か、中学進学直後に `myroom` の `randoseru` へ触れる
-2. 「小さく見える」「もう肩に合わない」などのモノローグ
-3. 選択肢
-   - 片づける
-   - 少し名残惜しく見る
-   - 持ってみる
-
-#### 反映先
-
-- `term_memory_note`
-- `self_confidence` / `self_complex`
-
-#### 必要フラグ
-
-- `story_flags["randoseru_farewell_done"]`
-
-#### 実装メモ
-
-- これは比較的ローコスト
-- 新規ステージも新規 NPC も不要
-- 小学校編の締めとしてかなり強い
-
-## 2. 中学校期イベント
-
-### 2-1. 男子の「背が伸びた自慢」
-
-#### 狙い
-
-周囲の男子がようやく成長期に入り始めるが、それでも主人公との差は埋まらない、という中学特有の空気を出す。
-
-#### 実装レイヤー
-
-- 主導: 自動イベント or hallway 会話
-- 発火場所候補: `school_hallway_middle` または `school_middle`
-
-#### 推奨フロー
-
-1. 中学校期の学校ルート開始後、`middle_boys_growth_talk` をキュー
-2. `school_hallway_middle` で発火
-3. 「俺も最近5cm伸びた」みたいな会話が聞こえる
-4. 主人公が自分との差を意識するモノローグ
-
-#### 分岐案
-
-- 主人公の身長がまだ高い程度:
-  追いつかれそうな気配を少し感じる
-- 主人公がかなり高い:
-  自慢話がまるで別世界に見える
-
-#### 必要フラグ
-
-- `story_flags["middle_boys_growth_talk_done"]`
-
-#### 実装メモ
-
-- これは `generic` の会話だけで成立する
-- 新しい core NPC を作らなくても十分実装できる
-
-### 2-2. 急成長イベント
-
-#### 狙い
-
-バレー部ルートの一部ではなく、「誰にでも起きうる身体の暴走」として急成長を独立させる。
-
-#### 実装レイヤー
-
-- 主導: `pending_events`
-- 補助: 測定後コメント、はるか / 先輩リアクション
-
-#### 推奨仕様
-
-中学校期から高校初期の間、一定条件で `growth_spurt` を発生させる。
-
-条件案:
-
-- 年齢が `12-15歳`
-- 通常成長量が大きかった学期
-- あるいは固定確率
-
-効果案:
-
-- 学期更新時に追加で `+4cm 〜 +8cm`
-- `queue_event("growth_spurt")`
-
-#### 発火位置
-
-- `room` または `myroom`
-
-まずは家での違和感として見せるのが自然。  
-その後に保健室や学校で余波を出す。
-
-#### バレー部との共存
-
-これはユーザー要望通り、競合してよい。
-考え方としては次の通り。
-
-- `summer_growth` は季節イベント
-- `growth_spurt` は身体イベント
-- `vball_story_phase` は部活イベント
-
-この3つは別レイヤーとして扱う。
-
-バレー部参加中なら、先輩の会話に一言追加する程度で十分。
-急成長の本体は共有イベントにする。
-
-#### `summer_growth` との重複について
-
-`advance_term()` は夏学期に `+10cm` の追加成長を加えた上で `summer_growth` をキューする。
-`growth_spurt`（`+4〜8cm`）が同じ学期に重なると合計 `+14〜18cm` になる。
-
-**これは仕様。** 夏に急成長が重なるケースを「特別に激しい成長期」として表現する意図がある。
-実装時に排他制御は不要。
-
-#### 必要フラグ
-
-- `story_term_flags["growth_spurt_this_term"]`
-- `story_flags["growth_spurt_seen_first"]`
-- 必要なら `story_phases["growth_spurt_count"]`
-
-#### 実装メモ
-
-- このイベントは優先度が高い
-- 世界観全体の成長物語を太くできる
-- バレー部以外のプレイでも印象に残る
-
-## 3. 高校期イベント
-
-### 3-1. 恋する / 恋される
-
-#### 狙い
-
-高校期では、身長が単なる悩みではなく「人を惹きつける要素」にもなることを描く。
-
-#### 実装レイヤー
-
-- 主導: NPC 会話分岐
-- 補助: `pending_events`
-
-#### 方針
-
-最初から本格恋愛ルートにせず、まずは短い2段階か3段階のエピソードにする。
-
-初期版の構成案:
-
-1. `high_romance_notice`
-   - 学校または学園街で「見られている」「気になる人がいる」と気づく
-2. `high_romance_followup`
-   - はるかに相談する、または手紙を受け取る
-3. `high_romance_choice`
-   - 向き合う / 距離を置く / 今は保留
-
-#### 実装上の割り切り
-
-最初は新しい常駐 NPC を作らなくてもよい。
-
-- 手紙
-- 噂
-- はるか経由の相談
-- 主人公モノローグ
-
-この4つでかなり成立する。  
-反応が良ければ、その後 `admirer` のような固有 NPC を追加する。
-
-#### 必要フラグ
-
-- `story_phases["high_romance"]`
-  - 0: 未開始
-  - 1: 気づいた
-  - 2: 接触あり
-  - 3: 返答済み
-
-#### 実装メモ
-
-- 高校期は `gakuenmachi` が使えるので、学校外の空気も出しやすい
-- バレー部と同時進行してもよいが、主導権は取らせすぎない方がよい
-
-### 3-2. スポーツ団体からの勧誘
-
-#### 狙い
-
-高校期では、身長が「進路」「才能」として外部から評価されるフェーズに入る。  
-バレー部ルートの延長ではなく、社会からの視線として描きたい。
-
-#### 実装レイヤー
-
-- 主導: `pending_events`
-- 補助: `senior` / `teacher` / 保護者会話
-
-#### 推奨トリガ
-
-次のいずれかを満たしたら候補に入れる。
-
-- `age >= 15`
-- `height >= 190`
-- `gymnasium_basket` 既体験
-- `npc_talk_veryhuge` を見ている
-
-この条件なら、バレー部未加入でも勧誘が発生できる。
-
-#### 推奨フロー
-
-1. `high_scout_contact` をキュー
-2. `room` で手紙、または `gakuenmachi` で声をかけられる
-3. 「一度見学する」「今は断る」「家族やはるかに相談する」を選ぶ
-4. 返答だけで終わってもよいし、将来の進路イベントの種にしてもよい
-
-#### 必要フラグ
-
-- `story_phases["high_scout"]`
-  - 0: 未接触
-  - 1: 接触済み
-  - 2: 相談済み
-  - 3: 方針決定
-
-#### 実装メモ
-
-- これも新規 NPC 必須ではない
-- `speaker: "スポーツ団体スタッフ"` の会話だけで初期版は成立する
-- 先輩がいる場合だけ追加セリフを差し込むと、既存ルートともつながる
-
-## 優先度の高い実装順
-
-いきなり全部やるより、次の順で増やすのが安全。
-
-### 第1段階: 今の実装にそのまま乗るもの
-
-- ランドセル卒業
-- 中学の急成長イベント
-- 高校のスポーツ勧誘
-
-理由:
-
-- 新規 NPC なしで成立しやすい
-- 既存の `pending_events` / hotspot / 家イベントに乗せやすい
-- 世界観の広がりが大きい
-
-### 第2段階: 学校内の空気を増やすもの
-
-- 小学校の揶揄いイベント
-- 中学の男子成長自慢
-
-理由:
-
-- `generic` の活用で増やせる
-- 年齢帯の違いが出しやすい
-
-### 第3段階: 演出か新NPCが欲しいもの
-
-- 傘イベント
-- 恋愛イベント
-
-理由:
-
-- 傘は雨演出があると強い
-- 恋愛は相手の見せ方を詰めたくなる
-
-## 実装タスク分解
-
-### 1. 基盤
-
-- `Global.gd` に `story_flags / story_phases / story_term_flags` を追加
-- save/load 対応
-- `advance_term()` で `story_term_flags` を初期化
-- 学年帯に応じてイベントを判定する helper を追加
-
-### 2. イベントキュー拡張
-
-- `MainScene.gd::_handle_pending_stage_event()` に新規 event id を追加
-- `advance_term()` または学期ルート選択後に、年齢帯に応じたキュー追加関数を呼ぶ
-
-例:
-
-```gdscript
-func _queue_age_story_events() -> void:
-	if age >= 6 and age <= 11:
-		...
-	elif age >= 12 and age <= 14:
-		...
-	else:
-		...
+### エリア定義（MAP_AREAS）
+
+| id | 名称 | 含むノード |
+|---|---|---|
+| `chuo` | 中央町 | 自宅、中央駅、小学校 |
+| `tonari` | 隣町 | 中学校 |
+| `gakuen` | 学園町 | 学園前駅 |
+
+### ノード定義（MAP_NODES）
+
+| ノードID | ラベル | stage_id | エリア |
+|---|---|---|---|
+| `myroom` | 自宅 | `myroom` | chuo |
+| `station` | 中央駅 | `station` | chuo |
+| `school_elementary` | 小学校 | `school_elementary` | chuo |
+| `school_middle` | 中学校 | `school_middle` | tonari |
+| `gakuenmae` | 学園前駅 | `gakuenmae` | gakuen |
+
+### エッジ定義（MAP_EDGES）
+
+```
+myroom ─── station
+station ─── school_elementary
+station ─── school_middle
+station ─── gakuenmae
 ```
 
-### 3. ホットスポット追加
+---
 
-追加候補:
+## データ定数（MapTravelPanel.gd 内）
 
-- `randoseru_farewell`
-- `schoolyard_playground_tease`
+```gdscript
+const MAP_AREAS: Array[Dictionary] = [
+    {
+        "id":    "chuo",
+        "name":  "中央町",
+        "color": Color(0.82, 0.91, 1.0, 0.45),
+        "rect":  Rect2(20, 40, 360, 340),
+    },
+    {
+        "id":    "tonari",
+        "name":  "隣町",
+        "color": Color(0.82, 1.0, 0.84, 0.45),
+        "rect":  Rect2(20, 410, 200, 110),
+    },
+    {
+        "id":    "gakuen",
+        "name":  "学園町",
+        "color": Color(1.0, 0.92, 0.82, 0.45),
+        "rect":  Rect2(410, 40, 210, 110),
+    },
+]
 
-必要なら後で追加:
+const MAP_NODES: Dictionary = {
+    "myroom": {
+        "label":    "自宅",
+        "stage_id": "myroom",
+        "pos":      Vector2(130, 130),
+    },
+    "station": {
+        "label":    "中央駅",
+        "stage_id": "station",
+        "pos":      Vector2(200, 240),
+    },
+    "school_elementary": {
+        "label":    "小学校",
+        "stage_id": "school_elementary",
+        "pos":      Vector2(90, 330),
+    },
+    "school_middle": {
+        "label":    "中学校",
+        "stage_id": "school_middle",
+        "pos":      Vector2(110, 455),
+    },
+    "gakuenmae": {
+        "label":    "学園前駅",
+        "stage_id": "gakuenmae",
+        "pos":      Vector2(480, 100),
+    },
+}
 
-- `schoolyard_middle_growth_compare`
-- `gakuenmachi_romance_notice`
+const MAP_EDGES: Array = [
+    ["myroom",            "station"],
+    ["station",           "school_elementary"],
+    ["station",           "school_middle"],
+    ["station",           "gakuenmae"],
+]
+```
 
-### 4. 会話DB追加
+---
 
-`DialogueDatabase.gd` に年齢帯別キーを増やす。
+## シーン構成
 
-追加候補キー:
+```
+MapTravelPanel (Control, サイズ 640×560)
+├── TitleLabel       (Label  "── 地図 ──")
+├── CurrentLabel     (Label  "現在地: ○○")
+├── MapCanvas        (Control, サイズ 640×520)
+│    ├── _draw() でエリア背景・エッジ線・ノード円を描画
+│    └── [動的生成] MapNodeButton (Button 透明, 40×40) × ノード数
+│         └── NodeLabel (Label ノード名)
+└── CloseButton      (Button "閉じる")
+```
 
-- `player.elem_umbrella_day`
-- `player.randoseru_farewell`
-- `generic.elem_tease_boys`
-- `generic.middle_boys_growth_talk`
-- `player.growth_spurt`
-- `haruka.growth_spurt_followup`
-- `player.high_romance_notice`
-- `haruka.high_romance_consult`
-- `scout.first_contact`
+- `MapCanvas` が描画とクリック判定を担う
+- `MapNodeButton` はノード位置に中心を合わせて配置（40×40 の透明ボタン）
+- `NodeLabel` はボタン下部に配置
 
-`scout` は最初は NPC 配置なしの会話データだけでもよい。
+---
 
-## 競合と注意点
+## スクリプト概要（MapTravelPanel.gd）
 
-### 1. イベントの渋滞
+```gdscript
+extends Control
 
-`pending_events` は先頭1件だけ処理されるので、同じタイミングで大量に積まない。  
-特に `semester_start` の直後に何本も学年イベントを積むのは避ける。
+signal travel_requested(stage_id: String)
 
-対策:
+const NODE_RADIUS  := 14.0
+const EDGE_COLOR   := Color(0.5, 0.5, 0.6, 0.8)
+const EDGE_WIDTH   := 2.0
+const NODE_DEFAULT := Color(0.3, 0.55, 0.9)
+const NODE_CURRENT := Color(0.2, 0.75, 0.3)   # 現在地
+const NODE_LOCKED  := Color(0.55, 0.55, 0.55)  # disabled
 
-- 1学期に自動イベントは1本まで
-- それ以外は hotspot と NPC に逃がす
+func _ready() -> void:
+    _build_map()
 
-### 2. バレー部との優先順位
+func _build_map() -> void:
+    # 既存の MapNodeButton を削除して再生成
+    for child in $MapCanvas.get_children():
+        child.queue_free()
+    $MapCanvas.queue_redraw()
 
-`senior` の分岐は現状ハードコードされている。  
-そのため、高校イベントを `senior` に集めすぎると複雑になる。
+    var global = get_node_or_null("/root/Global")
+    for node_id in MAP_NODES:
+        var def      := MAP_NODES[node_id]
+        var stage_id: String = def["stage_id"]
+        var locked: bool = _is_locked(stage_id, global)
+        var current: bool = (global and global.current_stage_id == stage_id)
 
-対策:
+        var btn := Button.new()
+        btn.custom_minimum_size = Vector2(40, 40)
+        btn.position = def["pos"] - Vector2(20, 20)
+        btn.flat = true
+        btn.disabled = locked or current
+        if not btn.disabled:
+            btn.pressed.connect(_on_node_pressed.bind(stage_id))
 
-- 勧誘は `senior` 本人ではなく外部スタッフ主体にする
-- 恋愛は `haruka` 相談かモノローグ主体にする
-- `senior` は追加リアクション担当に留める
+        var lbl := Label.new()
+        lbl.text = def["label"]
+        lbl.position = Vector2(0, 32)
+        btn.add_child(lbl)
 
-### 3. 小学校イベントの終わり方
+        $MapCanvas.add_child(btn)
 
-「揶揄われなくなる」は、完全解決ではなく「反応の質が変わる」として描く方がこのゲームに合う。  
-世界が優しくなるのではなく、見られ方が変わるという設計がよい。
+# MapCanvas の _draw() に相当する処理を MapCanvas 側に委譲するか、
+# このスクリプトで MapCanvas の draw_* を使う（draw_* は _draw() 内限定のため
+# MapCanvas を extends Control したスクリプトに分離するのが実践的）
+```
 
-## おすすめの最初の1セット
+### _draw() で描画する内容
 
-最初に実装するなら、次の3本がバランスがよい。
+1. **エリア背景**：`MAP_AREAS` の `rect` を角丸矩形で塗りつぶし、名前ラベルを左上に描画
+2. **エッジ線**：`MAP_EDGES` のペアのノード `pos` 間を `EDGE_COLOR` で直線描画
+3. **ノード円**：各ノードの `pos` に半径 `NODE_RADIUS` の円を描画
+   - 現在地 → `NODE_CURRENT`（緑）
+   - disabled → `NODE_LOCKED`（グレー）
+   - 通常 → `NODE_DEFAULT`（青）
 
-1. `randoseru_farewell`
-2. `growth_spurt`
-3. `high_scout_contact`
+### ロック判定
 
-この3本だけでも、
+既存の `MainScene._get_stage_lock_message()` のロジックを流用する。
+戻り値が空文字列でなければ `locked = true`。
 
-- 小学校の終わり
-- 中学の身体変化
-- 高校の進路
+```gdscript
+func _is_locked(stage_id: String, global) -> bool:
+    # _get_stage_lock_message() と同じロジックを MapTravelPanel 内に複製 or 共通化
+    if not global:
+        return false
+    var age: int = int(global.age)
+    match stage_id:
+        "school_elementary":
+            return age > 11
+        "school_middle":
+            return age < 12 or age > 14
+        "school_high":
+            return age < 15
+    return false
+```
 
-が入るので、バレー部以外にも時間の流れが感じられるようになる。
+> ロジック重複を避けるため、将来的には `StageBuilder` か `Global` に `is_stage_locked(stage_id, age)` 関数として切り出すことを推奨。
 
-## 結論
+---
 
-追加イベントは、バレー部のような単一路線をもう1本増やすより、  
-「学年ごとに1つずつ象徴的な出来事を積む」方が現行実装に合っている。
+## 既存コードとの統合
 
-そのための進め方は次の通り。
+### MainScene.gd の変更点
 
-1. まず `story_flags / story_phases` を導入して、バレー部以外のイベントの置き場を作る
-2. `pending_events` で大きな節目を追加する
-3. `TERM_HOTSPOTS` で場所に紐づく体験を増やす
-4. `haruka` と `generic` を活かして、年齢帯ごとの空気を変える
+| 変更箇所 | 内容 |
+|---|---|
+| `pause_fast_travel_panel: VBoxContainer` | `MapTravelPanel` のインスタンスに置き換え |
+| `_rebuild_fast_travel_panel()` | `_build_map()` 呼び出しに変更 |
+| `FAST_TRAVEL_STAGES` 定数 | `MapTravelPanel.MAP_NODES` に移動（MainScene 側は不要に） |
+| `_on_fast_travel_pressed()` | `MapTravelPanel.travel_requested` シグナルを受け取る形に変更 |
 
-この方針なら、今ある構造を壊さずに「小学校の痛み」「中学の急変」「高校の可能性」を順番に足していける。
+### 変更しない既存処理
+
+- `_get_stage_lock_message()` — MapTravelPanel 側でロジックを参照（当面は複製）
+- `_load_stage()` — そのまま利用
+- `_toggle_pause()` — 移動時に呼び出す
+
+---
+
+## 実装ステップ（推奨順）
+
+1. `MapCanvas.gd`（extends Control）を新規作成 — `_draw()` でエリア・エッジ・ノードを描画
+2. `MapTravelPanel.gd` を新規作成 — データ定数、ボタン動的生成、`travel_requested` シグナル
+3. `MapTravelPanel.tscn` を新規作成（構成は上記シーン構成に従う）
+4. `MainScene.gd` の `pause_fast_travel_panel` を `MapTravelPanel` に差し替え
+5. `MainScene.gd` の `_rebuild_fast_travel_panel()` → `map_panel._build_map()` 呼び出しに変更
+6. `travel_requested` シグナルを `_on_fast_travel_pressed` と接続して移動処理を再利用
+7. 動作確認・ポーズメニューのレイアウト調整
+
+---
+
+## 未決事項
+
+- マップキャンバスの最終サイズ（ポーズメニュー全体のレイアウト次第）
+- ノードアイコン（絵文字 Label / 独自描画 / 画像）
+- 高校・その他施設ノードの追加タイミングと配置
+- エッジ線の形状（直線 / 折れ線 / カーブ）
+- ロックノードのツールチップ（理由文の表示方法）

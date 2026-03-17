@@ -397,7 +397,11 @@ func _on_next_pressed() -> void:
         global.pending_term_choice = false
         global.term_hotspot_flags = {}
         global.term_memory_note = ""
+        # 成長記録の開始点を 0cm として記録（グラフが0スタートになるよう）
+        var actual_height: float = global.current_params["height"]
+        global.current_params["height"] = 0.0
         global.record_growth_history("start")
+        global.current_params["height"] = actual_height
         global.visited_stages = {}
         global.experienced_events = []
         global.lock_initial_state()

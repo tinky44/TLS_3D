@@ -1,5 +1,6 @@
 class_name CharacterPoseCalculator
 extends RefCounted
+const WALK_AMP_DEG := 12.0
 
 # キャラクターの各種骨格位置や角度を計算して返す
 
@@ -29,7 +30,7 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
     var knee_r = 0.1
     var waist_angle = 0.0
 
-    var walk_amp = 12.0 if is_walking else 0.0
+    var walk_amp = WALK_AMP_DEG if is_walking else 0.0
     leg_l_angle = walk_amp * sin(walk_phase)
     # is_leg_pain 時は右脚の振幅を 0.3 倍（ひきずり歩き）
     leg_r_angle = (walk_amp * 0.3 if is_leg_pain else walk_amp) * sin(walk_phase + PI)
@@ -138,9 +139,12 @@ static func calculate_pose_data(player: Node, m: Dictionary, p: float) -> Dictio
         arm_l_angle = base_arm - walk_amp * 0.4 * sin(walk_phase)
         arm_r_angle = base_arm - walk_amp * 0.4 * sin(walk_phase + PI)
         
-        var dy1 = thigh_l * cos(leg_l_angle * PI / 180) + shin_l * cos(leg_l_angle * PI / 180 + knee_l)
-        var dy2 = thigh_l * cos(leg_r_angle * PI / 180) + shin_l * cos(leg_r_angle * PI / 180 + knee_r)
-        y_crotch = - max(dy1, dy2)
+        # y_crotch は歩行スウィング成分を除いた基準角度で計算する。
+        # 歩行フェーズ込みの leg_*_angle を使うと腰が上下にブレて
+        # 「滑るように見える」バグが発生するため。
+        var base_leg_rad = base_leg * PI / 180.0
+        var dy_base = thigh_l * cos(base_leg_rad) + shin_l * cos(base_leg_rad + knee_l)
+        y_crotch = -dy_base
     else:
         var stress_pose: float = stress_ratio * (0.35 if is_walking else 1.0)
         waist_angle = 0.20 * stress_pose
@@ -240,6 +244,48 @@ static func _eval_crouch_height(t: float, p: float, th: float, sh: float, wl: fl
     var hd_radius = hh * 0.5 * cos(w * 0.5)
     
     return (th + sh) - crotch_y + tor_h + neck_h + hd_radius
+
+# 現在の visual_height_cm から屈み深さ l_fac を逆算する
+# l_fac = 0.0: 直立 / l_fac > 0: 屈み深さ
+# walk_phase の速度補正に使う用途向け
+static func get_l_fac(visual_height_cm: float, m: Dictionary, p: float) -> float:
+    if m.is_empty() or visual_height_cm >= float(m.get("height", 0.0)) - 0.1:
+        return 0.0
+    var thigh_l = (m["leg"] * 0.55) * p
+    var shin_l  = (m["leg"] * 0.45) * p
+    var navel_l = (m["arm"] * 0.40) * p
+    var chest_l = (m["arm"] * 0.60) * p
+    var head_h  = m["head"] * p
+    var target_px = visual_height_cm * p
+    var min_t = 0.0
+    var max_t = 2.0
+    for _i in range(15):
+        var mid_t = (min_t + max_t) / 2.0
+        var hp = _eval_crouch_height(mid_t, p, thigh_l, shin_l, navel_l, chest_l, head_h, m)
+        if hp > target_px: min_t = mid_t
+        else: max_t = mid_t
+    return _get_crouch_params((min_t + max_t) / 2.0)["l"]
+
+static func get_crouch_stride_ratio(visual_height_cm: float, m: Dictionary, p: float) -> float:
+    if m.is_empty():
+        return 1.0
+    var body_height = float(m.get("height", 0.0))
+    if visual_height_cm >= body_height - 0.1:
+        return 1.0
+
+    var thigh_l = float(m["leg"]) * 0.55 * p
+    var shin_l = float(m["leg"]) * 0.45 * p
+    var foot_h = body_height * p / 20.0
+    var shin_draw = maxf(shin_l - foot_h, 0.0)
+    var normal_stride = thigh_l + shin_draw * cos(0.1)
+    if normal_stride <= 0.0:
+        return 1.0
+
+    var l_fac = get_l_fac(visual_height_cm, m, p)
+    var base_leg_rad = deg_to_rad(-100.0 * l_fac)
+    var knee_rad = PI * 0.7 * l_fac
+    var crouch_stride = thigh_l * cos(base_leg_rad) + shin_draw * cos(base_leg_rad + knee_rad)
+    return clampf(crouch_stride / normal_stride, 0.0, 1.0)
 
 # 各関節の終点座標を計算するヘルパー
 static func rotated_point(px: float, py: float, length: float, rad: float) -> Vector2:

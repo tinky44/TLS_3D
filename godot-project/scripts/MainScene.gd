@@ -22,7 +22,7 @@ var stage_title_label: Label
 # ポーズメニュー用
 var pause_menu: Control
 var pause_save_label: Label
-var pause_fast_travel_panel: VBoxContainer
+var pause_fast_travel_panel: Control
 
 # ステージ遷移用
 var _nearby_transition_door: String = ""
@@ -46,6 +46,12 @@ var history_panel: Control
 var history_header_label: Label
 var growth_graph: Control
 var bump_alert_label: Label
+var achievement_popup: Control
+var achievement_viewer: Control
+var _ach_name_label: Label
+var _ach_popup_panel: PanelContainer
+var _ach_popup_queue: Array = []
+var _ach_popup_showing: bool = false
 var _bump_alert_time_left: float = 0.0
 var mood_feedback_label: Label
 var _mood_feedback_time_left: float = 0.0
@@ -115,6 +121,7 @@ const TERM_HOTSPOT_ORDER = [
 	"gymnasium_basket",
 	"randoseru_farewell",
 	"schoolyard_tease",
+	"bookshelf_interact",
 ]
 const TERM_HOTSPOTS: Dictionary = {
 	"home_mirror": {
@@ -218,7 +225,14 @@ const TERM_HOTSPOTS: Dictionary = {
 		"stress_delta": 2,
 		"feedback": "視線を感じる場所では少し気を張ってしまう",
 		"memory_note": "校庭の遊具の近くで、男子に声をかけられた。"
-	}
+	},
+	"bookshelf_interact": {
+		"stage_id": "myroom",
+		"obs_id": "bookshelf",
+		"prompt": "本棚を調べる",
+		"repeatable": true,
+		"custom_action": "open_achievements",
+	},
 }
 
 const STRESS_PREFIX_KEYS: Array[String] = ["default", "tall", "huge", "check"]
@@ -256,24 +270,24 @@ const NPC_STRESS_OPENERS: Dictionary = {
 }
 const STRESS_IDLE_MONOLOGUES: Dictionary = {
 	"home": {
-		"low": "家の中なら、少し肩の力を抜けそう。",
-		"mid": "今日は家で整えたい。無理に背筋を張らなくていい。",
-		"high": "今日は人の目より、自分を休ませるほうを優先しよう。",
+		"low": "家の中では、ちょっと気が楽だ。",
+		"mid": "家ではゆっくりしたい。外みたいに背筋を張らなくていい。",
+		"high": "今日は疲れた。少し横になりたい。",
 	},
 	"school": {
-		"low": "学校でも、少しずつ居場所を作れる気がする。",
-		"mid": "教室に入る前に、一度呼吸を整えたい。",
-		"high": "このまま抱え込むのはきつい。はるかか保健室を頼ろう。",
+		"low": "今日は授業に集中できそう。",
+		"mid": "教室に入る前に、少し深呼吸しよう。",
+		"high": "しんどい。はるかか保健室に声をかけよう。",
 	},
 	"station": {
-		"low": "外は落ち着かないけど、歩き方は自分で選べる。",
-		"mid": "視線は気になる。まずは人の流れから少し外れよう。",
-		"high": "今は人波が重い。ベンチで呼吸を整えてから動こう。",
+		"low": "混んでるけど、まあ大丈夫。",
+		"mid": "視線が気になる。人の波を少し外れたい。",
+		"high": "人が多くて疲れてきた。ベンチで休もう。",
 	},
 	"default": {
-		"low": "今日の背丈で、今日の過ごし方を選んでいこう。",
-		"mid": "少し気持ちが揺れてる。急がず整えていこう。",
-		"high": "今日は張りつめすぎてる。ひとつずつ、楽になれる方を選ぼう。",
+		"low": "今日はわりと落ち着いてる。",
+		"mid": "少し気持ちが揺れてる。ゆっくり行こう。",
+		"high": "気持ちが張りつめてる。少し休まないと。",
 	},
 }
 
@@ -305,6 +319,7 @@ func _ready() -> void:
 	_setup_measurement_panel()
 	_setup_sleep_menu()
 	_setup_term_choice_panel()
+	_setup_achievement_popup()
 	_load_stage()
 
 func _setup_appearance_debug(vbox: VBoxContainer) -> void:
@@ -837,6 +852,14 @@ func _build_dialogue_sequence(npc_id: String, key: String) -> Array:
 		return base_lines
 	if not STRESS_PREFIX_KEYS.has(key):
 		return base_lines
+	# 初対面（first_meet相当）のキーには感情openerを追加しない
+	if key == "first_meet":
+		return base_lines
+	# Globalで面識なしのNPCには感情openerを追加しない
+	var global = get_node_or_null("/root/Global")
+	if global and npc_id != "" and npc_id != "generic":
+		if not global.met_npcs.has(npc_id):
+			return base_lines
 	var opener: Dictionary = _get_stress_dialogue_opener(npc_id)
 	if opener.is_empty():
 		return base_lines
@@ -916,17 +939,17 @@ func _get_term_reflection_text(global: Node) -> String:
 	match stage_bucket:
 		"home":
 			if balance >= 0:
-				return "家で少し力を抜けたぶん、次の学期もやっていけそうな気がする。"
-			return "家にいても落ち着ききれなかった。次は休み方をもう少し探したい。"
+				return "家でゆっくりできたから、次の学期も何とかなりそう。"
+			return "家にいてもなんとなく落ち着けなかった。次は早めに休みたい。"
 		"school":
 			if balance >= 0:
-				return "学校で揺れながらも、前より少しだけ自分の高さを受け止められている。"
-			return "学校ではまだ気持ちが揺れやすい。それでも残った出来事は次につながっていく。"
+				return "色々あったけど、以前よりは学校に慣れてきた気がする。"
+			return "学校はまだしんどい。でも来学期も行くしかない。"
 		"station":
 			if balance >= 0:
-				return "人の多い場所でも、前より自分の居場所を見失わずにいられた。"
-			return "人の視線に気持ちは揺れたけれど、その感覚ももう無視できない自分の一部だ。"
-	return "今学期の出来事が少しずつ積み重なって、次の気持ちの置き場を作っていく。"
+				return "人の多い場所も、だんだんやり過ごせるようになってきた。"
+			return "視線が気になるのはいつも通りだった。ベンチで一息つけただけよかった。"
+	return "今学期も色々あった。来学期はもう少し楽になるといいな。"
 
 func _get_term_hotspot_id_for_obstacle(obs_id: String) -> String:
 	var global = get_node_or_null("/root/Global")
@@ -1097,11 +1120,29 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 				drawer.queue_redraw()
 	global.save_settings()
 	_nearby_term_hotspot = ""
+	# カスタムアクション（ダイアログを使わない特殊処理）
+	var custom_action: String = String(hotspot_data.get("custom_action", ""))
+	if custom_action == "open_achievements":
+		if not global.has_story_flag("bookshelf_checked"):
+			global.set_story_flag("bookshelf_checked")
+		_open_achievement_viewer()
+		return
 	# セリフは初回のみ（repeatable なホットスポットの2回目以降はスキップ）
 	if not already_done:
 		_start_dialogue(
 			String(hotspot_data.get("dialogue_npc", "player")),
 			String(hotspot_data.get("dialogue_key", "default"))
+		)
+	elif pose_name != "" and pose_name != "chair_sit":
+		# ダイアログなしで pose を適用した場合、0.8秒後に自動復帰してフリーズを防ぐ
+		var _saved_pose := _dialogue_restore_pose
+		_dialogue_restore_pose = ""
+		get_tree().create_timer(0.8, true).timeout.connect(func():
+			if player and is_instance_valid(player) and String(player.pose) == pose_name:
+				if player.has_method("set_pose_immediately"):
+					player.call("set_pose_immediately", _saved_pose if _saved_pose != "" else "normal")
+				else:
+					player.pose = _saved_pose if _saved_pose != "" else "normal"
 		)
 
 func _do_standup() -> void:
@@ -1356,6 +1397,8 @@ func _end_dialogue() -> void:
 	elif _should_run_school_day_transition(global):
 		call_deferred("_run_school_day_transition")
 
+	if global:
+		global._check_all_achievements()
 	if should_show_term_choice:
 		call_deferred("_show_term_choice_panel")
 
@@ -1409,8 +1452,7 @@ func _run_school_day_transition() -> void:
 	intro_tween.tween_property(text_label, "modulate:a", 0.0, 0.2)
 	await intro_tween.finished
 
-	global.current_stage_id = "school_hallway"
-	_load_stage()
+	# 放課後はイベント開始前の位置にとどまる（ステージ変更なし）
 
 	text_label.text = "帰り道のことを考える。"
 	var outro_tween := create_tween()
@@ -2065,6 +2107,14 @@ func _setup_pause_menu() -> void:
 	pause_save_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_vbox.add_child(pause_save_label)
 	
+	var skip_term_btn = Button.new()
+	skip_term_btn.text = "学期をスキップ"
+	skip_term_btn.custom_minimum_size = Vector2(250, 50)
+	skip_term_btn.add_theme_font_size_override("font_size", 18)
+	skip_term_btn.focus_mode = Control.FOCUS_NONE
+	skip_term_btn.pressed.connect(_on_skip_term_pressed)
+	left_vbox.add_child(skip_term_btn)
+
 	var title_btn = Button.new()
 	title_btn.text = "タイトルに戻る"
 	title_btn.custom_minimum_size = Vector2(250, 50)
@@ -2072,7 +2122,7 @@ func _setup_pause_menu() -> void:
 	title_btn.focus_mode = Control.FOCUS_NONE
 	title_btn.pressed.connect(_on_title_pressed)
 	left_vbox.add_child(title_btn)
-	
+
 	var quit_btn = Button.new()
 	quit_btn.text = "ゲームを終了する"
 	quit_btn.custom_minimum_size = Vector2(250, 50)
@@ -2095,9 +2145,9 @@ func _setup_pause_menu() -> void:
 	right_panel.add_theme_stylebox_override("panel", right_style)
 	hbox.add_child(right_panel)
 
-	pause_fast_travel_panel = VBoxContainer.new()
-	pause_fast_travel_panel.add_theme_constant_override("separation", 10)
-	pause_fast_travel_panel.custom_minimum_size = Vector2(280, 0)
+	pause_fast_travel_panel = load("res://scripts/MapTravelPanel.gd").new()
+	pause_fast_travel_panel.custom_minimum_size = Vector2(280, 430)
+	pause_fast_travel_panel.travel_requested.connect(_on_fast_travel_pressed)
 	right_panel.add_child(pause_fast_travel_panel)
 	_rebuild_fast_travel_panel()
 	
@@ -2106,49 +2156,12 @@ func _setup_pause_menu() -> void:
 func _rebuild_fast_travel_panel() -> void:
 	if not is_instance_valid(pause_fast_travel_panel):
 		return
-	for child in pause_fast_travel_panel.get_children():
-		child.queue_free()
-
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return
-
 	var current_stage_id: String = String(global.current_stage_id)
 	var age_value: int = int(global.age)
-	var current_stage_name: String = StageBuilder.get_stage_name(current_stage_id, age_value)
-
-	var title = Label.new()
-	title.text = "地図（ファストトラベル）"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
-	pause_fast_travel_panel.add_child(title)
-
-	var current = Label.new()
-	current.text = "現在地: %s" % current_stage_name
-	current.add_theme_font_size_override("font_size", 14)
-	current.add_theme_color_override("font_color", Color(0.74, 0.84, 0.96))
-	pause_fast_travel_panel.add_child(current)
-
-	pause_fast_travel_panel.add_child(HSeparator.new())
-
-	for entry in FAST_TRAVEL_STAGES:
-		var stage_id: String = _resolve_stage_id(String(entry.get("id", "")))
-		if stage_id == "" or not StageBuilder.STAGES.has(stage_id):
-			continue
-		var btn = Button.new()
-		btn.text = String(entry.get("label", stage_id))
-		btn.custom_minimum_size = Vector2(250, 42)
-		btn.focus_mode = Control.FOCUS_NONE
-		var lock_msg: String = _get_stage_lock_message(stage_id)
-		if stage_id == current_stage_id:
-			btn.disabled = true
-			btn.tooltip_text = "今いる場所"
-		elif lock_msg != "":
-			btn.disabled = true
-			btn.tooltip_text = lock_msg
-		else:
-			btn.pressed.connect(_on_fast_travel_pressed.bind(stage_id))
-		pause_fast_travel_panel.add_child(btn)
+	pause_fast_travel_panel.refresh(current_stage_id, age_value)
 
 func _on_fast_travel_pressed(stage_id: String) -> void:
 	var global = get_node_or_null("/root/Global")
@@ -2337,7 +2350,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("ui_cancel"): # デフォルトでESCキー
-		_toggle_pause()
+		if achievement_viewer and is_instance_valid(achievement_viewer) and achievement_viewer.visible:
+			achievement_viewer.hide()
+			get_tree().paused = false
+		else:
+			_toggle_pause()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if _in_dialogue and _choice_pending:
 			if event.is_action_pressed("ui_up"):
@@ -2452,6 +2469,20 @@ func _on_quit_pressed() -> void:
 		JavaScriptBridge.eval("window.location.replace(new URL('./', window.location.href).toString());")
 	else:
 		get_tree().quit()
+
+func _on_skip_term_pressed() -> void:
+	# ポーズメニューを閉じて学期をスキップする
+	_toggle_pause()
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	# 学期末測定イベントをキューに積む（term_end_measurementと同じ流れ）
+	if not global.has_pending_event("term_end_measurement"):
+		global.queue_event("term_end_measurement")
+	global.current_stage_id = "myroom"
+	if player and player.has_method("update_measurements"):
+		player.call("update_measurements")
+	_load_stage()
 
 func _update_actions_hud() -> void:
 	if not action_label:
@@ -2622,6 +2653,10 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			_defer_pending_stage_event(global, ev)
 			return false
 	elif ev == "npc_talk_veryhuge":
+		# 家の中では街のNPCのつぶやきは発火しない
+		if stage_id == "room" or stage_id == "myroom":
+			_defer_pending_stage_event(global, ev)
+			return false
 		await get_tree().create_timer(0.35).timeout
 		_start_dialogue("generic", "npc_talk_veryhuge")
 		return true
@@ -2729,11 +2764,19 @@ func _load_stage():
 		if cam:
 			var stage_width_px := int(float(StageBuilder.STAGES[stage_id]["width"]) * p) if StageBuilder.STAGES.has(stage_id) else 0
 			var m = player.get("m")
+			var ceiling_h = StageBuilder.STAGES[stage_id].get("ceiling_height", null) if StageBuilder.STAGES.has(stage_id) else null
+			var is_gym: bool = stage_id == "gymnasium" or StageBuilder.is_gymnasium_stage(stage_id)
+			var is_schoolyard: bool = stage_id == "schoolyard" or StageBuilder.is_schoolyard_stage(stage_id)
 			if m and m.has("height"):
 				cam.offset = Vector2(0, -m["height"] * p * 0.4)
+			# 体育館・校庭: zoom アウトで視野を広げる。limit_bottom が上端を適切に固定する
+			var should_zoom_out: bool = (is_gym and ceiling_h != null) or is_schoolyard
+			cam.zoom = Vector2(0.75, 0.75) if should_zoom_out else Vector2(1.0, 1.0)
 			cam.limit_left = 0
 			cam.limit_right = stage_width_px
-			cam.limit_bottom = 250
+			# zoom=0.75 時: limit_bottom=333 → 上端が約420cm（840px）に固定される
+			# 計算: top = limit_bottom - viewport_height_world = 333 - (880/0.75) ≈ -840px
+			cam.limit_bottom = 333 if should_zoom_out else 250
 		var bump_handler := Callable(self, "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)
@@ -3399,6 +3442,251 @@ func _on_next_term_pressed() -> void:
 	if global:
 		mono_key = _get_term_intro_dialogue_key(int(global.age), int(global.term))
 	_start_dialogue("player", mono_key)
+
+func _setup_achievement_popup() -> void:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+
+	achievement_popup = Control.new()
+	achievement_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
+	achievement_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var panel = PanelContainer.new()
+	panel.name = "Panel"
+	panel.set_anchor(SIDE_LEFT, 1.0)
+	panel.set_anchor(SIDE_TOP, 1.0)
+	panel.set_anchor(SIDE_RIGHT, 1.0)
+	panel.set_anchor(SIDE_BOTTOM, 1.0)
+	panel.offset_left = -288
+	panel.offset_top = -76
+	panel.offset_right = -12
+	panel.offset_bottom = -12
+	panel.modulate.a = 0.0
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.15, 0.92)
+	style.border_width_left = 3
+	style.border_color = Color(0.8, 0.7, 0.3)
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", style)
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 10)
+	panel.add_child(hbox)
+
+	var icon_label = Label.new()
+	icon_label.name = "IconLabel"
+	icon_label.text = "★"
+	icon_label.add_theme_font_size_override("font_size", 20)
+	icon_label.add_theme_color_override("font_color", Color(0.9, 0.75, 0.2))
+	hbox.add_child(icon_label)
+
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(vbox)
+
+	var title_label = Label.new()
+	title_label.text = "実績解除！"
+	title_label.add_theme_font_size_override("font_size", 11)
+	title_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.3))
+	vbox.add_child(title_label)
+
+	_ach_name_label = Label.new()
+	_ach_name_label.add_theme_font_size_override("font_size", 14)
+	_ach_name_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	vbox.add_child(_ach_name_label)
+
+	_ach_popup_panel = panel
+	achievement_popup.add_child(panel)
+	ui_layer.add_child(achievement_popup)
+
+	global.achievement_unlocked.connect(_on_achievement_unlocked)
+	# ロード直後に既存実績を再チェック（旧セーブデータ対応）
+	global._check_all_achievements()
+
+func _on_achievement_unlocked(id: String) -> void:
+	_ach_popup_queue.append(id)
+	if not _ach_popup_showing:
+		_show_next_achievement_popup()
+
+func _show_next_achievement_popup() -> void:
+	if _ach_popup_queue.is_empty():
+		_ach_popup_showing = false
+		return
+	_ach_popup_showing = true
+	var id: String = _ach_popup_queue.pop_front()
+	const AchDB = preload("res://scripts/AchievementDatabase.gd")
+	if not AchDB.ACHIEVEMENTS.has(id):
+		_show_next_achievement_popup()
+		return
+	var def: Dictionary = AchDB.ACHIEVEMENTS[id]
+	if not _ach_name_label or not is_instance_valid(_ach_name_label):
+		_ach_popup_showing = false
+		return
+	_ach_name_label.text = String(def.get("name", ""))
+
+	if not _ach_popup_panel or not is_instance_valid(_ach_popup_panel):
+		_ach_popup_showing = false
+		return
+	var tween = create_tween()
+	tween.tween_property(_ach_popup_panel, "modulate:a", 1.0, 0.3)
+	tween.tween_interval(2.3)
+	tween.tween_property(_ach_popup_panel, "modulate:a", 0.0, 0.3)
+	tween.finished.connect(_show_next_achievement_popup, CONNECT_ONE_SHOT)
+
+func _open_achievement_viewer() -> void:
+	if achievement_viewer and is_instance_valid(achievement_viewer):
+		_refresh_achievement_viewer()
+		achievement_viewer.show()
+		get_tree().paused = true
+		return
+	_setup_achievement_viewer()
+	achievement_viewer.show()
+	get_tree().paused = true
+
+func _setup_achievement_viewer() -> void:
+	achievement_viewer = ColorRect.new()
+	(achievement_viewer as ColorRect).color = Color(0, 0, 0, 0.75)
+	achievement_viewer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	achievement_viewer.hide()
+	achievement_viewer.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	achievement_viewer.add_child(center)
+
+	var panel = PanelContainer.new()
+	panel.custom_minimum_size = Vector2(540, 480)
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.12, 0.18)
+	style.border_width_left = 2
+	style.border_width_right = 2
+	style.border_width_top = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.4, 0.35, 0.2)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
+	panel.add_theme_stylebox_override("panel", style)
+	center.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	panel.add_child(vbox)
+
+	var title_label = Label.new()
+	title_label.text = "実績一覧"
+	title_label.add_theme_font_size_override("font_size", 20)
+	title_label.add_theme_color_override("font_color", Color(0.9, 0.82, 0.5))
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_label)
+
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(500, 380)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
+
+	var grid = VBoxContainer.new()
+	grid.name = "AchGrid"
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("separation", 6)
+	scroll.add_child(grid)
+
+	var close_hint = Label.new()
+	close_hint.text = "[ESC] 閉じる"
+	close_hint.add_theme_font_size_override("font_size", 12)
+	close_hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	close_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(close_hint)
+
+	ui_layer.add_child(achievement_viewer)
+	_refresh_achievement_viewer()
+
+func _refresh_achievement_viewer() -> void:
+	if not achievement_viewer:
+		return
+	var grid = achievement_viewer.find_child("AchGrid", true, false)
+	if not grid:
+		return
+	for child in grid.get_children():
+		child.queue_free()
+
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	const AchDB = preload("res://scripts/AchievementDatabase.gd")
+
+	for id in AchDB.ACHIEVEMENTS:
+		var def: Dictionary = AchDB.ACHIEVEMENTS[id]
+		var unlocked: bool = id in global.achievements_unlocked
+
+		var row = PanelContainer.new()
+		var row_style = StyleBoxFlat.new()
+		if unlocked:
+			row_style.bg_color = Color(0.18, 0.22, 0.18, 0.9)
+			row_style.border_color = Color(0.3, 0.5, 0.3)
+		else:
+			row_style.bg_color = Color(0.15, 0.15, 0.15, 0.6)
+			row_style.border_color = Color(0.3, 0.3, 0.3)
+		row_style.border_width_left = 2
+		row_style.content_margin_left = 10
+		row_style.content_margin_right = 10
+		row_style.content_margin_top = 6
+		row_style.content_margin_bottom = 6
+		row_style.corner_radius_top_left = 4
+		row_style.corner_radius_top_right = 4
+		row_style.corner_radius_bottom_left = 4
+		row_style.corner_radius_bottom_right = 4
+		row.add_theme_stylebox_override("panel", row_style)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(row)
+
+		var hbox = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 10)
+		row.add_child(hbox)
+
+		var icon_lbl = Label.new()
+		icon_lbl.text = "★" if unlocked else "…"
+		icon_lbl.add_theme_font_size_override("font_size", 16)
+		icon_lbl.add_theme_color_override("font_color",
+			Color(0.9, 0.75, 0.2) if unlocked else Color(0.4, 0.4, 0.4))
+		icon_lbl.custom_minimum_size = Vector2(22, 0)
+		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hbox.add_child(icon_lbl)
+
+		var text_vbox = VBoxContainer.new()
+		text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(text_vbox)
+
+		var name_lbl = Label.new()
+		name_lbl.text = String(def.get("name", ""))
+		name_lbl.add_theme_font_size_override("font_size", 14)
+		name_lbl.add_theme_color_override("font_color",
+			Color(1.0, 1.0, 1.0) if unlocked else Color(0.6, 0.6, 0.6))
+		text_vbox.add_child(name_lbl)
+
+		var desc_lbl = Label.new()
+		desc_lbl.text = String(def.get("desc", "")) if unlocked else "???"
+		desc_lbl.add_theme_font_size_override("font_size", 11)
+		desc_lbl.add_theme_color_override("font_color",
+			Color(0.7, 0.7, 0.7) if unlocked else Color(0.4, 0.4, 0.4))
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text_vbox.add_child(desc_lbl)
 
 func _setup_history_panel() -> void:
 	if history_panel:

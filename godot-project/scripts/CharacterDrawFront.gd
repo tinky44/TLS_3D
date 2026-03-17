@@ -80,11 +80,13 @@ static func draw(ctx: DrawContext) -> void:
 	var arm_skin = skin_color if facing == "front" else skin_dark
 	var arm_shirt = base_shirt_color if facing == "front" else shirt_dark
 
-	var f_arm_l_ang = 0.12 + (d["arm_l_angle"] * 0.3) * PI / 180 + PI / 2
+	# reach_up は腕を大きく上げるため係数を拡大（通常 0.3 → 0.8）
+	var arm_ang_factor := 0.8 if ctx.pose == "reach_up" else 0.3
+	var f_arm_l_ang = 0.12 + (d["arm_l_angle"] * arm_ang_factor) * PI / 180 + PI / 2
 	var p_elb_l = CharacterPoseCalculator.rotated_point(p_sh_l.x, p_sh_l.y, u_arm, f_arm_l_ang)
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, f_arm_l_ang)
 
-	var f_arm_r_ang = -0.12 + (d["arm_r_angle"] * 0.3) * PI / 180 + PI / 2
+	var f_arm_r_ang = -0.12 + (d["arm_r_angle"] * arm_ang_factor) * PI / 180 + PI / 2
 	var p_elb_r = CharacterPoseCalculator.rotated_point(p_sh_r.x, p_sh_r.y, u_arm, f_arm_r_ang)
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, f_arm_r_ang)
 

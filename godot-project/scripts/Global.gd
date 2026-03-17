@@ -79,6 +79,11 @@ var initial_appearance: Dictionary = {}  # キャラメイク確定時の外見�
 var visited_stages: Dictionary = {}      # {stage_id: true} 全プレイを通じて訪れた場所
 var experienced_events: Array = []       # 体験済みイベントID一覧
 
+# ─── 実績 ───────────────────────────────────────────────────────
+const AchievementDatabase = preload("res://scripts/AchievementDatabase.gd")
+var achievements_unlocked: Array = []
+signal achievement_unlocked(id: String)
+
 # コアNPCの定義
 var core_npcs: Dictionary = {
 	"haruka": {
@@ -89,7 +94,7 @@ var core_npcs: Dictionary = {
 		"is_student": true,
 		"greet_events": [
 			"ねえ、最近また伸びた？",
-			"一緒に歩くとすぐ見つけられるね。",
+			"人混みでもすぐ分かるよ、頭が出てるから。",
 			"今日も目線、高いなあ。"
 		],
 		"appearance": {
@@ -218,6 +223,7 @@ func is_first_visit(stage_id: String) -> bool:
 func record_event(event_id: String) -> void:
 	if not event_id in experienced_events:
 		experienced_events.append(event_id)
+		_check_all_achievements()
 
 func _ensure_growth_history() -> void:
 	if growth_history.is_empty():
@@ -264,8 +270,42 @@ func set_story_phase(story_id: String, phase: int) -> void:
 func has_story_flag(flag_id: String) -> bool:
 	return bool(story_flags.get(flag_id, false))
 
+func unlock_achievement(id: String) -> bool:
+	if id in achievements_unlocked:
+		return false
+	achievements_unlocked.append(id)
+	achievement_unlocked.emit(id)
+	return true
+
+func _check_all_achievements() -> void:
+	for id in AchievementDatabase.ACHIEVEMENTS:
+		if id in achievements_unlocked:
+			continue
+		var def: Dictionary = AchievementDatabase.ACHIEVEMENTS[id]
+		var trigger: String = String(def.get("trigger", ""))
+		var unlocked := false
+		match trigger:
+			"height":
+				unlocked = float(current_params.get("height", 0.0)) >= float(def.get("value", 0.0))
+			"age":
+				unlocked = age >= int(def.get("value", 0))
+			"story_flag":
+				unlocked = has_story_flag(String(def.get("key", "")))
+			"experienced":
+				unlocked = has_experienced_event(String(def.get("key", "")))
+			"bool_var":
+				unlocked = bool(get(String(def.get("key", ""))))
+			"vball_phase":
+				unlocked = vball_story_phase >= int(def.get("phase", 0))
+			"met_npc":
+				unlocked = String(def.get("key", "")) in met_npcs
+		if unlocked:
+			unlock_achievement(id)
+
 func set_story_flag(flag_id: String, value: bool = true) -> void:
 	story_flags[flag_id] = value
+	if value:
+		_check_all_achievements()
 
 func has_story_term_flag(flag_id: String) -> bool:
 	return bool(story_term_flags.get(flag_id, false))
@@ -409,6 +449,7 @@ func advance_term() -> void:
 	)
 	term_hotspot_flags = {}
 	term_memory_note = ""
+	_check_all_achievements()
 
 func get_avg_height(a: int) -> float:
 	return AVG_HEIGHT_FEMALE.get(clamp(a, 3, 18), 158.5)
@@ -597,6 +638,8 @@ func load_settings():
 		story_phases = sp if sp is Dictionary else {}
 		var stf: Variant = config.get_value("Player", "story_term_flags", story_term_flags)
 		story_term_flags = stf if stf is Dictionary else {}
+		var ach_value: Variant = config.get_value("Player", "achievements_unlocked", [])
+		achievements_unlocked = ach_value if ach_value is Array else []
 		for key in current_appearance.keys():
 			current_appearance[key] = config.get_value("Appearance", key, current_appearance[key])
 		for key in system_settings.keys():
@@ -633,6 +676,7 @@ func save_settings():
 	config.set_value("Player", "story_flags", story_flags.duplicate(true))
 	config.set_value("Player", "story_phases", story_phases.duplicate(true))
 	config.set_value("Player", "story_term_flags", story_term_flags.duplicate(true))
+	config.set_value("Player", "achievements_unlocked", achievements_unlocked.duplicate())
 	for key in current_appearance.keys():
 		config.set_value("Appearance", key, current_appearance[key])
 	for key in system_settings.keys():
@@ -674,6 +718,7 @@ func save_slot(slot: int) -> void:
 	config.set_value(section, "story_flags", story_flags.duplicate(true))
 	config.set_value(section, "story_phases", story_phases.duplicate(true))
 	config.set_value(section, "story_term_flags", story_term_flags.duplicate(true))
+	config.set_value(section, "achievements_unlocked", achievements_unlocked.duplicate())
 	config.set_value(section, "timestamp", Time.get_datetime_string_from_system())
 	for key in current_appearance.keys():
 		config.set_value(section, "appearance_" + key, current_appearance[key])
@@ -751,6 +796,8 @@ func load_slot(slot: int) -> bool:
 	story_phases = sp if sp is Dictionary else {}
 	var stf: Variant = config.get_value(section, "story_term_flags", {})
 	story_term_flags = stf if stf is Dictionary else {}
+	var ach_slot_value: Variant = config.get_value(section, "achievements_unlocked", [])
+	achievements_unlocked = ach_slot_value if ach_slot_value is Array else []
 	current_slot = slot
 	return true
 
