@@ -1007,7 +1007,10 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 		if memory_note != "":
 			global.append_term_memory_note(memory_note)
 	var pose_name: String = String(hotspot_data.get("pose", ""))
-	if pose_name != "" and player:
+	# already_done の repeatable ホットスポットでは chair_sit 以外のポーズを適用しない。
+	# reach_up / reach_low 等は復帰手段がなくキャラが動けなくなるため。
+	var should_apply_pose: bool = (not already_done) or (pose_name == "chair_sit")
+	if pose_name != "" and player and should_apply_pose:
 		_dialogue_restore_pose = String(player.pose)
 		# chair_sit の場合は座面・机の高さを sit_context にセット、机を前面表示
 		if pose_name == "chair_sit" and player.get("sit_context") != null:
