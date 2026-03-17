@@ -22,7 +22,7 @@ var stage_title_label: Label
 # ポーズメニュー用
 var pause_menu: Control
 var pause_save_label: Label
-var pause_fast_travel_panel: VBoxContainer
+var pause_fast_travel_panel: Control
 
 # ステージ遷移用
 var _nearby_transition_door: String = ""
@@ -2145,9 +2145,9 @@ func _setup_pause_menu() -> void:
 	right_panel.add_theme_stylebox_override("panel", right_style)
 	hbox.add_child(right_panel)
 
-	pause_fast_travel_panel = VBoxContainer.new()
-	pause_fast_travel_panel.add_theme_constant_override("separation", 10)
-	pause_fast_travel_panel.custom_minimum_size = Vector2(280, 0)
+	pause_fast_travel_panel = load("res://scripts/MapTravelPanel.gd").new()
+	pause_fast_travel_panel.custom_minimum_size = Vector2(280, 430)
+	pause_fast_travel_panel.travel_requested.connect(_on_fast_travel_pressed)
 	right_panel.add_child(pause_fast_travel_panel)
 	_rebuild_fast_travel_panel()
 	
@@ -2156,49 +2156,12 @@ func _setup_pause_menu() -> void:
 func _rebuild_fast_travel_panel() -> void:
 	if not is_instance_valid(pause_fast_travel_panel):
 		return
-	for child in pause_fast_travel_panel.get_children():
-		child.queue_free()
-
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return
-
 	var current_stage_id: String = String(global.current_stage_id)
 	var age_value: int = int(global.age)
-	var current_stage_name: String = StageBuilder.get_stage_name(current_stage_id, age_value)
-
-	var title = Label.new()
-	title.text = "地図（ファストトラベル）"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
-	pause_fast_travel_panel.add_child(title)
-
-	var current = Label.new()
-	current.text = "現在地: %s" % current_stage_name
-	current.add_theme_font_size_override("font_size", 14)
-	current.add_theme_color_override("font_color", Color(0.74, 0.84, 0.96))
-	pause_fast_travel_panel.add_child(current)
-
-	pause_fast_travel_panel.add_child(HSeparator.new())
-
-	for entry in FAST_TRAVEL_STAGES:
-		var stage_id: String = _resolve_stage_id(String(entry.get("id", "")))
-		if stage_id == "" or not StageBuilder.STAGES.has(stage_id):
-			continue
-		var btn = Button.new()
-		btn.text = String(entry.get("label", stage_id))
-		btn.custom_minimum_size = Vector2(250, 42)
-		btn.focus_mode = Control.FOCUS_NONE
-		var lock_msg: String = _get_stage_lock_message(stage_id)
-		if stage_id == current_stage_id:
-			btn.disabled = true
-			btn.tooltip_text = "今いる場所"
-		elif lock_msg != "":
-			btn.disabled = true
-			btn.tooltip_text = lock_msg
-		else:
-			btn.pressed.connect(_on_fast_travel_pressed.bind(stage_id))
-		pause_fast_travel_panel.add_child(btn)
+	pause_fast_travel_panel.refresh(current_stage_id, age_value)
 
 func _on_fast_travel_pressed(stage_id: String) -> void:
 	var global = get_node_or_null("/root/Global")
