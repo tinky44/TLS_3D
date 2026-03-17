@@ -1007,10 +1007,7 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 		if memory_note != "":
 			global.append_term_memory_note(memory_note)
 	var pose_name: String = String(hotspot_data.get("pose", ""))
-	# already_done の repeatable ホットスポットでは chair_sit 以外のポーズを適用しない。
-	# reach_up / reach_low 等は復帰手段がなくキャラが動けなくなるため。
-	var should_apply_pose: bool = (not already_done) or (pose_name == "chair_sit")
-	if pose_name != "" and player and should_apply_pose:
+	if pose_name != "" and player:
 		_dialogue_restore_pose = String(player.pose)
 		# chair_sit の場合は座面・机の高さを sit_context にセット、机を前面表示
 		if pose_name == "chair_sit" and player.get("sit_context") != null:
@@ -1113,6 +1110,17 @@ func _trigger_term_hotspot(hotspot_id: String) -> void:
 		_start_dialogue(
 			String(hotspot_data.get("dialogue_npc", "player")),
 			String(hotspot_data.get("dialogue_key", "default"))
+		)
+	elif pose_name != "" and pose_name != "chair_sit":
+		# ダイアログなしで pose を適用した場合、0.8秒後に自動復帰してフリーズを防ぐ
+		var _saved_pose := _dialogue_restore_pose
+		_dialogue_restore_pose = ""
+		get_tree().create_timer(0.8, true).timeout.connect(func():
+			if player and is_instance_valid(player) and String(player.pose) == pose_name:
+				if player.has_method("set_pose_immediately"):
+					player.call("set_pose_immediately", _saved_pose if _saved_pose != "" else "normal")
+				else:
+					player.pose = _saved_pose if _saved_pose != "" else "normal"
 		)
 
 func _do_standup() -> void:
