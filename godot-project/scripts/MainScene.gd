@@ -1417,7 +1417,7 @@ func _end_dialogue() -> void:
 			global.recorded_height = float(global.current_params["height"])
 			global.prev_height = prev_h
 			global.record_growth_history("measurement")
-		_show_measurement_result(false)
+		_show_measurement_result(false, true)
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "refrigerator_milk":
 		if global:
 			global.bonus_growth_cm += 1.0
@@ -3387,13 +3387,13 @@ func _update_mini_avatar(h_cm: float) -> void:
 	_mini_proxy.visual_height_cm = h_cm
 	_mini_drawer.queue_redraw()
 
-func _show_measurement_result(return_to_myroom: bool = false) -> void:
+func _show_measurement_result(return_to_myroom: bool = false, animate: bool = false) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
 
 	var h: float = global.current_params["height"]
 	var prev_h: float = global.prev_height
-	var animate_growth: bool = return_to_myroom and prev_h > 0.0 and absf(h - prev_h) > 0.01
+	var animate_growth: bool = (return_to_myroom or animate) and prev_h > 0.0 and absf(h - prev_h) > 0.01
 	var a: int = global.age
 	var avg_h: float = global.get_avg_height(a)
 	var diff_avg: float = h - avg_h
@@ -3413,7 +3413,7 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 
 	# 前回比ラベル
 	if prev_h > 0.0:
-		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev if return_to_myroom else "現在値（前回比 %+.1f cm）" % diff_prev
+		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev if (return_to_myroom or animate) else "現在値（前回比 %+.1f cm）" % diff_prev
 	else:
 		_meas_diff_label.text = "はじめての測定"
 
