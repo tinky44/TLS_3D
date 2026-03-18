@@ -1,278 +1,391 @@
-# 実績システム 設計書
+# 成長システム改善 設計書
 
-更新日: 2026-03-17
-
-> 目次
-> - [地図ファストトラベル](#地図ファストトラベル-設計書)
-
-# 地図ファストトラベル 設計書
-
-更新日: 2026-03-17
+更新日: 2026-03-18
 
 ---
 
 ## 概要
 
-現在のボタンリスト型ファストトラベル（`pause_fast_travel_panel: VBoxContainer`）を、エリアマップ型UIに刷新する。
+学期ごとの「自動成長」を廃止し、ストーリー主導の成長体験に刷新する。
 
-- エリア（区）ごとに背景パネルで視覚的にグループ化
-- 場所（ノード）をクリックするとそのステージへ移動
-- ノード間を線で接続して「地理的なつながり」を表現
-- 現在の年齢で行けない場所はグレーアウト（disabled）表示するが、ノードは常に表示する
-- 学校は年齢解決済みID（`school_elementary` / `school_middle` / `school_high`）を直接使用し、全て地図上に表示
+**「実際の成長」と「記録上の身長」を分離する：**
 
----
-
-## マップ構成
-
-### エリア・ノード・エッジ定義
-
-```
-┌──────────────────────────┐    ┌──────────────────────┐
-│  中央町                   │    │  学園町               │
-│                           │    │  ○ 学園前駅          │
-│  ○ 自宅                   │    └──────────┬───────────┘
-│     │                     │               │
-│  ○ 中央駅 ─────────────────┼───────────────┘
-│     │                     │
-│  ○ 小学校                 │
-└────────────┬──────────────┘
-             │
-       ┌─────┴────────┐
-       │  隣町         │
-       │  ○ 中学校    │
-       └──────────────┘
-```
-
-### エリア定義（MAP_AREAS）
-
-| id | 名称 | 含むノード |
+| 変数 | 意味 | 使用箇所 |
 |---|---|---|
-| `chuo` | 中央町 | 自宅、中央駅、小学校 |
-| `tonari` | 隣町 | 中学校 |
-| `gakuen` | 学園町 | 学園前駅 |
+| `Global.height` | 実際の体の高さ。成長イベントで即時更新 | キャラクター描画（人形のサイズ） |
+| `Global.recorded_height` | 最後に保健室で「測定した」値 | 成長グラフ・ステータス画面の数値表示 |
 
-### ノード定義（MAP_NODES）
+- 人形は成長するとリアルタイムで大きくなる
+- グラフや数値 UI は測定するまで古い値（`recorded_height`）のまま
+- 測定完了で `recorded_height = height` に更新し、`growth_history` に記録される
 
-| ノードID | ラベル | stage_id | エリア |
-|---|---|---|---|
-| `myroom` | 自宅 | `myroom` | chuo |
-| `station` | 中央駅 | `station` | chuo |
-| `school_elementary` | 小学校 | `school_elementary` | chuo |
-| `school_middle` | 中学校 | `school_middle` | tonari |
-| `gakuenmae` | 学園前駅 | `gakuenmae` | gakuen |
-
-### エッジ定義（MAP_EDGES）
-
-```
-myroom ─── station
-station ─── school_elementary
-station ─── school_middle
-station ─── gakuenmae
-```
+また、成長ポイントを溜める手段として3つの特別イベントを追加する。
 
 ---
 
-## データ定数（MapTravelPanel.gd 内）
+## 1. 学期成長フローの刷新
+
+### 現状
+- `advance_term()` 内で身長増加が自動計算・即時反映される
+
+### 新フロー
+
+```
+学期開始（advance_term）
+  ↓
+height += calc_growth(...)  ← 人形には即時反映（キャラクターが大きくなる）
+recorded_height は更新しない（グラフ・数値は古いまま）
+  ↓
+学校ステージの廊下ではるかに近づく
+  ↓
+はるかが声をかける（廊下ホットスポット）
+  ↓
+強制的に保健室にワープ（_load_stage("infirmary")）
+  ↓
+身長計に近づくと測定ダイアログ
+  ↓
+測定完了 → recorded_height = height → growth_history に記録
+```
+
+### 実装方針
+
+#### Global.gd の変更
 
 ```gdscript
-const MAP_AREAS: Array[Dictionary] = [
-    {
-        "id":    "chuo",
-        "name":  "中央町",
-        "color": Color(0.82, 0.91, 1.0, 0.45),
-        "rect":  Rect2(20, 40, 360, 340),
-    },
-    {
-        "id":    "tonari",
-        "name":  "隣町",
-        "color": Color(0.82, 1.0, 0.84, 0.45),
-        "rect":  Rect2(20, 410, 200, 110),
-    },
-    {
-        "id":    "gakuen",
-        "name":  "学園町",
-        "color": Color(1.0, 0.92, 0.82, 0.45),
-        "rect":  Rect2(410, 40, 210, 110),
-    },
-]
+# 追加変数
+var recorded_height: float = 0.0       # 最後に測定した身長（グラフ・UI表示用）
+var height_measured_this_term: bool = false  # 今学期すでに測定したか
 
-const MAP_NODES: Dictionary = {
-    "myroom": {
-        "label":    "自宅",
-        "stage_id": "myroom",
-        "pos":      Vector2(130, 130),
-    },
-    "station": {
-        "label":    "中央駅",
-        "stage_id": "station",
-        "pos":      Vector2(200, 240),
-    },
-    "school_elementary": {
-        "label":    "小学校",
-        "stage_id": "school_elementary",
-        "pos":      Vector2(90, 330),
-    },
-    "school_middle": {
-        "label":    "中学校",
-        "stage_id": "school_middle",
-        "pos":      Vector2(110, 455),
-    },
-    "gakuenmae": {
-        "label":    "学園前駅",
-        "stage_id": "gakuenmae",
-        "pos":      Vector2(480, 100),
-    },
+# advance_term() 内の変更
+# 旧: height += calc_growth(...)  ← recorded_height も同時更新していた
+# 新: height += calc_growth(...)  ← 人形には即時反映
+#     # recorded_height は変えない（測定まで古い値を保持）
+#     height_measured_this_term = false
+
+# recorded_height の初期化（CharacterCreator でキャラ作成時）
+recorded_height = height
+```
+
+#### MainScene.gd の変更
+
+**廊下ホットスポット追加**
+
+```gdscript
+# school_hallway ステージのホットスポットに追加
+{
+    "id":           "haruka_hallway",
+    "stage_id":     "school_hallway",   # 各学校の廊下ステージ
+    "obs_id":       "haruka_npc",        # はるかのNPC位置
+    "trigger_radius": 80.0,
+    "one_shot":     false,               # 毎学期発動
+    "condition":    "_should_trigger_haruka_measurement",
 }
+```
 
-const MAP_EDGES: Array = [
-    ["myroom",            "station"],
-    ["station",           "school_elementary"],
-    ["station",           "school_middle"],
-    ["station",           "gakuenmae"],
+**条件判定関数**
+
+```gdscript
+func _should_trigger_haruka_measurement() -> bool:
+    var g = _global()
+    return g and g.height > g.recorded_height and not g.height_measured_this_term
+```
+
+**ホットスポット発火時の処理**
+
+```gdscript
+func _on_haruka_hallway_triggered() -> void:
+    # はるかとの会話
+    _start_dialogue("haruka_height_check")
+    # 会話終了後に保健室へワープ
+    await dialogue_finished
+    _load_stage("infirmary")
+```
+
+**保健室の身長計インタラクト**
+
+```gdscript
+# 既存の "height_scale" ホットスポットを拡張
+func _on_height_scale_interact() -> void:
+    var g = _global()
+    var unmeasured: bool = g.height > g.recorded_height and not g.height_measured_this_term
+    if unmeasured:
+        _start_dialogue("measurement_in_progress")
+        await dialogue_finished
+        # 記録を実際の身長に合わせる（人形のサイズは既に更新済み）
+        var prev_h: float = g.recorded_height
+        g.recorded_height = g.height
+        g.record_growth_history()   # growth_history に recorded_height を記録
+        g.height_measured_this_term = true
+        _start_dialogue_dynamic(_build_measurement_result_dialogue(prev_h, g.height))
+    else:
+        _start_dialogue("term_school_infirmary")  # 通常の保健室ダイアログ
+```
+
+---
+
+## 2. 成長イベント発生時の朝演出
+
+### トリガー条件
+
+`height > recorded_height`（未測定の成長がある）状態で「就寝 → 起床」が発生したとき。
+
+### 演出フロー
+
+```
+就寝フェードアウト（黒）
+  ↓
+黒背景のまま（ColorRect alpha=1 維持）
+  ↓
+通常と同じ画面下部ダイアログで表示：
+  「ミシミシ……ミシミシ……膝が音を立てている」
+  ↓ 決定キー
+フェードイン → 翌朝（myroom）
+```
+
+### 実装箇所: `_run_sleep_transition()` の拡張
+
+```gdscript
+func _run_sleep_transition(hours_passed: int) -> void:
+    # ... 既存フェードアウト処理 ...
+
+    var g = _global()
+    if g and g.height > g.recorded_height:
+        # 黒背景のまましばらく待機
+        await get_tree().create_timer(0.4).timeout
+        _start_dialogue("growing_pain_sleep")   # 膝がミシミシ
+        await dialogue_finished
+
+    # ... 既存フェードイン・翌朝処理 ...
+```
+
+### ダイアログキー `"growing_pain_sleep"`
+
+```gdscript
+"growing_pain_sleep": [
+    {"speaker": "", "text": "ミシミシ……ミシミシ……"},
+    {"speaker": "", "text": "膝が音を立てている。"},
+    {"speaker": "主人公（心の声）", "text": "……また、伸びてるのかな。"},
 ]
 ```
 
 ---
 
-## シーン構成
+## 3. 特別成長イベント
 
-```
-MapTravelPanel (Control, サイズ 640×560)
-├── TitleLabel       (Label  "── 地図 ──")
-├── CurrentLabel     (Label  "現在地: ○○")
-├── MapCanvas        (Control, サイズ 640×520)
-│    ├── _draw() でエリア背景・エッジ線・ノード円を描画
-│    └── [動的生成] MapNodeButton (Button 透明, 40×40) × ノード数
-│         └── NodeLabel (Label ノード名)
-└── CloseButton      (Button "閉じる")
+### ① 牛乳がぶ飲みイベント（無限成長）
+
+**トリガー**: `myroom` ステージの `refrigerator` をインタラクト
+
+**効果**: 1回あたり `height += 1.0`（人形が即時に大きくなる。`recorded_height` は変えない）
+
+**制限**: なし（AP消費なし、時間経過なし）
+
+**実装**
+
+`MainScene.gd` の `refrigerator` ホットスポット処理に追加:
+
+```gdscript
+func _on_refrigerator_interact() -> void:
+    _start_dialogue("refrigerator_milk")
+    await dialogue_finished
+    var g = _global()
+    if g:
+        g.height += 1.0   # 人形に即時反映。recorded_height は変えない
 ```
 
-- `MapCanvas` が描画とクリック判定を担う
-- `MapNodeButton` はノード位置に中心を合わせて配置（40×40 の透明ボタン）
-- `NodeLabel` はボタン下部に配置
+**ダイアログキー `"refrigerator_milk"`**
+
+```gdscript
+"refrigerator_milk": [
+    {"speaker": "主人公", "text": "冷蔵庫を開けると、牛乳がある。"},
+    {"speaker": "主人公", "text": "……ぐびぐびぐび。"},
+    {"speaker": "主人公（心の声）", "text": "（また伸びる気がする）"},
+]
+```
 
 ---
 
-## スクリプト概要（MapTravelPanel.gd）
+### ② 突発的・成長期睡眠イベント（ポイントブースト）
+
+**トリガー**: 時間経過アクションのたびに一定確率（15%）で発火。学校外出先でも発生。
+
+**効果**: 強烈な眠気ダイアログ → 「帰って寝る」選択 → フェードアウト → 翌朝。
+通常よりも多く `height` が増加する（`calc_growth` の通常成長量 × 0.5 を追加加算）。
+
+**実装**
+
+`MainScene.gd` の時間経過処理内に確率判定を追加:
 
 ```gdscript
-extends Control
+const GROWTH_SLEEP_CHANCE := 0.15
 
-signal travel_requested(stage_id: String)
+func _after_action() -> void:
+    # ... 既存処理 ...
+    if randf() < GROWTH_SLEEP_CHANCE:
+        _trigger_growth_sleep_event()
 
-const NODE_RADIUS  := 14.0
-const EDGE_COLOR   := Color(0.5, 0.5, 0.6, 0.8)
-const EDGE_WIDTH   := 2.0
-const NODE_DEFAULT := Color(0.3, 0.55, 0.9)
-const NODE_CURRENT := Color(0.2, 0.75, 0.3)   # 現在地
-const NODE_LOCKED  := Color(0.55, 0.55, 0.55)  # disabled
-
-func _ready() -> void:
-    _build_map()
-
-func _build_map() -> void:
-    # 既存の MapNodeButton を削除して再生成
-    for child in $MapCanvas.get_children():
-        child.queue_free()
-    $MapCanvas.queue_redraw()
-
-    var global = get_node_or_null("/root/Global")
-    for node_id in MAP_NODES:
-        var def      := MAP_NODES[node_id]
-        var stage_id: String = def["stage_id"]
-        var locked: bool = _is_locked(stage_id, global)
-        var current: bool = (global and global.current_stage_id == stage_id)
-
-        var btn := Button.new()
-        btn.custom_minimum_size = Vector2(40, 40)
-        btn.position = def["pos"] - Vector2(20, 20)
-        btn.flat = true
-        btn.disabled = locked or current
-        if not btn.disabled:
-            btn.pressed.connect(_on_node_pressed.bind(stage_id))
-
-        var lbl := Label.new()
-        lbl.text = def["label"]
-        lbl.position = Vector2(0, 32)
-        btn.add_child(lbl)
-
-        $MapCanvas.add_child(btn)
-
-# MapCanvas の _draw() に相当する処理を MapCanvas 側に委譲するか、
-# このスクリプトで MapCanvas の draw_* を使う（draw_* は _draw() 内限定のため
-# MapCanvas を extends Control したスクリプトに分離するのが実践的）
+func _trigger_growth_sleep_event() -> void:
+    _start_dialogue("growth_sleep_warning")
+    # 選択肢: ["今すぐ帰って寝る", "もう少し頑張る"]
+    # → 「帰って寝る」選択時: _load_stage("myroom") → _run_sleep_transition(boost=true)
 ```
 
-### _draw() で描画する内容
-
-1. **エリア背景**：`MAP_AREAS` の `rect` を角丸矩形で塗りつぶし、名前ラベルを左上に描画
-2. **エッジ線**：`MAP_EDGES` のペアのノード `pos` 間を `EDGE_COLOR` で直線描画
-3. **ノード円**：各ノードの `pos` に半径 `NODE_RADIUS` の円を描画
-   - 現在地 → `NODE_CURRENT`（緑）
-   - disabled → `NODE_LOCKED`（グレー）
-   - 通常 → `NODE_DEFAULT`（青）
-
-### ロック判定
-
-既存の `MainScene._get_stage_lock_message()` のロジックを流用する。
-戻り値が空文字列でなければ `locked = true`。
+**`_run_sleep_transition` にブーストフラグ追加**
 
 ```gdscript
-func _is_locked(stage_id: String, global) -> bool:
-    # _get_stage_lock_message() と同じロジックを MapTravelPanel 内に複製 or 共通化
-    if not global:
-        return false
-    var age: int = int(global.age)
-    match stage_id:
-        "school_elementary":
-            return age > 11
-        "school_middle":
-            return age < 12 or age > 14
-        "school_high":
-            return age < 15
-    return false
+func _run_sleep_transition(hours_passed: int, boost: bool = false) -> void:
+    var g = _global()
+    if g and boost:
+        var extra = g.calc_growth(int(g.age)) * 0.5
+        g.height += extra   # 人形に即時反映。recorded_height は変えない
+    # ... 残り既存処理 ...
 ```
 
-> ロジック重複を避けるため、将来的には `StageBuilder` か `Global` に `is_stage_locked(stage_id, age)` 関数として切り出すことを推奨。
+**ダイアログキー `"growth_sleep_warning"`**
+
+```gdscript
+"growth_sleep_warning": [
+    {"speaker": "主人公（心の声）", "text": "……急に、どっと眠気が来た。"},
+    {"speaker": "主人公（心の声）", "text": "体が重い。目が開かない。"},
+    # 選択肢
+    {"speaker": "__choice__", "choices": ["今すぐ帰って寝る", "もう少し頑張る"]},
+]
+```
 
 ---
 
-## 既存コードとの統合
+### ③ 怪しい成長サプリイベント（ガチャ要素）
 
-### MainScene.gd の変更点
+**トリガー**: `station_vending` または `school` ステージ内の `vending_machine` をインタラクトした際、確率 7% で出現。
 
-| 変更箇所 | 内容 |
+**効果**: 飲むと `height += 10.0`（人形が即時に急成長。`recorded_height` は変えない）。
+翌朝の「ミシミシ」演出は通常より激しいバリアントを使用。
+
+**実装**
+
+`MainScene.gd` のベンダーインタラクト処理に追加:
+
+```gdscript
+const GROWTH_SUPP_CHANCE := 0.07
+
+func _on_vending_interact(vending_id: String) -> void:
+    if randf() < GROWTH_SUPP_CHANCE:
+        _trigger_growth_supplement()
+    else:
+        _start_dialogue("term_station_vending")  # 通常
+
+func _trigger_growth_supplement() -> void:
+    _start_dialogue("growth_supplement_found")
+    await dialogue_finished
+    var g = _global()
+    if g:
+        g.height += 10.0   # 人形に即時反映。recorded_height は変えない
+        # 激しい演出フラグ
+        g.set_meta("growth_pain_intense", true)
+```
+
+**`_run_sleep_transition` での激しい演出分岐**
+
+```gdscript
+if g.has_meta("growth_pain_intense") and g.get_meta("growth_pain_intense"):
+    _start_dialogue("growing_pain_sleep_intense")
+    g.set_meta("growth_pain_intense", false)
+else:
+    _start_dialogue("growing_pain_sleep")
+```
+
+**ダイアログキー `"growth_supplement_found"`**
+
+```gdscript
+"growth_supplement_found": [
+    {"speaker": "主人公", "text": "自動販売機の取り出し口に、何かある……"},
+    {"speaker": "主人公", "text": "『怪しい成長サプリ』？"},
+    {"speaker": "主人公（心の声）", "text": "……飲むか？"},
+    {"speaker": "__choice__", "choices": ["飲む", "捨てる"]},
+]
+```
+
+**ダイアログキー `"growing_pain_sleep_intense"`**
+
+```gdscript
+"growing_pain_sleep_intense": [
+    {"speaker": "", "text": "ミシミシ……ミシミシ……"},
+    {"speaker": "", "text": "ガキッ……ガキッ……"},
+    {"speaker": "主人公（心の声）", "text": "骨が……割れるような音がする……！"},
+    {"speaker": "主人公（心の声）", "text": "いたい……いたい……"},
+]
+```
+
+---
+
+## 4. はるかとのダイアログ
+
+**キー `"haruka_height_check"`**
+
+```gdscript
+"haruka_height_check": [
+    {"speaker": "はるか", "text": "あ、ちょっと待って！"},
+    {"speaker": "はるか", "text": "なんか……また背、伸びてない？"},
+    {"speaker": "主人公", "text": "……そう、かな。"},
+    {"speaker": "はるか", "text": "絶対伸びてるって！ちょっと保健室行こ、測ってもらおう！"},
+]
+```
+
+**キー `"measurement_in_progress"`**
+
+```gdscript
+"measurement_in_progress": [
+    {"speaker": "養護教諭", "text": "はいはい、じゃあ靴を脱いで身長計に乗って。"},
+    {"speaker": "養護教諭", "text": "……はい、そこで止まって。"},
+]
+```
+
+**キー `"measurement_result"`**（コード側で差分を挿入）
+
+```gdscript
+# MainScene で動的生成
+func _build_measurement_result_dialogue(prev_h: float, new_h: float) -> Array:
+    var diff = new_h - prev_h
+    return [
+        {"speaker": "養護教諭", "text": "%.1fcm。" % new_h},
+        {"speaker": "はるか", "text": "前回から%.1fcmも伸びてる！！" % diff},
+        {"speaker": "主人公（心の声）", "text": "……%.1fcm、か。" % new_h},
+    ]
+```
+
+---
+
+## 5. 実装ステップ（推奨順）
+
+1. **Global.gd**: `recorded_height`・`height_measured_this_term` 追加。`advance_term()` は `height` を増やすが `recorded_height` は更新しないように変更。グラフ・ステータス表示を `recorded_height` 参照に変更。
+2. **MainScene.gd**: `_run_sleep_transition()` に「ミシミシ演出」分岐を追加。
+3. **DialogueDatabase.gd**: 上記ダイアログキーを追加。
+4. **MainScene.gd**: `refrigerator` ホットスポットに牛乳イベントを追加。
+5. **MainScene.gd**: 時間経過後の成長期睡眠ランダムトリガーを追加。
+6. **MainScene.gd**: 自販機インタラクトにサプリガチャを追加。
+7. **MainScene.gd**: 廊下の `haruka_hallway` ホットスポット追加 → 保健室ワープ。
+8. **MainScene.gd**: 保健室の `height_scale` インタラクトで測定・成長反映ロジック実装。
+9. 動作確認（学期進行 → 廊下 → 保健室 → 成長反映の一連フロー）。
+
+---
+
+## 6. 決定事項
+
+| 項目 | 決定 |
 |---|---|
-| `pause_fast_travel_panel: VBoxContainer` | `MapTravelPanel` のインスタンスに置き換え |
-| `_rebuild_fast_travel_panel()` | `_build_map()` 呼び出しに変更 |
-| `FAST_TRAVEL_STAGES` 定数 | `MapTravelPanel.MAP_NODES` に移動（MainScene 側は不要に） |
-| `_on_fast_travel_pressed()` | `MapTravelPanel.travel_requested` シグナルを受け取る形に変更 |
+| `haruka_npc` の配置座標 | 教室の前 |
+| 「帰って寝る」実装方法 | 選択した瞬間にフェードアウト → そのまま翌朝演出。`_load_stage("myroom")` は不要 |
+| 牛乳イベントの回数上限 | 上限なし（ズルを楽しむ要素として意図的） |
+| サプリ「捨てる」の処理 | 何もしない（ダイアログを閉じるだけ） |
+| `measurement_result` の管理場所 | `MainScene.gd` 内の `_build_measurement_result_dialogue()` で動的生成 |
 
-### 変更しない既存処理
+### 「帰って寝る」実装メモ
 
-- `_get_stage_lock_message()` — MapTravelPanel 側でロジックを参照（当面は複製）
-- `_load_stage()` — そのまま利用
-- `_toggle_pause()` — 移動時に呼び出す
-
----
-
-## 実装ステップ（推奨順）
-
-1. `MapCanvas.gd`（extends Control）を新規作成 — `_draw()` でエリア・エッジ・ノードを描画
-2. `MapTravelPanel.gd` を新規作成 — データ定数、ボタン動的生成、`travel_requested` シグナル
-3. `MapTravelPanel.tscn` を新規作成（構成は上記シーン構成に従う）
-4. `MainScene.gd` の `pause_fast_travel_panel` を `MapTravelPanel` に差し替え
-5. `MainScene.gd` の `_rebuild_fast_travel_panel()` → `map_panel._build_map()` 呼び出しに変更
-6. `travel_requested` シグナルを `_on_fast_travel_pressed` と接続して移動処理を再利用
-7. 動作確認・ポーズメニューのレイアウト調整
-
----
-
-## 未決事項
-
-- マップキャンバスの最終サイズ（ポーズメニュー全体のレイアウト次第）
-- ノードアイコン（絵文字 Label / 独自描画 / 画像）
-- 高校・その他施設ノードの追加タイミングと配置
-- エッジ線の形状（直線 / 折れ線 / カーブ）
-- ロックノードのツールチップ（理由文の表示方法）
+```gdscript
+func _trigger_growth_sleep_event() -> void:
+    _start_dialogue("growth_sleep_warning")
+    await dialogue_finished
+    # 「今すぐ帰って寝る」が選ばれた場合:
+    # _load_stage は呼ばない。そのままフェードアウト → 翌朝（myroom）へ
+    _run_sleep_transition(8, boost=true)
+```
