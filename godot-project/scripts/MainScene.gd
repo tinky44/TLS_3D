@@ -72,6 +72,9 @@ var _dialogue_restore_pose: String = ""
 var _sit_front_nodes: Array = []  # 着席中に前面表示した obs ノードのリスト
 var _choice_buttons: Array = []
 var _choice_selected_index: int = -1
+var _last_choice_index: int = -1
+var _in_sleep_dialogue_wait: bool = false
+signal _sleep_dialogue_ended
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
@@ -236,6 +239,7 @@ const TERM_HOTSPOTS: Dictionary = {
 }
 
 const STRESS_PREFIX_KEYS: Array[String] = ["default", "tall", "huge", "check"]
+const GROWTH_SLEEP_CHANCE := 0.15
 const NPC_STRESS_OPENERS: Dictionary = {
 	"haruka": {
 		"low": {"speaker": "はるか", "text": "今日は少し顔つきがやわらかいね。"},
@@ -1272,6 +1276,7 @@ func _on_choice_button_focused(index: int) -> void:
 	_choice_selected_index = index
 
 func _on_choice_selected(choice: Dictionary) -> void:
+	_last_choice_index = _choice_selected_index
 	_choice_pending = false
 	_clear_choice_buttons()
 	choice_container.hide()
@@ -1391,6 +1396,37 @@ func _end_dialogue() -> void:
 			global.is_leg_pain = false
 			global.vball_joined = false
 			global.vball_story_phase = 5
+	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "height_check_invite":
+		if global:
+			global.height_measured_this_term = true
+			global.current_stage_id = "infirmary"
+		await _load_stage()
+	elif _current_dialogue_npc == "nurse" and _current_dialogue_key == "measurement_in_progress":
+		if global:
+			var prev_h: float = global.recorded_height
+			global.recorded_height = float(global.current_params["height"])
+			global.prev_height = prev_h
+			global.record_growth_history("measurement")
+		_show_measurement_result(false)
+	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "refrigerator_milk":
+		if global:
+			global.current_params["height"] += 1.0
+			if player and player.has_method("update_measurements"):
+				player.call("update_measurements")
+	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_sleep_warning":
+		if _last_choice_index == 0:  # 「今すぐ帰って寝る」
+			if global:
+				var extra := global.calc_growth() * 0.5
+				global.current_params["height"] += extra
+			await _run_sleep_transition()
+	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_supplement_found":
+		if _last_choice_index == 0:  # 「飲む」
+			if global:
+				global.current_params["height"] += 10.0
+				global.set_meta("growth_pain_intense", true)
+				if player and player.has_method("update_measurements"):
+					player.call("update_measurements")
+		# 「捨てる」は何もしない
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)):
 			call_deferred("_start_dialogue", "player", "term_school")
@@ -1401,6 +1437,17 @@ func _end_dialogue() -> void:
 		global._check_all_achievements()
 	if should_show_term_choice:
 		call_deferred("_show_term_choice_panel")
+	# 睡眠待機中のダイアログが終わった場合にシグナルを発火
+	if _in_sleep_dialogue_wait:
+		_in_sleep_dialogue_wait = false
+		_sleep_dialogue_ended.emit()
+
+func _is_school_hallway_stage() -> bool:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return false
+	var sid: String = String(global.current_stage_id)
+	return sid.begins_with("school") and sid.contains("hallway")
 
 func _should_run_school_day_transition(global: Node) -> bool:
 	if _school_day_transition_running:
@@ -1574,7 +1621,14 @@ func _interact_with_npc(npc: Node) -> void:
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
 		elif npc_id == "haruka":
-			if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
+			var unrecorded: bool = global != null and \
+				float(global.current_params["height"]) > global.recorded_height and \
+				not global.height_measured_this_term and \
+				_is_school_hallway_stage()
+			if unrecorded:
+				_start_dialogue("haruka", "height_check_invite")
+				return
+			elif global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
 				key = "term_school_haruka_support"
 				global.mark_term_hotspot_done("school_haruka_support")
 			elif global and global.is_leg_pain and vball_phase == 3:
@@ -2298,6 +2352,14 @@ func _on_sleep_menu_selected(choice: String) -> void:
 		_:
 			return
 	global.actions_today = 0
+	# アクション消費後のランダム睡眠チェック（発火した場合は就寝遷移を7dに委ねる）
+	if not _in_dialogue and randf() < GROWTH_SLEEP_CHANCE:
+		_start_dialogue("narrator", "growth_sleep_warning")
+		if _in_dialogue:
+			if int(global.day_in_term) >= int(global.term_total_days):
+				if not global.has_pending_event("term_end_measurement"):
+					global.queue_event("term_end_measurement")
+			return
 	if int(global.day_in_term) >= int(global.term_total_days):
 		if not global.has_pending_event("term_end_measurement"):
 			global.queue_event("term_end_measurement")
@@ -2316,6 +2378,17 @@ func _run_sleep_transition() -> void:
 	var tw = create_tween()
 	tw.tween_property(fade, "color:a", 1.0, 0.35)
 	await tw.finished
+	# 未測定の成長がある場合、黒画面のままダイアログを表示
+	if global and float(global.current_params["height"]) > global.recorded_height:
+		var pain_key: String
+		if global.has_meta("growth_pain_intense") and bool(global.get_meta("growth_pain_intense")):
+			pain_key = "growing_pain_sleep_intense"
+			global.set_meta("growth_pain_intense", false)
+		else:
+			pain_key = "growing_pain_sleep"
+		_in_sleep_dialogue_wait = true
+		_start_dialogue("narrator", pain_key)
+		await _wait_for_dialogue_end()
 	global.current_stage_id = "myroom"
 	if player and player.has_method("update_measurements"):
 		player.call("update_measurements")
@@ -2325,6 +2398,13 @@ func _run_sleep_transition() -> void:
 	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
 	await tw_out.finished
 	fade.queue_free()
+
+
+func _wait_for_dialogue_end() -> void:
+	# ダイアログが終わるまで待機。ツリーがポーズ中でも動作するようシグナルで待つ
+	if not _in_dialogue:
+		return
+	await _sleep_dialogue_ended
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -2382,12 +2462,25 @@ func _unhandled_input(event: InputEvent) -> void:
 				_do_standup()
 			elif _nearby_bed:
 				_trigger_bed_interaction()
+			elif _nearby_obs_id == "refrigerator":
+				_start_dialogue("narrator", "refrigerator_milk")
+			elif _nearby_obs_id == "vending_machine" or _nearby_obs_id == "station_vending":
+				if randf() < 0.07:
+					_start_dialogue("narrator", "growth_supplement_found")
+				else:
+					_start_dialogue("narrator", "term_station_vending")
 			elif _nearby_term_hotspot != "":
 				_trigger_term_hotspot(_nearby_term_hotspot)
 			elif _nearby_transition_door != "":
 				_enter_transition_door()
 			elif _nearby_height_scale:
-				_show_measurement_result()
+				var _hs_global = get_node_or_null("/root/Global")
+				var _has_unmeasured: bool = _hs_global != null and \
+					float(_hs_global.current_params["height"]) > _hs_global.recorded_height
+				if _has_unmeasured:
+					_start_dialogue("nurse", "measurement_in_progress")
+				else:
+					_show_measurement_result()
 			elif _nearby_npc:
 				_interact_with_npc(_nearby_npc)
 
@@ -2706,7 +2799,6 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			global.advance_term()
 			if player and player.has_method("update_measurements"):
 				player.call("update_measurements")
-			_show_measurement_result(true)
 			return true
 		else:
 			_defer_pending_stage_event(global, ev)

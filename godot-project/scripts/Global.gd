@@ -47,6 +47,8 @@ var term_total_days: int = 3 # 一学期当たりのアクション回数。こ�
 var growth_factor: float = 1.0
 var growth_type: String = "normal" # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
+var recorded_height: float = 0.0           # 最後に保健室で測定した身長（グラフ・UI表示用）
+var height_measured_this_term: bool = false # 今学期のはるか誘導が発火済みか
 var growth_history: Array = []
 
 var active_companion_id: String = "" # 現在同行しているNPCのID
@@ -401,7 +403,7 @@ static func get_shoes_for_stage(stage_id: String) -> String:
 	return "loafer"
 
 func advance_term() -> void:
-	prev_height = current_params["height"]
+	prev_height = recorded_height if recorded_height > 0.0 else current_params["height"]
 	var prev_age: int = age
 	var prev_school_level: int = _school_level_from_age(prev_age)
 	term += 1
@@ -432,7 +434,6 @@ func advance_term() -> void:
 		for key in uniform.keys():
 			current_appearance[key] = uniform[key]
 		current_appearance["hat_type"] = "school_hat" if age < 12 else "none"
-	record_growth_history("growth")
 	queue_event("semester_start") # 学期開始イベントを予約
 	# 男子成長自慢: 中学期に初回のみ
 	if age >= 12 and age <= 14 and not has_story_flag("middle_boys_growth_talk_done"):
@@ -448,6 +449,7 @@ func advance_term() -> void:
 		(prev_school_level == 3 and school_level == 4) # 高校卒業
 	)
 	term_hotspot_flags = {}
+	height_measured_this_term = false
 	term_memory_note = ""
 	_check_all_achievements()
 
@@ -730,6 +732,8 @@ func save_slot(slot: int) -> void:
 		config.set_value(section, "initial_appearance_" + key, initial_appearance.get(key, current_appearance[key]))
 	config.set_value(section, "visited_stages", visited_stages)
 	config.set_value(section, "experienced_events", experienced_events)
+	config.set_value(section, "recorded_height", recorded_height)
+	config.set_value(section, "height_measured_this_term", height_measured_this_term)
 	config.save(SLOTS_PATH)
 	current_slot = slot
 
@@ -750,6 +754,8 @@ func load_slot(slot: int) -> bool:
 	day_in_term = int(config.get_value(section, "day_in_term", 1))
 	actions_today = int(config.get_value(section, "actions_today", 0))
 	prev_height = config.get_value(section, "prev_height", 0.0)
+	recorded_height = config.get_value(section, "recorded_height", current_params["height"])
+	height_measured_this_term = bool(config.get_value(section, "height_measured_this_term", false))
 	growth_factor = config.get_value(section, "growth_factor", 1.0)
 	growth_type = config.get_value(section, "growth_type", "normal")
 	growth_history = config.get_value(section, "growth_history", [])
