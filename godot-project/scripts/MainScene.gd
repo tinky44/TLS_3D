@@ -494,6 +494,7 @@ func _setup_dialogue_panel() -> void:
 	dialogue_panel.offset_bottom = 0
 	dialogue_panel.hide()
 	dialogue_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	dialogue_panel.z_index = 150  # フェード(110)より前面に出す
 
 	var bg = StyleBoxFlat.new()
 	bg.bg_color = Color(0.1, 0.1, 0.18, 0.5)
