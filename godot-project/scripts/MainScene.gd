@@ -1426,12 +1426,14 @@ func _end_dialogue() -> void:
 			if global:
 				var extra: float = float(global.calc_growth()) * 0.5
 				global.bonus_growth_cm += extra
+				global.growth_pain_pending = true
 			await _run_sleep_transition()
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_supplement_found":
 		if _last_choice_index == 0:  # 「飲む」
 			if global:
 				global.bonus_growth_cm += 10.0
 				global.set_meta("growth_pain_intense", true)
+				global.growth_pain_pending = true
 		# 「捨てる」は何もしない
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)):
@@ -2406,14 +2408,16 @@ func _run_sleep_transition() -> void:
 	var tw = create_tween()
 	tw.tween_property(fade, "color:a", 1.0, 0.35)
 	await tw.finished
-	# 未測定の成長がある場合、黒画面のままダイアログを表示
-	if global and float(global.current_params["height"]) > global.recorded_height:
+	# 急成長イベント（夏・急成長期・サプリ・睡眠ブースト）があった場合のみ黒画面でダイアログ表示
+	var intense: bool = global.has_meta("growth_pain_intense") and bool(global.get_meta("growth_pain_intense"))
+	if global and (global.growth_pain_pending or intense):
 		var pain_key: String
-		if global.has_meta("growth_pain_intense") and bool(global.get_meta("growth_pain_intense")):
+		if intense:
 			pain_key = "growing_pain_sleep_intense"
 			global.set_meta("growth_pain_intense", false)
 		else:
 			pain_key = "growing_pain_sleep"
+		global.growth_pain_pending = false
 		_in_sleep_dialogue_wait = true
 		_start_dialogue("narrator", pain_key)
 		await _wait_for_dialogue_end()

@@ -405,6 +405,7 @@ func _on_next_pressed() -> void:
         global.recorded_height = global.current_params["height"]
         global.height_measured_this_term = false
         global.bonus_growth_cm = 0.0
+        global.growth_pain_pending = false
         global.current_stage_id = "myroom"
         global.slot_select_mode = "save"
         global.queue_event("entrance_ceremony") # 最初の入学式モノローグ
