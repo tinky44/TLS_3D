@@ -1810,6 +1810,28 @@ func _update_bubble():
 	var closest_obs: Node2D = null
 	var min_dist = INF
 
+	# 冷蔵庫は NPC より先にチェック（母が前に立っていてもインタラクト可能にする）
+	for child in get_children():
+		if child.has_meta("is_stage_obj") and child.has_meta("obs_id") \
+				and String(child.get_meta("obs_id")) == "refrigerator":
+			var ox1 := float(child.get_meta("obs_x"))
+			var ox2 := float(child.get_meta("obs_x2"))
+			var dist := 0.0
+			if px < ox1: dist = ox1 - px
+			elif px > ox2: dist = px - ox2
+			if dist < 60.0:
+				_nearby_npc = null
+				_nearby_transition_door = ""
+				_nearby_height_scale = false
+				_nearby_term_hotspot = ""
+				_nearby_bed = false
+				_nearby_obs_id = "refrigerator"
+				bubble_label.text = StageBuilder.get_obstacle_comment("refrigerator", m["height"], float(child.get_meta("obs_height_cm")))
+				bubble_label.text += "\n[Eキー] 開ける"
+				bubble_panel.show()
+				bubble_panel.position = _get_bubble_screen_pos()
+				return
+
 	# NPC検知を先に行う（ステージオブジェクトより優先）
 	_nearby_npc = _get_nearby_named_npc(150.0)
 	if _nearby_npc:
