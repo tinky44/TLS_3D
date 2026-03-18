@@ -1206,6 +1206,13 @@ func _show_dialogue_line() -> void:
 		dialogue_hint_label.text = "Eキーで次へ"
 		dialogue_hint_label.show()
 
+func _normalize_dialogue_choice(choice: Variant) -> Dictionary:
+	if choice is Dictionary:
+		return choice
+	if choice is String or choice is StringName:
+		return {"label": String(choice)}
+	return {"label": str(choice)}
+
 func _show_choices(choices: Array) -> void:
 	_choice_pending = true
 	dialogue_hint_label.text = "↑↓で選択  Eキーで決定"
@@ -1224,8 +1231,9 @@ func _show_choices(choices: Array) -> void:
 	var hover_style = choice_style.duplicate()
 	hover_style.bg_color = Color("#3a3a60")
 	for c in choices:
+		var choice_data: Dictionary = _normalize_dialogue_choice(c)
 		var btn = Button.new()
-		btn.text = c.get("label", "")
+		btn.text = String(choice_data.get("label", ""))
 		btn.focus_mode = Control.FOCUS_ALL
 		btn.add_theme_font_size_override("font_size", 17)
 		btn.add_theme_stylebox_override("normal", choice_style.duplicate())
@@ -1235,7 +1243,7 @@ func _show_choices(choices: Array) -> void:
 		btn.add_theme_color_override("font_color", Color.WHITE)
 		btn.mouse_entered.connect(_on_choice_button_hovered.bind(_choice_buttons.size()))
 		btn.focus_entered.connect(_on_choice_button_focused.bind(_choice_buttons.size()))
-		btn.connect("pressed", _on_choice_selected.bind(c))
+		btn.connect("pressed", _on_choice_selected.bind(choice_data))
 		_choice_buttons.append(btn)
 		choice_container.add_child(btn)
 	choice_container.show()
@@ -1275,7 +1283,8 @@ func _on_choice_button_hovered(index: int) -> void:
 func _on_choice_button_focused(index: int) -> void:
 	_choice_selected_index = index
 
-func _on_choice_selected(choice: Dictionary) -> void:
+func _on_choice_selected(choice: Variant) -> void:
+	var choice_data: Dictionary = _normalize_dialogue_choice(choice)
 	_last_choice_index = _choice_selected_index
 	_choice_pending = false
 	_clear_choice_buttons()
@@ -1283,7 +1292,7 @@ func _on_choice_selected(choice: Dictionary) -> void:
 	dialogue_hint_label.text = "Eキーで次へ"
 	dialogue_hint_label.show()
 	# 感情パラメータ更新
-	var emotion: String = choice.get("emotion", "")
+	var emotion: String = String(choice_data.get("emotion", ""))
 	var global = get_node_or_null("/root/Global")
 	if global and emotion != "":
 		if emotion == "confidence":
@@ -1291,13 +1300,13 @@ func _on_choice_selected(choice: Dictionary) -> void:
 		elif emotion == "complex":
 			global.self_complex += 1
 	# アクション処理（バレー部ストーリーなど）
-	var action: String = choice.get("action", "")
+	var action: String = String(choice_data.get("action", ""))
 	if global and action != "":
 		_process_choice_action(action, global)
 	if global:
 		global.save_settings()
 	# 分岐先へ
-	var next_key: String = choice.get("next", "")
+	var next_key: String = String(choice_data.get("next", ""))
 	if next_key != "":
 		var npc_data: Dictionary = _dialogues.get(_current_dialogue_npc, {})
 		if npc_data.has(next_key):
@@ -1410,22 +1419,18 @@ func _end_dialogue() -> void:
 		_show_measurement_result(false)
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "refrigerator_milk":
 		if global:
-			global.current_params["height"] += 1.0
-			if player and player.has_method("update_measurements"):
-				player.call("update_measurements")
+			global.bonus_growth_cm += 1.0
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_sleep_warning":
 		if _last_choice_index == 0:  # 「今すぐ帰って寝る」
 			if global:
 				var extra: float = float(global.calc_growth()) * 0.5
-				global.current_params["height"] += extra
+				global.bonus_growth_cm += extra
 			await _run_sleep_transition()
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_supplement_found":
 		if _last_choice_index == 0:  # 「飲む」
 			if global:
-				global.current_params["height"] += 10.0
+				global.bonus_growth_cm += 10.0
 				global.set_meta("growth_pain_intense", true)
-				if player and player.has_method("update_measurements"):
-					player.call("update_measurements")
 		# 「捨てる」は何もしない
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)):
