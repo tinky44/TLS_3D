@@ -1,220 +1,373 @@
 # 成長システム改善 設計書
 
-更新日: 2026-03-18
+更新日: 2026-03-18（レビュー指摘反映版）
 
 ---
 
-## 概要
+## 0. 設計の前提整理
 
-学期ごとの「自動成長」を廃止し、ストーリー主導の成長体験に刷新する。
+### 身長変数の役割分担
 
-**「実際の成長」と「記録上の身長」を分離する：**
+| 変数 | 型 | 意味 | 使用箇所 |
+|---|---|---|---|
+| `current_params["height"]` | `float` | 実際の体の高さ（正本）。成長イベントで即時更新 | キャラクター描画（人形のサイズ） |
+| `recorded_height` ★新規 | `float` | 最後に保健室で測定した値 | 成長グラフ・測定パネルの数値表示 |
+| `prev_height` | `float` | 測定アニメーション用の「前回測定値」。役割を変更する | `_show_measurement_result()` のカウントアップ |
 
-| 変数 | 意味 | 使用箇所 |
-|---|---|---|
-| `Global.height` | 実際の体の高さ。成長イベントで即時更新 | キャラクター描画（人形のサイズ） |
-| `Global.recorded_height` | 最後に保健室で「測定した」値 | 成長グラフ・ステータス画面の数値表示 |
+★ `Global.height` というトップレベル変数は**存在しない**。すべて `current_params["height"]` 経由で操作する。
 
-- 人形は成長するとリアルタイムで大きくなる
-- グラフや数値 UI は測定するまで古い値（`recorded_height`）のまま
-- 測定完了で `recorded_height = height` に更新し、`growth_history` に記録される
+### 「測定するまで記録されない」の成立条件
 
-また、成長ポイントを溜める手段として3つの特別イベントを追加する。
+現行の `advance_term()` 末尾に `record_growth_history("growth")` が呼ばれており、これが設計の前提を崩す。**この呼び出しを削除する** ことが最初の必須変更。
 
 ---
 
-## 1. 学期成長フローの刷新
+## 1. Global.gd の変更
 
-### 現状
-- `advance_term()` 内で身長増加が自動計算・即時反映される
-
-### 新フロー
-
-```
-学期開始（advance_term）
-  ↓
-height += calc_growth(...)  ← 人形には即時反映（キャラクターが大きくなる）
-recorded_height は更新しない（グラフ・数値は古いまま）
-  ↓
-学校ステージの廊下ではるかに近づく
-  ↓
-はるかが声をかける（廊下ホットスポット）
-  ↓
-強制的に保健室にワープ（_load_stage("infirmary")）
-  ↓
-身長計に近づくと測定ダイアログ
-  ↓
-測定完了 → recorded_height = height → growth_history に記録
-```
-
-### 実装方針
-
-#### Global.gd の変更
+### 1.1 変数追加
 
 ```gdscript
-# 追加変数
-var recorded_height: float = 0.0       # 最後に測定した身長（グラフ・UI表示用）
-var height_measured_this_term: bool = false  # 今学期すでに測定したか
-
-# advance_term() 内の変更
-# 旧: height += calc_growth(...)  ← recorded_height も同時更新していた
-# 新: height += calc_growth(...)  ← 人形には即時反映
-#     # recorded_height は変えない（測定まで古い値を保持）
-#     height_measured_this_term = false
-
-# recorded_height の初期化（CharacterCreator でキャラ作成時）
-recorded_height = height
+# Global.gd のトップレベル変数に追加
+var recorded_height: float = 0.0        # 最後に測定した身長（グラフ・UI表示用）
+var height_measured_this_term: bool = false  # 今学期のはるか誘導が発火済みか
 ```
 
-#### MainScene.gd の変更
-
-**廊下ホットスポット追加**
+### 1.2 `advance_term()` の変更
 
 ```gdscript
-# school_hallway ステージのホットスポットに追加
-{
-    "id":           "haruka_hallway",
-    "stage_id":     "school_hallway",   # 各学校の廊下ステージ
-    "obs_id":       "haruka_npc",        # はるかのNPC位置
-    "trigger_radius": 80.0,
-    "one_shot":     false,               # 毎学期発動
-    "condition":    "_should_trigger_haruka_measurement",
-}
+func advance_term() -> void:
+    # 旧: prev_height = current_params["height"]
+    # 新: 前回測定値を prev_height に保存（測定パネルのカウントアップ基点に使う）
+    prev_height = recorded_height if recorded_height > 0.0 else current_params["height"]
+
+    # （以下の成長計算はそのまま）
+    current_params["height"] += calc_growth()
+    # 夏休み急成長、growth_spurt なども現行どおり current_params["height"] を変更する
+
+    # 削除: record_growth_history("growth")  ← この行を消す
+    # 追加: 今学期の「はるか誘導」フラグをリセット
+    height_measured_this_term = false
+
+    # 残りの処理はすべて現行どおり
 ```
 
-**条件判定関数**
+### 1.3 `save_slot()` への追加
 
 ```gdscript
-func _should_trigger_haruka_measurement() -> bool:
-    var g = _global()
-    return g and g.height > g.recorded_height and not g.height_measured_this_term
+config.set_value(section, "recorded_height", recorded_height)
+config.set_value(section, "height_measured_this_term", height_measured_this_term)
 ```
 
-**ホットスポット発火時の処理**
+### 1.4 `load_slot()` への追加
 
 ```gdscript
-func _on_haruka_hallway_triggered() -> void:
-    # はるかとの会話
-    _start_dialogue("haruka_height_check")
-    # 会話終了後に保健室へワープ
-    await dialogue_finished
-    _load_stage("infirmary")
+recorded_height = config.get_value(section, "recorded_height", current_params["height"])
+height_measured_this_term = bool(config.get_value(section, "height_measured_this_term", false))
 ```
 
-**保健室の身長計インタラクト**
+> 旧セーブデータ互換: `recorded_height` のデフォルト値を `current_params["height"]` にすることで、旧データ読み込み時に「実身長 = 記録身長」から始まる。
+
+### 1.5 キャラクター作成時の初期化
+
+`CharacterCreatorScene.gd` で新しいゲームを開始する際に:
 
 ```gdscript
-# 既存の "height_scale" ホットスポットを拡張
-func _on_height_scale_interact() -> void:
-    var g = _global()
-    var unmeasured: bool = g.height > g.recorded_height and not g.height_measured_this_term
-    if unmeasured:
-        _start_dialogue("measurement_in_progress")
-        await dialogue_finished
-        # 記録を実際の身長に合わせる（人形のサイズは既に更新済み）
-        var prev_h: float = g.recorded_height
-        g.recorded_height = g.height
-        g.record_growth_history()   # growth_history に recorded_height を記録
-        g.height_measured_this_term = true
-        _start_dialogue_dynamic(_build_measurement_result_dialogue(prev_h, g.height))
-    else:
-        _start_dialogue("term_school_infirmary")  # 通常の保健室ダイアログ
+global.recorded_height = global.current_params["height"]
+global.height_measured_this_term = false
 ```
 
 ---
 
-## 2. 成長イベント発生時の朝演出
+## 2. `term_end_measurement` イベントの変更
+
+現行 (`MainScene.gd` L2703〜L2713):
+
+```gdscript
+elif ev == "term_end_measurement":
+    if stage_id == "myroom":
+        await get_tree().create_timer(0.4).timeout
+        global.advance_term()
+        player.call("update_measurements")
+        _show_measurement_result(true)   # ← 削除
+        return true
+```
+
+変更後:
+
+```gdscript
+elif ev == "term_end_measurement":
+    if stage_id == "myroom":
+        await get_tree().create_timer(0.4).timeout
+        global.advance_term()
+        if player and player.has_method("update_measurements"):
+            player.call("update_measurements")
+        # _show_measurement_result は呼ばない
+        # advance_term() が queue_event("semester_start") を積むので
+        # そのまま学期開始ダイアログへ流れる
+        return true
+```
+
+---
+
+## 3. 成長イベント発生時の朝演出（ミシミシ）
 
 ### トリガー条件
 
-`height > recorded_height`（未測定の成長がある）状態で「就寝 → 起床」が発生したとき。
-
-### 演出フロー
-
-```
-就寝フェードアウト（黒）
-  ↓
-黒背景のまま（ColorRect alpha=1 維持）
-  ↓
-通常と同じ画面下部ダイアログで表示：
-  「ミシミシ……ミシミシ……膝が音を立てている」
-  ↓ 決定キー
-フェードイン → 翌朝（myroom）
-```
+`current_params["height"] > recorded_height`（未測定の成長がある）状態で就寝が発生したとき。
 
 ### 実装箇所: `_run_sleep_transition()` の拡張
 
+現行 (`MainScene.gd` L2306〜L2328) は引数なしで `_run_sleep_transition()` を呼ぶ。変更は**フェードアウト完了後・フェードイン開始前**に差し込む:
+
 ```gdscript
-func _run_sleep_transition(hours_passed: int) -> void:
-    # ... 既存フェードアウト処理 ...
+func _run_sleep_transition() -> void:
+    var global = get_node_or_null("/root/Global")
+    if not global: return
 
-    var g = _global()
-    if g and g.height > g.recorded_height:
-        # 黒背景のまましばらく待機
-        await get_tree().create_timer(0.4).timeout
-        _start_dialogue("growing_pain_sleep")   # 膝がミシミシ
-        await dialogue_finished
+    var fade = ColorRect.new()
+    fade.color = Color(0, 0, 0, 0)
+    fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+    fade.z_index = 110
+    fade.process_mode = Node.PROCESS_MODE_ALWAYS
+    ui_layer.add_child(fade)
 
-    # ... 既存フェードイン・翌朝処理 ...
+    var tw = create_tween()
+    tw.tween_property(fade, "color:a", 1.0, 0.35)
+    await tw.finished
+
+    # ★ 追加: 未測定の成長がある場合、黒背景のままダイアログ表示
+    if global.current_params["height"] > global.recorded_height:
+        var pain_key: String = "growing_pain_sleep_intense" \
+            if global.has_meta("growth_pain_intense") and global.get_meta("growth_pain_intense") \
+            else "growing_pain_sleep"
+        if global.has_meta("growth_pain_intense"):
+            global.set_meta("growth_pain_intense", false)
+        _start_dialogue("narrator", pain_key)
+        # ダイアログ終了まで待機（_end_dialogue() で _in_dialogue = false になる）
+        await _wait_dialogue_end()
+
+    global.current_stage_id = "myroom"
+    if player and player.has_method("update_measurements"):
+        player.call("update_measurements")
+    await _load_stage()
+    _update_actions_hud()
+
+    var tw_out = create_tween()
+    tw_out.tween_property(fade, "color:a", 0.0, 0.45)
+    await tw_out.finished
+    fade.queue_free()
 ```
 
-### ダイアログキー `"growing_pain_sleep"`
+**`_wait_dialogue_end()` ヘルパー** (新規追加):
 
 ```gdscript
-"growing_pain_sleep": [
-    {"speaker": "", "text": "ミシミシ……ミシミシ……"},
-    {"speaker": "", "text": "膝が音を立てている。"},
-    {"speaker": "主人公（心の声）", "text": "……また、伸びてるのかな。"},
-]
+func _wait_dialogue_end() -> void:
+    while _in_dialogue:
+        await get_tree().process_frame
+```
+
+**DialogueDatabase に `"narrator"` NPC エントリを追加**:
+
+```gdscript
+"narrator": {
+    "growing_pain_sleep": [
+        {"speaker": "", "text": "ミシミシ……ミシミシ……"},
+        {"speaker": "", "text": "膝が音を立てている。"},
+        {"speaker": "主人公（心の声）", "text": "……また、伸びてるのかな。"},
+    ],
+    "growing_pain_sleep_intense": [
+        {"speaker": "", "text": "ミシミシ……ミシミシ……"},
+        {"speaker": "", "text": "ガキッ……ガキッ……"},
+        {"speaker": "主人公（心の声）", "text": "骨が……割れるような音がする……！"},
+        {"speaker": "主人公（心の声）", "text": "いたい……いたい……"},
+    ],
+}
+```
+
+> `_start_dialogue("narrator", key)` はダイアログパネルを下部に通常表示するため、演出の位置は既存ダイアログと同じになる。
+
+---
+
+## 4. 廊下ではるかが身長測定に誘導するイベント
+
+### 既存実装の制約
+
+- NPCは `_get_nearby_named_npc()` で検知される（`is_npc` メタ）
+- ステージオブジェクト（`is_stage_obj`）とは別系統
+- `obs_id: "haruka_npc"` のホットスポット定義は**機能しない**
+
+### 実装方針: NPC会話後処理として組み込む
+
+はるかが近くにいる状態でEキーを押すと `_start_dialogue("haruka", key)` が呼ばれる。
+既存の `"measure_invite"` キーと同様に、**`_end_dialogue()` の後処理**でワープを実装する。
+
+#### トリガー条件: どのダイアログキーを使うか
+
+`_start_dialogue("haruka", key)` を呼ぶ際のキー選択ロジックに条件を追加する。
+はるかに話しかけたとき (`MainScene.gd` のNPC会話発火箇所) に:
+
+```gdscript
+func _start_npc_dialogue(npc_id: String) -> void:
+    var global = get_node_or_null("/root/Global")
+    var key: String = "default"
+
+    if npc_id == "haruka":
+        var unrecorded: bool = global and \
+            float(global.current_params["height"]) > global.recorded_height and \
+            not global.height_measured_this_term and \
+            _is_school_hallway_stage()
+        if unrecorded:
+            key = "height_check_invite"
+        else:
+            key = _get_haruka_default_key()   # 既存ロジック
+    _start_dialogue(npc_id, key)
+```
+
+```gdscript
+func _is_school_hallway_stage() -> bool:
+    var global = get_node_or_null("/root/Global")
+    if not global: return false
+    var sid: String = String(global.current_stage_id)
+    return sid.begins_with("school") and sid.contains("hallway")
+```
+
+#### `_end_dialogue()` への後処理追加
+
+既存の `elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "measure_invite":` の近くに:
+
+```gdscript
+elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "height_check_invite":
+    var global = get_node_or_null("/root/Global")
+    if global:
+        global.height_measured_this_term = true
+        global.current_stage_id = "infirmary"
+    await _load_stage()
+```
+
+#### `_load_stage()` のシグネチャ
+
+現行は引数なし。`global.current_stage_id` をセットしてから呼ぶ。
+`_load_stage("infirmary")` という呼び方は**誤り**。正しくは:
+
+```gdscript
+global.current_stage_id = "infirmary"
+await _load_stage()
+```
+
+#### DialogueDatabase の `"haruka"` エントリに追加
+
+```gdscript
+"height_check_invite": [
+    {"speaker": "はるか", "text": "あ、ちょっと待って！"},
+    {"speaker": "はるか", "text": "なんか……また背、伸びてない？"},
+    {"speaker": "主人公", "text": "……そう、かな。"},
+    {"speaker": "はるか", "text": "絶対伸びてるって！ちょっと保健室行こ、測ってもらおう！"},
+],
 ```
 
 ---
 
-## 3. 特別成長イベント
+## 5. 保健室の身長計インタラクト
 
-### ① 牛乳がぶ飲みイベント（無限成長）
-
-**トリガー**: `myroom` ステージの `refrigerator` をインタラクト
-
-**効果**: 1回あたり `height += 1.0`（人形が即時に大きくなる。`recorded_height` は変えない）
-
-**制限**: なし（AP消費なし、時間経過なし）
-
-**実装**
-
-`MainScene.gd` の `refrigerator` ホットスポット処理に追加:
+現行では `_nearby_height_scale == true` の時にEキーを押すと
+`_start_dialogue("nurse", "measure_offer")` 等が呼ばれる（既存ロジック参照）。
+この箇所に測定処理を組み込む。
 
 ```gdscript
-func _on_refrigerator_interact() -> void:
-    _start_dialogue("refrigerator_milk")
-    await dialogue_finished
-    var g = _global()
-    if g:
-        g.height += 1.0   # 人形に即時反映。recorded_height は変えない
+# _on_height_scale_pressed() 相当の処理に追加・変更
+func _on_height_scale_interact() -> void:
+    var global = get_node_or_null("/root/Global")
+    if not global: return
+
+    var has_unmeasured: bool = float(global.current_params["height"]) > global.recorded_height
+    if has_unmeasured:
+        _start_dialogue("nurse", "measurement_in_progress")
+        # 後処理は _end_dialogue() で
+    else:
+        _start_dialogue("nurse", "term_school_infirmary")
 ```
 
-**ダイアログキー `"refrigerator_milk"`**
+`_end_dialogue()` に後処理追加:
+
+```gdscript
+elif _current_dialogue_npc == "nurse" and _current_dialogue_key == "measurement_in_progress":
+    var global = get_node_or_null("/root/Global")
+    if global:
+        var prev_h: float = global.recorded_height
+        global.recorded_height = float(global.current_params["height"])
+        global.prev_height = prev_h      # カウントアップアニメーションの基点
+        global.record_growth_history("measurement")
+    _show_measurement_result(false)      # ストーリー測定なので return_to_myroom=false
+```
+
+> `_show_measurement_result()` は `global.prev_height` と `global.current_params["height"]` の差分でカウントアップするため、`prev_height = recorded_height（旧値）` をセットしておけばそのまま動く。
+
+#### DialogueDatabase の `"nurse"` エントリに追加
+
+```gdscript
+"measurement_in_progress": [
+    {"speaker": "養護教諭", "text": "はいはい、じゃあ靴を脱いで身長計に乗って。"},
+    {"speaker": "養護教諭", "text": "……はい、そこで止まって。"},
+],
+```
+
+---
+
+## 6. 特別成長イベント
+
+### 共通方針
+
+成長イベントはすべて `current_params["height"] += N` で実身長を更新。
+`recorded_height` は変えない。NPC会話は `_start_dialogue(npc_id, key)` 形式で呼ぶ。
+
+---
+
+### ① 牛乳がぶ飲みイベント
+
+**トリガー**: `myroom` ステージの `refrigerator` をインタラクト（`obs_id == "refrigerator"`）
+
+**効果**: `current_params["height"] += 1.0`。上限なし。
+
+**実装箇所**: `MainScene.gd` の `obs_id == "refrigerator"` ブランチ（Eキー処理内）
+
+```gdscript
+elif obs_id == "refrigerator":
+    _start_dialogue("narrator", "refrigerator_milk")
+    # 後処理は _end_dialogue() で
+```
+
+`_end_dialogue()` に追加:
+
+```gdscript
+elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "refrigerator_milk":
+    var global = get_node_or_null("/root/Global")
+    if global:
+        global.current_params["height"] += 1.0
+        if player and player.has_method("update_measurements"):
+            player.call("update_measurements")
+```
+
+**DialogueDatabase `"narrator"` に追加**:
 
 ```gdscript
 "refrigerator_milk": [
     {"speaker": "主人公", "text": "冷蔵庫を開けると、牛乳がある。"},
     {"speaker": "主人公", "text": "……ぐびぐびぐび。"},
     {"speaker": "主人公（心の声）", "text": "（また伸びる気がする）"},
-]
+],
 ```
 
 ---
 
-### ② 突発的・成長期睡眠イベント（ポイントブースト）
+### ② 突発的・成長期睡眠イベント
 
-**トリガー**: 時間経過アクションのたびに一定確率（15%）で発火。学校外出先でも発生。
+**トリガー**: 時間経過アクション後に 15% で発火（学校外でも発生）
 
-**効果**: 強烈な眠気ダイアログ → 「帰って寝る」選択 → フェードアウト → 翌朝。
-通常よりも多く `height` が増加する（`calc_growth` の通常成長量 × 0.5 を追加加算）。
+**効果**: `_run_sleep_transition()` を呼びつつ、実行前に `current_params["height"]` を追加加算。
 
-**実装**
+**「帰って寝る」選択時の動作**: `_load_stage` は呼ばない。選択直後にそのままフェードアウト → 翌朝（`_run_sleep_transition()` を呼ぶ）。
 
-`MainScene.gd` の時間経過処理内に確率判定を追加:
+**実装箇所**: 時間経過処理（既存の `_after_action()` 相当）内:
 
 ```gdscript
 const GROWTH_SLEEP_CHANCE := 0.15
@@ -222,79 +375,67 @@ const GROWTH_SLEEP_CHANCE := 0.15
 func _after_action() -> void:
     # ... 既存処理 ...
     if randf() < GROWTH_SLEEP_CHANCE:
-        _trigger_growth_sleep_event()
-
-func _trigger_growth_sleep_event() -> void:
-    _start_dialogue("growth_sleep_warning")
-    # 選択肢: ["今すぐ帰って寝る", "もう少し頑張る"]
-    # → 「帰って寝る」選択時: _load_stage("myroom") → _run_sleep_transition(boost=true)
+        _start_dialogue("narrator", "growth_sleep_warning")
+        # 後処理は _end_dialogue() で
 ```
 
-**`_run_sleep_transition` にブーストフラグ追加**
+`_end_dialogue()` に追加:
 
 ```gdscript
-func _run_sleep_transition(hours_passed: int, boost: bool = false) -> void:
-    var g = _global()
-    if g and boost:
-        var extra = g.calc_growth(int(g.age)) * 0.5
-        g.height += extra   # 人形に即時反映。recorded_height は変えない
-    # ... 残り既存処理 ...
+elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_sleep_warning":
+    # 選択結果は _last_choice_index で判定（0=帰って寝る, 1=頑張る）
+    if _last_choice_index == 0:
+        var global = get_node_or_null("/root/Global")
+        if global:
+            var extra := global.calc_growth() * 0.5
+            global.current_params["height"] += extra
+        await _run_sleep_transition()
+    # else: 何もしない
 ```
 
-**ダイアログキー `"growth_sleep_warning"`**
+**DialogueDatabase `"narrator"` に追加**:
 
 ```gdscript
 "growth_sleep_warning": [
     {"speaker": "主人公（心の声）", "text": "……急に、どっと眠気が来た。"},
     {"speaker": "主人公（心の声）", "text": "体が重い。目が開かない。"},
-    # 選択肢
     {"speaker": "__choice__", "choices": ["今すぐ帰って寝る", "もう少し頑張る"]},
-]
+],
 ```
 
 ---
 
-### ③ 怪しい成長サプリイベント（ガチャ要素）
+### ③ 怪しい成長サプリイベント
 
-**トリガー**: `station_vending` または `school` ステージ内の `vending_machine` をインタラクトした際、確率 7% で出現。
+**トリガー**: `station_vending` または `vending_machine` のインタラクト時、7% で出現
 
-**効果**: 飲むと `height += 10.0`（人形が即時に急成長。`recorded_height` は変えない）。
-翌朝の「ミシミシ」演出は通常より激しいバリアントを使用。
+**効果**: 「飲む」選択 → `current_params["height"] += 10.0` + 激しいミシミシフラグ。「捨てる」→ 何もしない。
 
-**実装**
-
-`MainScene.gd` のベンダーインタラクト処理に追加:
+**実装箇所**: Eキー処理の `obs_id == "vending_machine"` or `"station_vending"` ブランチ:
 
 ```gdscript
-const GROWTH_SUPP_CHANCE := 0.07
-
-func _on_vending_interact(vending_id: String) -> void:
-    if randf() < GROWTH_SUPP_CHANCE:
-        _trigger_growth_supplement()
+elif obs_id == "vending_machine" or obs_id == "station_vending":
+    if randf() < 0.07:
+        _start_dialogue("narrator", "growth_supplement_found")
     else:
-        _start_dialogue("term_station_vending")  # 通常
-
-func _trigger_growth_supplement() -> void:
-    _start_dialogue("growth_supplement_found")
-    await dialogue_finished
-    var g = _global()
-    if g:
-        g.height += 10.0   # 人形に即時反映。recorded_height は変えない
-        # 激しい演出フラグ
-        g.set_meta("growth_pain_intense", true)
+        _start_dialogue("narrator", "term_station_vending")   # 既存キー
 ```
 
-**`_run_sleep_transition` での激しい演出分岐**
+`_end_dialogue()` に追加:
 
 ```gdscript
-if g.has_meta("growth_pain_intense") and g.get_meta("growth_pain_intense"):
-    _start_dialogue("growing_pain_sleep_intense")
-    g.set_meta("growth_pain_intense", false)
-else:
-    _start_dialogue("growing_pain_sleep")
+elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_supplement_found":
+    if _last_choice_index == 0:   # 「飲む」
+        var global = get_node_or_null("/root/Global")
+        if global:
+            global.current_params["height"] += 10.0
+            global.set_meta("growth_pain_intense", true)
+            if player and player.has_method("update_measurements"):
+                player.call("update_measurements")
+    # 「捨てる」は何もしない
 ```
 
-**ダイアログキー `"growth_supplement_found"`**
+**DialogueDatabase `"narrator"` に追加**:
 
 ```gdscript
 "growth_supplement_found": [
@@ -302,90 +443,59 @@ else:
     {"speaker": "主人公", "text": "『怪しい成長サプリ』？"},
     {"speaker": "主人公（心の声）", "text": "……飲むか？"},
     {"speaker": "__choice__", "choices": ["飲む", "捨てる"]},
-]
-```
-
-**ダイアログキー `"growing_pain_sleep_intense"`**
-
-```gdscript
-"growing_pain_sleep_intense": [
-    {"speaker": "", "text": "ミシミシ……ミシミシ……"},
-    {"speaker": "", "text": "ガキッ……ガキッ……"},
-    {"speaker": "主人公（心の声）", "text": "骨が……割れるような音がする……！"},
-    {"speaker": "主人公（心の声）", "text": "いたい……いたい……"},
-]
+],
 ```
 
 ---
 
-## 4. はるかとのダイアログ
+## 7. 実装ステップ（推奨順）
 
-**キー `"haruka_height_check"`**
+1. **Global.gd**
+   - `recorded_height`・`height_measured_this_term` 変数を追加
+   - `advance_term()` の `record_growth_history("growth")` を削除し `height_measured_this_term = false` を追加
+   - `prev_height` の設定を `recorded_height` 基点に変更
+   - `save_slot()` / `load_slot()` に2変数を追加
+   - `CharacterCreatorScene.gd` の新規開始時に初期化を追加
 
-```gdscript
-"haruka_height_check": [
-    {"speaker": "はるか", "text": "あ、ちょっと待って！"},
-    {"speaker": "はるか", "text": "なんか……また背、伸びてない？"},
-    {"speaker": "主人公", "text": "……そう、かな。"},
-    {"speaker": "はるか", "text": "絶対伸びてるって！ちょっと保健室行こ、測ってもらおう！"},
-]
-```
+2. **MainScene.gd: `term_end_measurement` イベント変更**
+   - `_show_measurement_result(true)` の呼び出しを削除
 
-**キー `"measurement_in_progress"`**
+3. **DialogueDatabase.gd: `"narrator"` エントリ追加**
+   - `growing_pain_sleep` / `growing_pain_sleep_intense` / `refrigerator_milk` / `growth_sleep_warning` / `growth_supplement_found`
+   - `"haruka"` エントリに `height_check_invite` を追加
+   - `"nurse"` エントリに `measurement_in_progress` を追加
 
-```gdscript
-"measurement_in_progress": [
-    {"speaker": "養護教諭", "text": "はいはい、じゃあ靴を脱いで身長計に乗って。"},
-    {"speaker": "養護教諭", "text": "……はい、そこで止まって。"},
-]
-```
+4. **MainScene.gd: `_run_sleep_transition()` にミシミシ演出を追加**
+   - `_wait_dialogue_end()` ヘルパーも追加
 
-**キー `"measurement_result"`**（コード側で差分を挿入）
+5. **MainScene.gd: Eキー処理に各インタラクト追加**
+   - `refrigerator`（牛乳）
+   - `vending_machine` / `station_vending`（サプリガチャ）
 
-```gdscript
-# MainScene で動的生成
-func _build_measurement_result_dialogue(prev_h: float, new_h: float) -> Array:
-    var diff = new_h - prev_h
-    return [
-        {"speaker": "養護教諭", "text": "%.1fcm。" % new_h},
-        {"speaker": "はるか", "text": "前回から%.1fcmも伸びてる！！" % diff},
-        {"speaker": "主人公（心の声）", "text": "……%.1fcm、か。" % new_h},
-    ]
-```
+6. **MainScene.gd: `_after_action()` に成長期睡眠ランダムトリガー追加**
 
----
+7. **MainScene.gd: はるかNPC会話のキー選択ロジック追加**
+   - `_is_school_hallway_stage()` ヘルパー追加
 
-## 5. 実装ステップ（推奨順）
+8. **MainScene.gd: `_end_dialogue()` に後処理追加**
+   - `height_check_invite` → 保健室ワープ
+   - `measurement_in_progress` → 測定反映・`_show_measurement_result(false)`
+   - `refrigerator_milk` → 身長加算
+   - `growth_sleep_warning` → 選択肢判定・睡眠遷移
+   - `growth_supplement_found` → 選択肢判定・身長加算
 
-1. **Global.gd**: `recorded_height`・`height_measured_this_term` 追加。`advance_term()` は `height` を増やすが `recorded_height` は更新しないように変更。グラフ・ステータス表示を `recorded_height` 参照に変更。
-2. **MainScene.gd**: `_run_sleep_transition()` に「ミシミシ演出」分岐を追加。
-3. **DialogueDatabase.gd**: 上記ダイアログキーを追加。
-4. **MainScene.gd**: `refrigerator` ホットスポットに牛乳イベントを追加。
-5. **MainScene.gd**: 時間経過後の成長期睡眠ランダムトリガーを追加。
-6. **MainScene.gd**: 自販機インタラクトにサプリガチャを追加。
-7. **MainScene.gd**: 廊下の `haruka_hallway` ホットスポット追加 → 保健室ワープ。
-8. **MainScene.gd**: 保健室の `height_scale` インタラクトで測定・成長反映ロジック実装。
-9. 動作確認（学期進行 → 廊下 → 保健室 → 成長反映の一連フロー）。
+9. **MainScene.gd: `_on_height_scale_interact()` の測定ロジック実装**
+
+10. 動作確認（学期進行 → ミシミシ → 廊下 → 保健室ワープ → 測定パネル表示）
 
 ---
 
-## 6. 決定事項
+## 8. 決定事項
 
 | 項目 | 決定 |
 |---|---|
-| `haruka_npc` の配置座標 | 教室の前 |
-| 「帰って寝る」実装方法 | 選択した瞬間にフェードアウト → そのまま翌朝演出。`_load_stage("myroom")` は不要 |
+| `haruka_npc` の配置 | 教室の前 |
+| 「帰って寝る」実装方法 | 選択直後にそのまま `_run_sleep_transition()` を呼ぶ。`_load_stage` は呼ばない |
 | 牛乳イベントの回数上限 | 上限なし（ズルを楽しむ要素として意図的） |
 | サプリ「捨てる」の処理 | 何もしない（ダイアログを閉じるだけ） |
-| `measurement_result` の管理場所 | `MainScene.gd` 内の `_build_measurement_result_dialogue()` で動的生成 |
-
-### 「帰って寝る」実装メモ
-
-```gdscript
-func _trigger_growth_sleep_event() -> void:
-    _start_dialogue("growth_sleep_warning")
-    await dialogue_finished
-    # 「今すぐ帰って寝る」が選ばれた場合:
-    # _load_stage は呼ばない。そのままフェードアウト → 翌朝（myroom）へ
-    _run_sleep_transition(8, boost=true)
-```
+| `measurement_result` の管理 | `_show_measurement_result(false)` をそのまま流用。`prev_height` を事前にセットして対応 |
