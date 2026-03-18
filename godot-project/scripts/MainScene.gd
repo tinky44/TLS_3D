@@ -91,6 +91,9 @@ var _sleep_menu_current_options: Array[String] = []
 var _edge_transition_running: bool = false
 var _last_soft_limit_notice_key: String = ""
 
+const CAMERA_HEIGHT_OFFSET_RATIO := 0.4
+const CAMERA_FOOT_MARGIN_PX := 120.0
+
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
 	"continue": {
@@ -634,6 +637,28 @@ func _resolve_stage_id(stage_id: String) -> String:
 	var global = get_node_or_null("/root/Global")
 	var age_value: int = int(global.age) if global else 0
 	return StageBuilder.resolve_stage_id(stage_id, age_value)
+
+func _apply_player_camera_offset(cam: Camera2D = null) -> void:
+	if not player:
+		return
+	var target_cam := cam
+	if target_cam == null:
+		target_cam = player.get_node_or_null("Camera2D") as Camera2D
+	if target_cam == null:
+		return
+	var m = player.get("m")
+	if not (m is Dictionary):
+		return
+	var measurements: Dictionary = m
+	if not measurements.has("height"):
+		return
+	var desired_offset_y: float = -float(measurements["height"]) * p * CAMERA_HEIGHT_OFFSET_RATIO
+	var viewport_height_px: float = maxf(get_viewport().get_visible_rect().size.y, 1.0)
+	var max_upward_offset_y: float = -maxf(
+		(viewport_height_px * 0.5 - CAMERA_FOOT_MARGIN_PX) * float(target_cam.zoom.y),
+		0.0
+	)
+	target_cam.offset = Vector2(0, maxf(desired_offset_y, max_upward_offset_y))
 
 func _get_stage_uniform_age(stage_id: String) -> int:
 	var global = get_node_or_null("/root/Global")
@@ -2832,6 +2857,7 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			global.advance_term()
 			if player and player.has_method("update_measurements"):
 				player.call("update_measurements")
+				_apply_player_camera_offset()
 			return true
 		else:
 			_defer_pending_stage_event(global, ev)
@@ -2888,15 +2914,13 @@ func _load_stage():
 		var cam = player.get_node_or_null("Camera2D")
 		if cam:
 			var stage_width_px := int(float(StageBuilder.STAGES[stage_id]["width"]) * p) if StageBuilder.STAGES.has(stage_id) else 0
-			var m = player.get("m")
 			var ceiling_h = StageBuilder.STAGES[stage_id].get("ceiling_height", null) if StageBuilder.STAGES.has(stage_id) else null
 			var is_gym: bool = stage_id == "gymnasium" or StageBuilder.is_gymnasium_stage(stage_id)
 			var is_schoolyard: bool = stage_id == "schoolyard" or StageBuilder.is_schoolyard_stage(stage_id)
-			if m and m.has("height"):
-				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 体育館・校庭: zoom アウトで視野を広げる。limit_bottom が上端を適切に固定する
 			var should_zoom_out: bool = (is_gym and ceiling_h != null) or is_schoolyard
 			cam.zoom = Vector2(0.75, 0.75) if should_zoom_out else Vector2(1.0, 1.0)
+			_apply_player_camera_offset(cam)
 			cam.limit_left = 0
 			cam.limit_right = stage_width_px
 			# zoom=0.75 時: limit_bottom=333 → 上端が約420cm（840px）に固定される
