@@ -2611,7 +2611,8 @@ func _update_actions_hud() -> void:
 	if not global:
 		action_label.text = ""
 		return
-	action_label.text = "%d日目  行動 %d/%d" % [
+	action_label.text = "%s  %d日目  行動 %d/%d" % [
+		Global.get_school_term_label(int(global.age), int(global.term)),
 		int(global.day_in_term),
 		int(global.actions_today),
 		int(global.max_actions_per_day),
