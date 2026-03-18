@@ -1416,7 +1416,7 @@ func _end_dialogue() -> void:
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_sleep_warning":
 		if _last_choice_index == 0:  # 「今すぐ帰って寝る」
 			if global:
-				var extra := global.calc_growth() * 0.5
+				var extra: float = float(global.calc_growth()) * 0.5
 				global.current_params["height"] += extra
 			await _run_sleep_transition()
 	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_supplement_found":
