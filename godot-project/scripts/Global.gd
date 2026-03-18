@@ -47,6 +47,10 @@ var term_total_days: int = 3 # 一学期当たりのアクション回数。こ�
 var growth_factor: float = 1.0
 var growth_type: String = "normal" # "slow" / "normal" / "fast" / "explosive"
 var prev_height: float = 0.0
+var recorded_height: float = 0.0           # 最後に保健室で測定した身長（グラフ・UI表示用）
+var height_measured_this_term: bool = false # 今学期のはるか誘導が発火済みか
+var bonus_growth_cm: float = 0.0           # 牛乳・サプリ・睡眠ブーストで積んだ追加成長（学期変わりに適用）
+var growth_pain_pending: bool = false      # ミシミシ演出を次の就寝時に出すフラグ（急成長イベント時のみ立てる）
 var growth_history: Array = []
 
 var active_companion_id: String = "" # 現在同行しているNPCのID
@@ -401,7 +405,7 @@ static func get_shoes_for_stage(stage_id: String) -> String:
 	return "loafer"
 
 func advance_term() -> void:
-	prev_height = current_params["height"]
+	prev_height = recorded_height if recorded_height > 0.0 else current_params["height"]
 	var prev_age: int = age
 	var prev_school_level: int = _school_level_from_age(prev_age)
 	term += 1
@@ -409,11 +413,13 @@ func advance_term() -> void:
 	actions_today = 0
 	age = term_to_age(term)
 	var school_level: int = _school_level_from_age(age)
-	current_params["height"] += calc_growth()
+	current_params["height"] += calc_growth() + bonus_growth_cm
+	bonus_growth_cm = 0.0
 	# 夏休み（1学期→2学期）急成長: term>=6 かつ (term-6)%3==1
 	if term >= 6 and (term - 6) % 3 == 1:
 		current_params["height"] += 10.0
 		queue_event("summer_growth")
+		growth_pain_pending = true
 	# 急成長イベント: 中学〜高校初期（12〜15歳）で確率発生
 	# summer_growth と重なった場合も仕様として許容（+14〜18cmになりうる）
 	story_term_flags = {}
@@ -423,6 +429,7 @@ func advance_term() -> void:
 		if not has_story_flag("growth_spurt_seen_first"):
 			set_story_flag("growth_spurt_seen_first")
 		queue_event("growth_spurt")
+		growth_pain_pending = true
 	# 身長に合わせて頭身を自動更新（最大9頭身）
 	var h: float = current_params["height"]
 	current_params["ratio"] = clamp(5.5 + (h - 100.0) / 30.0, 5.0, 9.0)
@@ -432,7 +439,6 @@ func advance_term() -> void:
 		for key in uniform.keys():
 			current_appearance[key] = uniform[key]
 		current_appearance["hat_type"] = "school_hat" if age < 12 else "none"
-	record_growth_history("growth")
 	queue_event("semester_start") # 学期開始イベントを予約
 	# 男子成長自慢: 中学期に初回のみ
 	if age >= 12 and age <= 14 and not has_story_flag("middle_boys_growth_talk_done"):
@@ -448,6 +454,7 @@ func advance_term() -> void:
 		(prev_school_level == 3 and school_level == 4) # 高校卒業
 	)
 	term_hotspot_flags = {}
+	height_measured_this_term = false
 	term_memory_note = ""
 	_check_all_achievements()
 
@@ -730,6 +737,10 @@ func save_slot(slot: int) -> void:
 		config.set_value(section, "initial_appearance_" + key, initial_appearance.get(key, current_appearance[key]))
 	config.set_value(section, "visited_stages", visited_stages)
 	config.set_value(section, "experienced_events", experienced_events)
+	config.set_value(section, "recorded_height", recorded_height)
+	config.set_value(section, "height_measured_this_term", height_measured_this_term)
+	config.set_value(section, "bonus_growth_cm", bonus_growth_cm)
+	config.set_value(section, "growth_pain_pending", growth_pain_pending)
 	config.save(SLOTS_PATH)
 	current_slot = slot
 
@@ -750,6 +761,10 @@ func load_slot(slot: int) -> bool:
 	day_in_term = int(config.get_value(section, "day_in_term", 1))
 	actions_today = int(config.get_value(section, "actions_today", 0))
 	prev_height = config.get_value(section, "prev_height", 0.0)
+	recorded_height = config.get_value(section, "recorded_height", current_params["height"])
+	height_measured_this_term = bool(config.get_value(section, "height_measured_this_term", false))
+	bonus_growth_cm = float(config.get_value(section, "bonus_growth_cm", 0.0))
+	growth_pain_pending = bool(config.get_value(section, "growth_pain_pending", false))
 	growth_factor = config.get_value(section, "growth_factor", 1.0)
 	growth_type = config.get_value(section, "growth_type", "normal")
 	growth_history = config.get_value(section, "growth_history", [])

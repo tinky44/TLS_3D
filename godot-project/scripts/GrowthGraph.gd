@@ -56,7 +56,7 @@ func _draw() -> void:
 		max_h = maxf(max_h, float(entry.get("height",     200.0)))
 		max_h = maxf(max_h, float(entry.get("avg_height", 200.0)))
 	var h_range: float = maxf(max_h - min_h, 10.0)
-	min_h = maxf(min_h - h_range * 0.12, 50.0)
+	min_h = maxf(min_h - h_range * 0.12, 0.0)
 	max_h = max_h + h_range * 0.12
 	h_range = max_h - min_h
 

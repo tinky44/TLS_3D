@@ -17,6 +17,12 @@ const DATA: Dictionary = {
 			{"speaker": "はるか", "text": "（見上げながら）……もう、どこまで伸びるの？"},
 			{"speaker": "はるか", "text": "たまには屈んでよ。内緒話もできないじゃない。"},
 		],
+		"height_check_invite": [
+			{"speaker": "はるか", "text": "あ、ちょっと待って！"},
+			{"speaker": "はるか", "text": "なんか……また背、伸びてない？"},
+			{"speaker": "主人公", "text": "……そう、かな。"},
+			{"speaker": "はるか", "text": "絶対伸びてるって！ちょっと保健室行こ、測ってもらおう！"},
+		],
 		"measure_invite": [
 			{"speaker": "はるか", "text": "ねえ……また背、伸びてない？"},
 			{
@@ -196,6 +202,10 @@ const DATA: Dictionary = {
 		],
 		"measurement_notice": [
 			{"speaker": "保健の先生", "text": "そろそろ身体測定の時期ね。保健室においで。"},
+		],
+		"measurement_in_progress": [
+			{"speaker": "養護教諭", "text": "はいはい、じゃあ靴を脱いで身長計に乗って。"},
+			{"speaker": "養護教諭", "text": "……はい、そこで止まって。"},
 		],
 	},
 	"player": {
@@ -380,6 +390,35 @@ const DATA: Dictionary = {
 		"elem_tease_sad": [
 			{"speaker": "（主人公）", "text": "（ちょっと、痛かった。）"},
 			{"speaker": "はるか", "text": "ねえ、気にしなくていいよ。そのままのあなたで全然いい。"},
+		],
+	},
+	"narrator": {
+		"growing_pain_sleep": [
+			{"speaker": "", "text": "ミシミシ……ミシミシ……"},
+			{"speaker": "", "text": "膝が音を立てている。"},
+			{"speaker": "主人公（心の声）", "text": "……また、伸びてるのかな。"},
+		],
+		"growing_pain_sleep_intense": [
+			{"speaker": "", "text": "ミシミシ……ミシミシ……"},
+			{"speaker": "", "text": "ガキッ……ガキッ……"},
+			{"speaker": "主人公（心の声）", "text": "骨が……割れるような音がする……！"},
+			{"speaker": "主人公（心の声）", "text": "いたい……いたい……"},
+		],
+		"refrigerator_milk": [
+			{"speaker": "主人公", "text": "冷蔵庫を開けると、牛乳がある。"},
+			{"speaker": "主人公", "text": "……ぐびぐびぐび。"},
+			{"speaker": "主人公（心の声）", "text": "（また伸びる気がする）"},
+		],
+		"growth_sleep_warning": [
+			{"speaker": "主人公（心の声）", "text": "……急に、どっと眠気が来た。"},
+			{"speaker": "主人公（心の声）", "text": "体が重い。目が開かない。"},
+			{"speaker": "__choice__", "choices": ["今すぐ帰って寝る", "もう少し頑張る"]},
+		],
+		"growth_supplement_found": [
+			{"speaker": "主人公", "text": "自動販売機の取り出し口に、何かある……"},
+			{"speaker": "主人公", "text": "『怪しい成長サプリ』？"},
+			{"speaker": "主人公（心の声）", "text": "……飲むか？"},
+			{"speaker": "__choice__", "choices": ["飲む", "捨てる"]},
 		],
 	},
 	"generic": {

@@ -72,6 +72,9 @@ var _dialogue_restore_pose: String = ""
 var _sit_front_nodes: Array = []  # 着席中に前面表示した obs ノードのリスト
 var _choice_buttons: Array = []
 var _choice_selected_index: int = -1
+var _last_choice_index: int = -1
+var _in_sleep_dialogue_wait: bool = false
+signal _sleep_dialogue_ended
 const DialogueDatabase = preload("res://scripts/DialogueDatabase.gd")
 var _dialogues: Dictionary = DialogueDatabase.DATA
 
@@ -87,6 +90,9 @@ var _sleep_menu_showing: bool = false
 var _sleep_menu_current_options: Array[String] = []
 var _edge_transition_running: bool = false
 var _last_soft_limit_notice_key: String = ""
+
+const CAMERA_HEIGHT_OFFSET_RATIO := 0.4
+const CAMERA_FOOT_MARGIN_PX := 120.0
 
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
@@ -236,6 +242,7 @@ const TERM_HOTSPOTS: Dictionary = {
 }
 
 const STRESS_PREFIX_KEYS: Array[String] = ["default", "tall", "huge", "check"]
+const GROWTH_SLEEP_CHANCE := 0.15
 const NPC_STRESS_OPENERS: Dictionary = {
 	"haruka": {
 		"low": {"speaker": "はるか", "text": "今日は少し顔つきがやわらかいね。"},
@@ -490,6 +497,7 @@ func _setup_dialogue_panel() -> void:
 	dialogue_panel.offset_bottom = 0
 	dialogue_panel.hide()
 	dialogue_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	dialogue_panel.z_index = 150  # フェード(110)より前面に出す
 
 	var bg = StyleBoxFlat.new()
 	bg.bg_color = Color(0.1, 0.1, 0.18, 0.5)
@@ -629,6 +637,28 @@ func _resolve_stage_id(stage_id: String) -> String:
 	var global = get_node_or_null("/root/Global")
 	var age_value: int = int(global.age) if global else 0
 	return StageBuilder.resolve_stage_id(stage_id, age_value)
+
+func _apply_player_camera_offset(cam: Camera2D = null) -> void:
+	if not player:
+		return
+	var target_cam := cam
+	if target_cam == null:
+		target_cam = player.get_node_or_null("Camera2D") as Camera2D
+	if target_cam == null:
+		return
+	var m = player.get("m")
+	if not (m is Dictionary):
+		return
+	var measurements: Dictionary = m
+	if not measurements.has("height"):
+		return
+	var desired_offset_y: float = -float(measurements["height"]) * p * CAMERA_HEIGHT_OFFSET_RATIO
+	var viewport_height_px: float = maxf(get_viewport().get_visible_rect().size.y, 1.0)
+	var max_upward_offset_y: float = -maxf(
+		(viewport_height_px * 0.5 - CAMERA_FOOT_MARGIN_PX) * float(target_cam.zoom.y),
+		0.0
+	)
+	target_cam.offset = Vector2(0, maxf(desired_offset_y, max_upward_offset_y))
 
 func _get_stage_uniform_age(stage_id: String) -> int:
 	var global = get_node_or_null("/root/Global")
@@ -1202,6 +1232,13 @@ func _show_dialogue_line() -> void:
 		dialogue_hint_label.text = "Eキーで次へ"
 		dialogue_hint_label.show()
 
+func _normalize_dialogue_choice(choice: Variant) -> Dictionary:
+	if choice is Dictionary:
+		return choice
+	if choice is String or choice is StringName:
+		return {"label": String(choice)}
+	return {"label": str(choice)}
+
 func _show_choices(choices: Array) -> void:
 	_choice_pending = true
 	dialogue_hint_label.text = "↑↓で選択  Eキーで決定"
@@ -1220,8 +1257,9 @@ func _show_choices(choices: Array) -> void:
 	var hover_style = choice_style.duplicate()
 	hover_style.bg_color = Color("#3a3a60")
 	for c in choices:
+		var choice_data: Dictionary = _normalize_dialogue_choice(c)
 		var btn = Button.new()
-		btn.text = c.get("label", "")
+		btn.text = String(choice_data.get("label", ""))
 		btn.focus_mode = Control.FOCUS_ALL
 		btn.add_theme_font_size_override("font_size", 17)
 		btn.add_theme_stylebox_override("normal", choice_style.duplicate())
@@ -1231,7 +1269,7 @@ func _show_choices(choices: Array) -> void:
 		btn.add_theme_color_override("font_color", Color.WHITE)
 		btn.mouse_entered.connect(_on_choice_button_hovered.bind(_choice_buttons.size()))
 		btn.focus_entered.connect(_on_choice_button_focused.bind(_choice_buttons.size()))
-		btn.connect("pressed", _on_choice_selected.bind(c))
+		btn.connect("pressed", _on_choice_selected.bind(choice_data))
 		_choice_buttons.append(btn)
 		choice_container.add_child(btn)
 	choice_container.show()
@@ -1271,14 +1309,16 @@ func _on_choice_button_hovered(index: int) -> void:
 func _on_choice_button_focused(index: int) -> void:
 	_choice_selected_index = index
 
-func _on_choice_selected(choice: Dictionary) -> void:
+func _on_choice_selected(choice: Variant) -> void:
+	var choice_data: Dictionary = _normalize_dialogue_choice(choice)
+	_last_choice_index = _choice_selected_index
 	_choice_pending = false
 	_clear_choice_buttons()
 	choice_container.hide()
 	dialogue_hint_label.text = "Eキーで次へ"
 	dialogue_hint_label.show()
 	# 感情パラメータ更新
-	var emotion: String = choice.get("emotion", "")
+	var emotion: String = String(choice_data.get("emotion", ""))
 	var global = get_node_or_null("/root/Global")
 	if global and emotion != "":
 		if emotion == "confidence":
@@ -1286,13 +1326,13 @@ func _on_choice_selected(choice: Dictionary) -> void:
 		elif emotion == "complex":
 			global.self_complex += 1
 	# アクション処理（バレー部ストーリーなど）
-	var action: String = choice.get("action", "")
+	var action: String = String(choice_data.get("action", ""))
 	if global and action != "":
 		_process_choice_action(action, global)
 	if global:
 		global.save_settings()
 	# 分岐先へ
-	var next_key: String = choice.get("next", "")
+	var next_key: String = String(choice_data.get("next", ""))
 	if next_key != "":
 		var npc_data: Dictionary = _dialogues.get(_current_dialogue_npc, {})
 		if npc_data.has(next_key):
@@ -1391,6 +1431,35 @@ func _end_dialogue() -> void:
 			global.is_leg_pain = false
 			global.vball_joined = false
 			global.vball_story_phase = 5
+	elif _current_dialogue_npc == "haruka" and _current_dialogue_key == "height_check_invite":
+		if global:
+			global.height_measured_this_term = true
+			global.current_stage_id = "infirmary"
+		await _load_stage()
+	elif _current_dialogue_npc == "nurse" and _current_dialogue_key == "measurement_in_progress":
+		if global:
+			var prev_h: float = global.recorded_height
+			global.recorded_height = float(global.current_params["height"])
+			global.prev_height = prev_h
+			global.record_growth_history("measurement")
+		_show_measurement_result(false, true)
+	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "refrigerator_milk":
+		if global:
+			global.bonus_growth_cm += 1.0
+	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_sleep_warning":
+		if _last_choice_index == 0:  # 「今すぐ帰って寝る」
+			if global:
+				var extra: float = float(global.calc_growth()) * 0.5
+				global.bonus_growth_cm += extra
+				global.growth_pain_pending = true
+			await _run_sleep_transition()
+	elif _current_dialogue_npc == "narrator" and _current_dialogue_key == "growth_supplement_found":
+		if _last_choice_index == 0:  # 「飲む」
+			if global:
+				global.bonus_growth_cm += 10.0
+				global.set_meta("growth_pain_intense", true)
+				global.growth_pain_pending = true
+		# 「捨てる」は何もしない
 	elif _current_dialogue_npc == "teacher" and _current_dialogue_key == "semester_start":
 		if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)):
 			call_deferred("_start_dialogue", "player", "term_school")
@@ -1401,6 +1470,17 @@ func _end_dialogue() -> void:
 		global._check_all_achievements()
 	if should_show_term_choice:
 		call_deferred("_show_term_choice_panel")
+	# 睡眠待機中のダイアログが終わった場合にシグナルを発火
+	if _in_sleep_dialogue_wait:
+		_in_sleep_dialogue_wait = false
+		_sleep_dialogue_ended.emit()
+
+func _is_school_hallway_stage() -> bool:
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return false
+	var sid: String = String(global.current_stage_id)
+	return sid.begins_with("school") and sid.contains("hallway")
 
 func _should_run_school_day_transition(global: Node) -> bool:
 	if _school_day_transition_running:
@@ -1574,7 +1654,14 @@ func _interact_with_npc(npc: Node) -> void:
 			elif diff >= 35.0 and npc_data.has("huge"):
 				key = "huge"
 		elif npc_id == "haruka":
-			if global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
+			var unrecorded: bool = global != null and \
+				float(global.current_params["height"]) > global.recorded_height and \
+				not global.height_measured_this_term and \
+				_is_school_hallway_stage()
+			if unrecorded:
+				_start_dialogue("haruka", "height_check_invite")
+				return
+			elif global and StageBuilder.is_school_classroom_stage(String(global.current_stage_id)) and not global.has_term_hotspot_done("school_haruka_support"):
 				key = "term_school_haruka_support"
 				global.mark_term_hotspot_done("school_haruka_support")
 			elif global and global.is_leg_pain and vball_phase == 3:
@@ -1755,6 +1842,28 @@ func _update_bubble():
 	var hit_dist = 60.0 # 60cm以内に近づいたら表示
 	var closest_obs: Node2D = null
 	var min_dist = INF
+
+	# 冷蔵庫は NPC より先にチェック（母が前に立っていてもインタラクト可能にする）
+	for child in get_children():
+		if child.has_meta("is_stage_obj") and child.has_meta("obs_id") \
+				and String(child.get_meta("obs_id")) == "refrigerator":
+			var ox1 := float(child.get_meta("obs_x"))
+			var ox2 := float(child.get_meta("obs_x2"))
+			var dist := 0.0
+			if px < ox1: dist = ox1 - px
+			elif px > ox2: dist = px - ox2
+			if dist < 60.0:
+				_nearby_npc = null
+				_nearby_transition_door = ""
+				_nearby_height_scale = false
+				_nearby_term_hotspot = ""
+				_nearby_bed = false
+				_nearby_obs_id = "refrigerator"
+				bubble_label.text = StageBuilder.get_obstacle_comment("refrigerator", m["height"], float(child.get_meta("obs_height_cm")))
+				bubble_label.text += "\n[Eキー] 開ける"
+				bubble_panel.show()
+				bubble_panel.position = _get_bubble_screen_pos()
+				return
 
 	# NPC検知を先に行う（ステージオブジェクトより優先）
 	_nearby_npc = _get_nearby_named_npc(150.0)
@@ -2298,6 +2407,14 @@ func _on_sleep_menu_selected(choice: String) -> void:
 		_:
 			return
 	global.actions_today = 0
+	# アクション消費後のランダム睡眠チェック（発火した場合は就寝遷移を7dに委ねる）
+	if not _in_dialogue and randf() < GROWTH_SLEEP_CHANCE:
+		_start_dialogue("narrator", "growth_sleep_warning")
+		if _in_dialogue:
+			if int(global.day_in_term) >= int(global.term_total_days):
+				if not global.has_pending_event("term_end_measurement"):
+					global.queue_event("term_end_measurement")
+			return
 	if int(global.day_in_term) >= int(global.term_total_days):
 		if not global.has_pending_event("term_end_measurement"):
 			global.queue_event("term_end_measurement")
@@ -2316,6 +2433,19 @@ func _run_sleep_transition() -> void:
 	var tw = create_tween()
 	tw.tween_property(fade, "color:a", 1.0, 0.35)
 	await tw.finished
+	# 急成長イベント（夏・急成長期・サプリ・睡眠ブースト）があった場合のみ黒画面でダイアログ表示
+	var intense: bool = global.has_meta("growth_pain_intense") and bool(global.get_meta("growth_pain_intense"))
+	if global and (global.growth_pain_pending or intense):
+		var pain_key: String
+		if intense:
+			pain_key = "growing_pain_sleep_intense"
+			global.set_meta("growth_pain_intense", false)
+		else:
+			pain_key = "growing_pain_sleep"
+		global.growth_pain_pending = false
+		_in_sleep_dialogue_wait = true
+		_start_dialogue("narrator", pain_key)
+		await _wait_for_dialogue_end()
 	global.current_stage_id = "myroom"
 	if player and player.has_method("update_measurements"):
 		player.call("update_measurements")
@@ -2325,6 +2455,13 @@ func _run_sleep_transition() -> void:
 	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
 	await tw_out.finished
 	fade.queue_free()
+
+
+func _wait_for_dialogue_end() -> void:
+	# ダイアログが終わるまで待機。ツリーがポーズ中でも動作するようシグナルで待つ
+	if not _in_dialogue:
+		return
+	await _sleep_dialogue_ended
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -2382,12 +2519,25 @@ func _unhandled_input(event: InputEvent) -> void:
 				_do_standup()
 			elif _nearby_bed:
 				_trigger_bed_interaction()
+			elif _nearby_obs_id == "refrigerator":
+				_start_dialogue("narrator", "refrigerator_milk")
+			elif _nearby_obs_id == "vending_machine" or _nearby_obs_id == "station_vending":
+				if randf() < 0.07:
+					_start_dialogue("narrator", "growth_supplement_found")
+				else:
+					_start_dialogue("narrator", "term_station_vending")
 			elif _nearby_term_hotspot != "":
 				_trigger_term_hotspot(_nearby_term_hotspot)
 			elif _nearby_transition_door != "":
 				_enter_transition_door()
 			elif _nearby_height_scale:
-				_show_measurement_result()
+				var _hs_global = get_node_or_null("/root/Global")
+				var _has_unmeasured: bool = _hs_global != null and \
+					float(_hs_global.current_params["height"]) > _hs_global.recorded_height
+				if _has_unmeasured:
+					_start_dialogue("nurse", "measurement_in_progress")
+				else:
+					_show_measurement_result()
 			elif _nearby_npc:
 				_interact_with_npc(_nearby_npc)
 
@@ -2491,7 +2641,8 @@ func _update_actions_hud() -> void:
 	if not global:
 		action_label.text = ""
 		return
-	action_label.text = "%d日目  行動 %d/%d" % [
+	action_label.text = "%s  %d日目  行動 %d/%d" % [
+		Global.get_school_term_label(int(global.age), int(global.term)),
 		int(global.day_in_term),
 		int(global.actions_today),
 		int(global.max_actions_per_day),
@@ -2706,7 +2857,7 @@ func _handle_pending_stage_event(global: Node, stage_id: String, ev: String) -> 
 			global.advance_term()
 			if player and player.has_method("update_measurements"):
 				player.call("update_measurements")
-			_show_measurement_result(true)
+				_apply_player_camera_offset()
 			return true
 		else:
 			_defer_pending_stage_event(global, ev)
@@ -2763,15 +2914,13 @@ func _load_stage():
 		var cam = player.get_node_or_null("Camera2D")
 		if cam:
 			var stage_width_px := int(float(StageBuilder.STAGES[stage_id]["width"]) * p) if StageBuilder.STAGES.has(stage_id) else 0
-			var m = player.get("m")
 			var ceiling_h = StageBuilder.STAGES[stage_id].get("ceiling_height", null) if StageBuilder.STAGES.has(stage_id) else null
 			var is_gym: bool = stage_id == "gymnasium" or StageBuilder.is_gymnasium_stage(stage_id)
 			var is_schoolyard: bool = stage_id == "schoolyard" or StageBuilder.is_schoolyard_stage(stage_id)
-			if m and m.has("height"):
-				cam.offset = Vector2(0, -m["height"] * p * 0.4)
 			# 体育館・校庭: zoom アウトで視野を広げる。limit_bottom が上端を適切に固定する
 			var should_zoom_out: bool = (is_gym and ceiling_h != null) or is_schoolyard
 			cam.zoom = Vector2(0.75, 0.75) if should_zoom_out else Vector2(1.0, 1.0)
+			_apply_player_camera_offset(cam)
 			cam.limit_left = 0
 			cam.limit_right = stage_width_px
 			# zoom=0.75 時: limit_bottom=333 → 上端が約420cm（840px）に固定される
@@ -3266,13 +3415,13 @@ func _update_mini_avatar(h_cm: float) -> void:
 	_mini_proxy.visual_height_cm = h_cm
 	_mini_drawer.queue_redraw()
 
-func _show_measurement_result(return_to_myroom: bool = false) -> void:
+func _show_measurement_result(return_to_myroom: bool = false, animate: bool = false) -> void:
 	var global = get_node_or_null("/root/Global")
 	if not global: return
 
 	var h: float = global.current_params["height"]
 	var prev_h: float = global.prev_height
-	var animate_growth: bool = return_to_myroom and prev_h > 0.0 and absf(h - prev_h) > 0.01
+	var animate_growth: bool = (return_to_myroom or animate) and prev_h > 0.0 and absf(h - prev_h) > 0.01
 	var a: int = global.age
 	var avg_h: float = global.get_avg_height(a)
 	var diff_avg: float = h - avg_h
@@ -3292,7 +3441,7 @@ func _show_measurement_result(return_to_myroom: bool = false) -> void:
 
 	# 前回比ラベル
 	if prev_h > 0.0:
-		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev if return_to_myroom else "現在値（前回比 %+.1f cm）" % diff_prev
+		_meas_diff_label.text = "前回比  %+.1f cm" % diff_prev if (return_to_myroom or animate) else "現在値（前回比 %+.1f cm）" % diff_prev
 	else:
 		_meas_diff_label.text = "はじめての測定"
 
