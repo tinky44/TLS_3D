@@ -28,7 +28,6 @@
 
 **起床バグの真因**: 500cmキャラのカプセル衝突形状（高さ1000px）が
 天井（240cm=480px）に当たり、物理エンジンに押し出される。
-x=260cmに置いても衝突形状が天井を突き抜けるため左に落ちる。
 
 ---
 
@@ -42,7 +41,6 @@ x=260cmに置いても衝突形状が天井を突き抜けるため左に落ち�
 ```gdscript
 if player:
     player.position = Vector2(260 * p, 0)
-    # 500cm超のとき天井と衝突して押し出されるため、1フレーム衝突を切る
     player.collision_shape.disabled = true
     await get_tree().process_frame
     player.collision_shape.disabled = false
@@ -58,7 +56,6 @@ var is_crouch_impossible: bool = false
 
 `_handle_auto_crouch()` 末尾に判定追加:
 ```gdscript
-# 天井高さに対して自身の身長が1.5倍超 = 屈んでも物理的に入れない
 if target_crouch_cm > 0 and target_crouch_cm < visual_height_cm * 0.45:
     is_crouch_impossible = true
 else:
@@ -71,38 +68,91 @@ if is_crouch_impossible:
     velocity.x = move_toward(velocity.x, 0, SPEED)
 ```
 
-#### 【3】「詰まり演出」メッセージ
-対象: `MainScene.gd`
+#### 【3】「家より大きくなった」演出と屋外への強制退出
+対象: `MainScene.gd`、`DialogueDatabase.gd`
 
-既存の `mood_feedback_label` を流用し、初回詰まり時のみ表示:
+**トリガー条件:**
+- `player.is_crouch_impossible == true`
+- 現在のステージが `room` または `myroom`（天井のある家系）
+- 1回だけ（フラグで二重起動防止）
+
+**処理の流れ:**
+1. `_process()` で `player.is_crouch_impossible` を監視
+2. 初回のみ `_trigger_too_big_for_house()` を呼ぶ（`call_deferred`）
+3. 暗転（フェードアウト）
+4. `global.current_stage_id = "outdoor"` に切り替え
+5. `await _load_stage()`
+6. プレイヤー位置を outdoor 左端付近（x=80cm）に設定
+7. フェードイン
+8. ダイアログ `"player"` / `"too_big_for_house"` を表示
+
+**MainScene.gd に追加する変数・関数:**
 ```gdscript
 var _crouch_impossible_notified: bool = false
 
-# _process() 内で監視
-if player.is_crouch_impossible and not _crouch_impossible_notified:
-    _crouch_impossible_notified = true
-    _show_mood_feedback("大きくなりすぎて、身動きが取れない...")
-elif not player.is_crouch_impossible:
+# _process() 内
+if player and player.get("is_crouch_impossible"):
+    var sid = String(global.current_stage_id) if global else ""
+    if (sid == "room" or sid == "myroom") and not _crouch_impossible_notified:
+        _crouch_impossible_notified = true
+        call_deferred("_trigger_too_big_for_house")
+elif player and not player.get("is_crouch_impossible"):
     _crouch_impossible_notified = false
+
+# 新規関数
+func _trigger_too_big_for_house() -> void:
+    if _edge_transition_running or _in_dialogue:
+        return
+    var global = get_node_or_null("/root/Global")
+    if not global:
+        return
+    _edge_transition_running = true
+    # フェードアウト
+    var fade = ColorRect.new()
+    fade.color = Color(0, 0, 0, 0)
+    fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+    fade.z_index = 110
+    ui_layer.add_child(fade)
+    var tw = create_tween()
+    tw.tween_property(fade, "color:a", 1.0, 0.5)
+    await tw.finished
+    # outdoorへ遷移
+    global.current_stage_id = "outdoor"
+    await _load_stage()
+    if player:
+        player.position = Vector2(80 * p, 0)
+    # フェードイン
+    var tw_out = create_tween()
+    tw_out.tween_property(fade, "color:a", 0.0, 0.5)
+    await tw_out.finished
+    fade.queue_free()
+    _edge_transition_running = false
+    # ダイアログ表示
+    _start_dialogue("player", "too_big_for_house")
+```
+
+**DialogueDatabase.gd の `"player"` セクションに追加:**
+```gdscript
+"too_big_for_house": [
+    {"speaker": "（主人公）", "text": "家より大きくなっちゃった……。"},
+],
 ```
 
 ---
 
 ### 対応しないこと（仕様として受け入れ）
 - 500cm超の家内部での移動 → 不可。ゲームの意図する体験
-- 衝突形状が天井を突き抜ける見た目 → 演出として許容
 - ドア方向だけ移動可能にする → 複雑になるので実装しない
 
 ---
 
 ### フェーズ分け
 
-| フェーズ | 内容 | 難易度 |
+| 優先 | 内容 | ファイル |
 |---|---|---|
-| 今すぐ | 起床バグ修正（衝突1フレーム無効化） | 低 |
-| 今すぐ | is_crouch_impossible フラグ + 移動停止 | 低 |
-| 今すぐ | 詰まりメッセージ表示 | 低 |
-| 後で | きしみ音・頭が天井を突き破る視覚演出 | 中 |
+| 1 | 起床バグ修正（衝突1フレーム無効化） | MainScene.gd |
+| 2 | is_crouch_impossible フラグ + 移動停止 | SkeletalPlayer.gd |
+| 3 | 屋外への強制退出 + ダイアログ演出 | MainScene.gd、DialogueDatabase.gd |
 
 ### 次のアクション
 - [ ] ユーザーの承認を得て実装開始
