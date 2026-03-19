@@ -268,12 +268,6 @@ func _handle_auto_crouch() -> void:
 	else:
 		target_crouch_cm = -1.0
 
-	# 屈んでいる（visual < actual）のにまだtargetに届いていない = 詰まり
-	var is_crouching := (not m.is_empty()) and (visual_height_cm < float(m["height"]) - 1.0)
-	if target_crouch_cm > 0 and is_crouching and visual_height_cm > target_crouch_cm + 5.0:
-		is_crouch_impossible = true
-	else:
-		is_crouch_impossible = false
 
 func _is_ceiling_blocked() -> bool:
 	sensors[4].force_raycast_update()

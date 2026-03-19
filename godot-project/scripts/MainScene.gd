@@ -1803,11 +1803,28 @@ func _check_crouch_impossible() -> void:
 	if not global:
 		return
 	var stage_id := String(global.current_stage_id)
-	if player.get("is_crouch_impossible") and (stage_id == "room" or stage_id == "myroom"):
+
+	# ステージ天井がないステージ（屋外等）は対象外
+	var stage_data: Dictionary = StageBuilder.STAGES.get(stage_id, {})
+	var ceiling_h = stage_data.get("ceiling_height", null)
+	if ceiling_h == null:
+		player.is_crouch_impossible = false
+		_crouch_impossible_notified = false
+		return
+
+	# 屈んでいる（visual < actual）のに、天井より10cm以上高い = 詰まり
+	var visual_h: float = player.visual_height_cm
+	var actual_h: float = float(player.m.get("height", INF)) if not player.m.is_empty() else INF
+	var is_crouching: bool = visual_h < actual_h - 1.0
+	var is_stuck: bool = is_crouching and visual_h > float(ceiling_h) + 10.0
+
+	player.is_crouch_impossible = is_stuck
+
+	if is_stuck and (stage_id == "room" or stage_id == "myroom"):
 		if not _crouch_impossible_notified:
 			_crouch_impossible_notified = true
 			call_deferred("_trigger_too_big_for_house")
-	elif not player.get("is_crouch_impossible"):
+	elif not is_stuck:
 		_crouch_impossible_notified = false
 
 func _check_edge_transition() -> void:
