@@ -212,6 +212,12 @@ const DATA: Dictionary = {
 		"too_big_for_house": [
 			{"speaker": "（主人公）", "text": "家より大きくなっちゃった……。"},
 		],
+		"too_big_for_school": [
+			{"speaker": "（主人公）", "text": "学校より大きくなっちゃった……。"},
+		],
+		"too_big_for_station": [
+			{"speaker": "（主人公）", "text": "駅より大きくなっちゃった……。"},
+		],
 		"summer_growth": [
 			{"speaker": "（主人公）", "text": "……制服のボタン、止まらない。"},
 			{"speaker": "（主人公）", "text": "夏休みの間に、こんなに伸びてたの？"},
