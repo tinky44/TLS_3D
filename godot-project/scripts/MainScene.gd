@@ -91,6 +91,7 @@ var _sleep_menu_current_options: Array[String] = []
 var _edge_transition_running: bool = false
 var _last_soft_limit_notice_key: String = ""
 var _crouch_impossible_notified: bool = false
+var _crouch_impossible_suppress_timer: float = 0.0
 
 const CAMERA_HEIGHT_OFFSET_RATIO := 0.4
 const CAMERA_FOOT_MARGIN_PX := 120.0
@@ -1794,7 +1795,10 @@ func _process(delta: float) -> void:
 	if action_hint_label and action_hint_panel and action_hint_panel.visible:
 		action_hint_label.text = _get_action_hint_text()
 	_check_edge_transition()
-	_check_crouch_impossible()
+	if _crouch_impossible_suppress_timer > 0.0:
+		_crouch_impossible_suppress_timer -= delta
+	else:
+		_check_crouch_impossible()
 
 func _check_crouch_impossible() -> void:
 	if not player or _edge_transition_running or _in_dialogue:
@@ -2533,6 +2537,8 @@ func _run_sleep_transition() -> void:
 	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
 	await tw_out.finished
 	fade.queue_free()
+	# 起床直後に詰まり判定が即発火しないよう猶予を設ける
+	_crouch_impossible_suppress_timer = 2.0
 
 
 func _wait_for_dialogue_end() -> void:
