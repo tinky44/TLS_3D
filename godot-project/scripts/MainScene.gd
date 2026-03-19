@@ -90,6 +90,7 @@ var _sleep_menu_showing: bool = false
 var _sleep_menu_current_options: Array[String] = []
 var _edge_transition_running: bool = false
 var _last_soft_limit_notice_key: String = ""
+var _crouch_impossible_notified: bool = false
 
 const CAMERA_HEIGHT_OFFSET_RATIO := 0.4
 const CAMERA_FOOT_MARGIN_PX := 120.0
@@ -1793,6 +1794,21 @@ func _process(delta: float) -> void:
 	if action_hint_label and action_hint_panel and action_hint_panel.visible:
 		action_hint_label.text = _get_action_hint_text()
 	_check_edge_transition()
+	_check_crouch_impossible()
+
+func _check_crouch_impossible() -> void:
+	if not player or _edge_transition_running or _in_dialogue:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	var stage_id := String(global.current_stage_id)
+	if player.get("is_crouch_impossible") and (stage_id == "room" or stage_id == "myroom"):
+		if not _crouch_impossible_notified:
+			_crouch_impossible_notified = true
+			call_deferred("_trigger_too_big_for_house")
+	elif not player.get("is_crouch_impossible"):
+		_crouch_impossible_notified = false
 
 func _check_edge_transition() -> void:
 	if _edge_transition_running or not player:
@@ -2489,9 +2505,12 @@ func _run_sleep_transition() -> void:
 		player.call("update_measurements")
 	await _load_stage()
 	# 起床後のスポーン位置をベッド(x=30〜230cm)の右隣に設定
-	# デフォルトのX=100cmはベッド上にあり、高身長時にコリジョンがベッドと干渉して左落ちが発生するため
+	# 高身長時は天井との衝突で押し出しが発生するため、1フレーム衝突を無効化してから戻す
 	if player:
 		player.position = Vector2(260 * p, 0)
+		player.collision_shape.disabled = true
+		await get_tree().process_frame
+		player.collision_shape.disabled = false
 	_update_actions_hud()
 	var tw_out = create_tween()
 	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
@@ -3000,6 +3019,37 @@ func _on_edge_trigger_body_entered(body: Node, target_stage: String) -> void:
 	if _edge_transition_running or _in_dialogue or _measurement_showing or _term_choice_showing or _sleep_menu_showing:
 		return
 	_enter_edge_transition(target_stage)
+
+func _trigger_too_big_for_house() -> void:
+	if _edge_transition_running or _in_dialogue:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	_edge_transition_running = true
+	# フェードアウト
+	var fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.z_index = 110
+	fade.process_mode = Node.PROCESS_MODE_ALWAYS
+	ui_layer.add_child(fade)
+	var tw = create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 0.5)
+	await tw.finished
+	# outdoorへ遷移
+	global.current_stage_id = "outdoor"
+	await _load_stage()
+	if player:
+		player.position = Vector2(80 * p, 0)
+	# フェードイン
+	var tw_out = create_tween()
+	tw_out.tween_property(fade, "color:a", 0.0, 0.5)
+	await tw_out.finished
+	fade.queue_free()
+	_edge_transition_running = false
+	# ダイアログ表示
+	_start_dialogue("player", "too_big_for_house")
 
 func _enter_edge_transition(target_stage: String) -> void:
 	if _edge_transition_running:
