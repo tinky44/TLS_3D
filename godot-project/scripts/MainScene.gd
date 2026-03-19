@@ -1865,7 +1865,37 @@ func _update_bubble():
 				bubble_panel.position = _get_bubble_screen_pos()
 				return
 
-	# NPC検知を先に行う（ステージオブジェクトより優先）
+	# ドアは NPC より先にチェック（NPCがいてもドアを優先）
+	for child in get_children():
+		if child.has_meta("is_stage_obj") and child.has_meta("obs_id") and child.has_meta("obs_x"):
+			var obs_id_str := String(child.get_meta("obs_id"))
+			if not obs_id_str.begins_with("door_to_"):
+				continue
+			var ox1 := float(child.get_meta("obs_x"))
+			var ox2 := float(child.get_meta("obs_x2"))
+			var dist := 0.0
+			if px < ox1: dist = ox1 - px
+			elif px > ox2: dist = px - ox2
+			if dist < hit_dist:
+				var lock_message: String = _get_transition_lock_message(obs_id_str)
+				_nearby_npc = null
+				_nearby_height_scale = false
+				_nearby_term_hotspot = ""
+				_nearby_bed = false
+				_nearby_standup = false
+				_nearby_obs_id = ""
+				if lock_message != "":
+					_nearby_transition_door = ""
+					bubble_label.text = lock_message
+				else:
+					_nearby_transition_door = obs_id_str
+					bubble_label.text = StageBuilder.get_obstacle_comment(obs_id_str, m["height"], float(child.get_meta("obs_height_cm")))
+					bubble_label.text += "\n[Eキーで移動]"
+				bubble_panel.show()
+				bubble_panel.position = _get_bubble_screen_pos()
+				return
+
+	# NPC検知（ドアより後、他のステージオブジェクトより優先）
 	_nearby_npc = _get_nearby_named_npc(150.0)
 	if _nearby_npc:
 		_nearby_transition_door = ""
@@ -2641,16 +2671,26 @@ func _update_actions_hud() -> void:
 	if not global:
 		action_label.text = ""
 		return
-	action_label.text = "%s  %d日目  行動 %d/%d" % [
-		Global.get_school_term_label(int(global.age), int(global.term)),
-		int(global.day_in_term),
-		int(global.actions_today),
-		int(global.max_actions_per_day),
-	]
+	var term_label: String = Global.get_school_term_label(int(global.age), int(global.term))
+	var day_in_term: int = int(global.day_in_term)
+	var action_count: int = int(global.actions_today)
+	var max_actions: int = int(global.max_actions_per_day)
+	if action_count > max_actions:
+		action_label.text = "%s  %d日目" % [
+			term_label,
+			day_in_term,
+		]
+	else:
+		action_label.text = "%s  %d日目  行動 %d/%d" % [
+			term_label,
+			day_in_term,
+			action_count,
+			max_actions,
+		]
 	var font_color = Color(0.95, 0.97, 1.0)
-	if int(global.actions_today) >= int(global.max_actions_per_day):
+	if action_count >= max_actions:
 		font_color = Color(1.0, 0.86, 0.78)
-		var notice_key = "%d:%d" % [int(global.term), int(global.day_in_term)]
+		var notice_key = "%d:%d" % [int(global.term), day_in_term]
 		if _last_soft_limit_notice_key != notice_key:
 			_show_bump_alert("もう夕方だ。今日を終えよう。")
 			_last_soft_limit_notice_key = notice_key
@@ -2675,14 +2715,22 @@ func _update_ui():
 	var age_val: int = global.age if global else 0
 	var term_val: int = global.term if global else 0
 	var stress_val: int = global.stress if global else 0
+	var debug_action_count: int = int(global.actions_today) if global else 0
+	var debug_max_actions: int = int(global.max_actions_per_day) if global else 3
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
-	text += "day %d/%d  action %d/%d\n" % [
-		int(global.day_in_term) if global else 1,
-		int(global.term_total_days) if global else 30,
-		int(global.actions_today) if global else 0,
-		int(global.max_actions_per_day) if global else 3,
-	]
+	if debug_action_count > debug_max_actions:
+		text += "day %d/%d\n" % [
+			int(global.day_in_term) if global else 1,
+			int(global.term_total_days) if global else 30,
+		]
+	else:
+		text += "day %d/%d  action %d/%d\n" % [
+			int(global.day_in_term) if global else 1,
+			int(global.term_total_days) if global else 30,
+			debug_action_count,
+			debug_max_actions,
+		]
 	text += "%d歳 / %s\n" % [age_val, Global.get_school_term_label(age_val, term_val)]
 	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
 	var confidence_val: int = global.self_confidence if global else 0
@@ -3122,8 +3170,10 @@ func _spawn_npcs(stage_id: String) -> void:
 		}, "", 60.0)
 
 	elif stage_id == "room":
-		_spawn_stage_npc(npc_scene, 400.0, {}, {}, "mother", 0.0)
-		_spawn_stage_npc(npc_scene, 700.0, {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}, {}, "father", 0.0)
+		# 母: 冷蔵庫(x=380-440)と重ならないよう600cmに配置
+		_spawn_stage_npc(npc_scene, 600.0, {}, {}, "mother", 0.0)
+		# 父: chair_left(x=700-740)と重ならないよう820cmに配置
+		_spawn_stage_npc(npc_scene, 820.0, {"height": 170.0, "ratio": 7.3, "legRatio": 46.0, "sex": "male"}, {}, "father", 0.0)
 
 	elif StageBuilder.is_school_hallway_stage(stage_id):
 		var hall_student_appearance: Dictionary = _build_stage_uniform_appearance(stage_id, "side_tail", "#5b4334")
