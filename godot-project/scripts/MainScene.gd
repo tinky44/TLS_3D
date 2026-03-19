@@ -1816,11 +1816,9 @@ func _check_crouch_impossible() -> void:
 		_crouch_impossible_notified = false
 		return
 
-	# 屈んでいる（visual < actual）のに、天井より10cm以上高い = 詰まり
-	var visual_h: float = player.visual_height_cm
-	var actual_h: float = float(player.m.get("height", INF)) if not player.m.is_empty() else INF
-	var is_crouching: bool = visual_h < actual_h - 1.0
-	var is_stuck: bool = is_crouching and visual_h > float(ceiling_h) + 10.0
+	# 実身長の60%が天井を超えている = 最大屈みでも物理的に入れない
+	var actual_h: float = float(player.m.get("height", 0.0)) if not player.m.is_empty() else 0.0
+	var is_stuck: bool = actual_h > 0.0 and actual_h * 0.60 > float(ceiling_h)
 
 	player.is_crouch_impossible = is_stuck
 
@@ -2987,6 +2985,11 @@ func _load_stage():
 	StageBuilder.build_stage(stage_id, self, p, global.age if global else 0)
 	_bind_edge_triggers()
 	_spawn_npcs(stage_id)
+	# 天井のあるステージへの遷移直後は詰まり判定を抑制する（awaitより前に設定する必要がある）
+	var loaded_ceiling = StageBuilder.STAGES.get(stage_id, {}).get("ceiling_height", null)
+	if loaded_ceiling != null:
+		_crouch_impossible_suppress_timer = 2.0
+		_crouch_impossible_notified = false
 
 	if global and global.current_slot >= 1:
 		global.save_slot(global.current_slot)
@@ -3024,12 +3027,6 @@ func _load_stage():
 		_update_actions_hud()
 		if global.current_slot >= 1:
 			global.save_slot(global.current_slot)
-
-	# 天井のあるステージへの遷移直後は詰まり判定を抑制する（fast travel・起床・edge transition 共通）
-	var loaded_ceiling = StageBuilder.STAGES.get(stage_id, {}).get("ceiling_height", null)
-	if loaded_ceiling != null:
-		_crouch_impossible_suppress_timer = 2.0
-		_crouch_impossible_notified = false
 
 func _bind_edge_triggers() -> void:
 	for child in get_children():
