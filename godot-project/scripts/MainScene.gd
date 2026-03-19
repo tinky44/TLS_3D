@@ -2525,8 +2525,6 @@ func _run_sleep_transition() -> void:
 	if player and player.has_method("update_measurements"):
 		player.call("update_measurements")
 	await _load_stage()
-	# 起床直後に詰まり判定が即発火しないよう猶予を設ける（_load_stage直後から_process()が走るためここで設定）
-	_crouch_impossible_suppress_timer = 2.0
 	# 起床後のスポーン位置をベッド(x=30〜230cm)の右隣に設定
 	# 高身長時は天井との衝突で押し出しが発生するため、1フレーム衝突を無効化してから戻す
 	if player:
@@ -3026,6 +3024,12 @@ func _load_stage():
 		_update_actions_hud()
 		if global.current_slot >= 1:
 			global.save_slot(global.current_slot)
+
+	# 天井のあるステージへの遷移直後は詰まり判定を抑制する（fast travel・起床・edge transition 共通）
+	var loaded_ceiling = StageBuilder.STAGES.get(stage_id, {}).get("ceiling_height", null)
+	if loaded_ceiling != null:
+		_crouch_impossible_suppress_timer = 2.0
+		_crouch_impossible_notified = false
 
 func _bind_edge_triggers() -> void:
 	for child in get_children():
