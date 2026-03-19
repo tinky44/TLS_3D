@@ -93,8 +93,8 @@ var _last_soft_limit_notice_key: String = ""
 var _crouch_impossible_notified: bool = false
 var _crouch_impossible_suppress_timer: float = 0.0
 
-const CAMERA_HEIGHT_OFFSET_RATIO := 0.4
 const CAMERA_FOOT_MARGIN_PX := 120.0
+const CAMERA_HEAD_MARGIN_PX := 60.0
 
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
@@ -640,7 +640,20 @@ func _resolve_stage_id(stage_id: String) -> String:
 	var age_value: int = int(global.age) if global else 0
 	return StageBuilder.resolve_stage_id(stage_id, age_value)
 
-func _apply_player_camera_offset(cam: Camera2D = null) -> void:
+func _get_camera_frame_top_cm(stage_id: String, height_cm: float) -> float:
+	var frame_top_cm: float = maxf(height_cm, 1.0)
+	var ceiling_raw = StageBuilder.STAGES.get(stage_id, {}).get("ceiling_height", null)
+	if ceiling_raw != null:
+		frame_top_cm = minf(frame_top_cm, float(ceiling_raw))
+	return frame_top_cm
+
+func _get_camera_limit_bottom_px(viewport_height_px: float, zoom_y: float, frame_top_cm: float) -> int:
+	var safe_zoom: float = maxf(zoom_y, 0.001)
+	var visible_height_world: float = viewport_height_px / safe_zoom
+	var desired_bottom_y: float = visible_height_world - frame_top_cm * p - CAMERA_HEAD_MARGIN_PX
+	return int(ceilf(maxf(desired_bottom_y, 0.0)))
+
+func _apply_player_camera_offset(cam: Camera2D = null, adjust_zoom: bool = true) -> void:
 	if not player:
 		return
 	var target_cam := cam
@@ -654,13 +667,28 @@ func _apply_player_camera_offset(cam: Camera2D = null) -> void:
 	var measurements: Dictionary = m
 	if not measurements.has("height"):
 		return
-	var desired_offset_y: float = -float(measurements["height"]) * p * CAMERA_HEIGHT_OFFSET_RATIO
+	var height_cm: float = float(measurements["height"])
 	var viewport_height_px: float = maxf(get_viewport().get_visible_rect().size.y, 1.0)
-	var max_upward_offset_y: float = -maxf(
-		(viewport_height_px * 0.5 - CAMERA_FOOT_MARGIN_PX) * float(target_cam.zoom.y),
-		0.0
-	)
-	target_cam.offset = Vector2(0, maxf(desired_offset_y, max_upward_offset_y))
+	var g = get_node_or_null("/root/Global")
+	var stage_id: String = String(g.current_stage_id) if g else ""
+	var ceiling_raw = StageBuilder.STAGES.get(stage_id, {}).get("ceiling_height", null)
+	var frame_top_cm: float = _get_camera_frame_top_cm(stage_id, height_cm)
+	if adjust_zoom:
+		var content_height_world: float = frame_top_cm * p + CAMERA_HEAD_MARGIN_PX + CAMERA_FOOT_MARGIN_PX
+		var new_zoom: float = minf(viewport_height_px / content_height_world, 1.0)
+		print("[CAM] sid=%s height=%.0f ceiling_raw=%s frame_top=%.0f viewport=%.0f content=%.0f zoom=%.3f" % [
+			stage_id if stage_id != "" else "?",
+			height_cm,
+			str(ceiling_raw),
+			frame_top_cm,
+			viewport_height_px,
+			content_height_world,
+			new_zoom
+		])
+		target_cam.zoom = Vector2(new_zoom, new_zoom)
+	var visible_height_world: float = viewport_height_px / maxf(float(target_cam.zoom.y), 0.001)
+	var desired_top_world_y: float = -frame_top_cm * p - CAMERA_HEAD_MARGIN_PX
+	target_cam.offset = Vector2(0, desired_top_world_y + visible_height_world * 0.5)
 
 func _get_stage_uniform_age(stage_id: String) -> int:
 	var global = get_node_or_null("/root/Global")
@@ -1822,10 +1850,15 @@ func _check_crouch_impossible() -> void:
 
 	player.is_crouch_impossible = is_stuck
 
-	if is_stuck and (stage_id == "room" or stage_id == "myroom"):
+	if is_stuck:
 		if not _crouch_impossible_notified:
 			_crouch_impossible_notified = true
-			call_deferred("_trigger_too_big_for_house")
+			if stage_id == "room" or stage_id == "myroom":
+				call_deferred("_trigger_too_big_for_house")
+			elif StageBuilder.is_school_stage(stage_id):
+				call_deferred("_trigger_too_big_for_school", stage_id)
+			elif stage_id == "station":
+				call_deferred("_trigger_too_big_for_station")
 	elif not is_stuck:
 		_crouch_impossible_notified = false
 
@@ -3000,17 +3033,30 @@ func _load_stage():
 		if cam:
 			var stage_width_px := int(float(StageBuilder.STAGES[stage_id]["width"]) * p) if StageBuilder.STAGES.has(stage_id) else 0
 			var ceiling_h = StageBuilder.STAGES[stage_id].get("ceiling_height", null) if StageBuilder.STAGES.has(stage_id) else null
+			var player_height_cm: float = 0.0
+			var player_measurements = player.get("m")
+			if player_measurements is Dictionary and player_measurements.has("height"):
+				player_height_cm = float(player_measurements["height"])
+			var frame_top_cm: float = _get_camera_frame_top_cm(stage_id, player_height_cm)
+			var viewport_height_px: float = maxf(get_viewport().get_visible_rect().size.y, 1.0)
 			var is_gym: bool = stage_id == "gymnasium" or StageBuilder.is_gymnasium_stage(stage_id)
 			var is_schoolyard: bool = stage_id == "schoolyard" or StageBuilder.is_schoolyard_stage(stage_id)
 			# 体育館・校庭: zoom アウトで視野を広げる。limit_bottom が上端を適切に固定する
 			var should_zoom_out: bool = (is_gym and ceiling_h != null) or is_schoolyard
-			cam.zoom = Vector2(0.75, 0.75) if should_zoom_out else Vector2(1.0, 1.0)
-			_apply_player_camera_offset(cam)
+			if should_zoom_out:
+				cam.zoom = Vector2(0.75, 0.75)
+				_apply_player_camera_offset(cam, false)
+			else:
+				_apply_player_camera_offset(cam, true)
 			cam.limit_left = 0
 			cam.limit_right = stage_width_px
 			# zoom=0.75 時: limit_bottom=333 → 上端が約420cm（840px）に固定される
 			# 計算: top = limit_bottom - viewport_height_world = 333 - (880/0.75) ≈ -840px
-			cam.limit_bottom = 333 if should_zoom_out else 250
+			cam.limit_bottom = 333 if should_zoom_out else _get_camera_limit_bottom_px(
+				viewport_height_px,
+				float(cam.zoom.y),
+				frame_top_cm
+			)
 		var bump_handler := Callable(self, "_on_player_head_bump")
 		if player.has_signal("head_bump") and not player.is_connected("head_bump", bump_handler):
 			player.connect("head_bump", bump_handler)
@@ -3074,6 +3120,64 @@ func _trigger_too_big_for_house() -> void:
 	_edge_transition_running = false
 	# ダイアログ表示
 	_start_dialogue("player", "too_big_for_house")
+
+func _trigger_too_big_for_school(stage_id: String) -> void:
+	if _edge_transition_running or _in_dialogue:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	_edge_transition_running = true
+	var fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.z_index = 110
+	fade.process_mode = Node.PROCESS_MODE_ALWAYS
+	ui_layer.add_child(fade)
+	var tw = create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 0.5)
+	await tw.finished
+	# 校庭（最寄り屋外）へ遷移
+	var suffix = StageBuilder._get_stage_suffix_from_stage_id(stage_id)
+	var target = "schoolyard_%s" % suffix
+	global.current_stage_id = target
+	await _load_stage()
+	if player:
+		player.position = Vector2(300 * p, 0)
+	var tw_out = create_tween()
+	tw_out.tween_property(fade, "color:a", 0.0, 0.5)
+	await tw_out.finished
+	fade.queue_free()
+	_edge_transition_running = false
+	_start_dialogue("player", "too_big_for_school")
+
+func _trigger_too_big_for_station() -> void:
+	if _edge_transition_running or _in_dialogue:
+		return
+	var global = get_node_or_null("/root/Global")
+	if not global:
+		return
+	_edge_transition_running = true
+	var fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.z_index = 110
+	fade.process_mode = Node.PROCESS_MODE_ALWAYS
+	ui_layer.add_child(fade)
+	var tw = create_tween()
+	tw.tween_property(fade, "color:a", 1.0, 0.5)
+	await tw.finished
+	# 屋外（街）へ遷移
+	global.current_stage_id = "outdoor"
+	await _load_stage()
+	if player:
+		player.position = Vector2(80 * p, 0)
+	var tw_out = create_tween()
+	tw_out.tween_property(fade, "color:a", 0.0, 0.5)
+	await tw_out.finished
+	fade.queue_free()
+	_edge_transition_running = false
+	_start_dialogue("player", "too_big_for_station")
 
 func _enter_edge_transition(target_stage: String) -> void:
 	if _edge_transition_running:
