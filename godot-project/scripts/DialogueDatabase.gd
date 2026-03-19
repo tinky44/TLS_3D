@@ -209,6 +209,9 @@ const DATA: Dictionary = {
 		],
 	},
 	"player": {
+		"too_big_for_house": [
+			{"speaker": "（主人公）", "text": "家より大きくなっちゃった……。"},
+		],
 		"summer_growth": [
 			{"speaker": "（主人公）", "text": "……制服のボタン、止まらない。"},
 			{"speaker": "（主人公）", "text": "夏休みの間に、こんなに伸びてたの？"},

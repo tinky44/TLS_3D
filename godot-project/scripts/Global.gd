@@ -200,8 +200,8 @@ static func get_term_in_school_year(a: int, t: int) -> int:
 
 static func get_school_term_label(a: int, t: int) -> String:
 	if a >= 6:
-		return "%s、%d学期" % [get_school_grade_name(a), get_term_in_school_year(a, t)]
-	return "%d歳、%d学期" % [a, get_term_in_school_year(a, t)]
+		return "%s %d学期" % [get_school_grade_name(a), get_term_in_school_year(a, t)]
+	return "%d歳 %d学期" % [a, get_term_in_school_year(a, t)]
 
 static func get_base_growth(current_age: int) -> float:
 	if current_age <= 5: return 2.0

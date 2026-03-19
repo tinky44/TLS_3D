@@ -25,6 +25,7 @@ var receives_global_stress: bool = true
 var auto_crouch: bool = true
 var target_crouch_cm: float = -1.0
 var visual_height_cm: float = 180.0
+var is_crouch_impossible: bool = false
 
 var look_head_angle: float = 0.0
 var look_pitch: float = 0.0
@@ -155,7 +156,7 @@ func _physics_process(delta: float) -> void:
 			0.2
 		)
 
-	if pose != "normal":
+	if pose != "normal" or is_crouch_impossible:
 		velocity.x = move_toward(velocity.x, 0, SPEED)
 	elif direction:
 		velocity.x = direction * SPEED * _leg_pain_factor * crouch_speed_mult
@@ -266,6 +267,7 @@ func _handle_auto_crouch() -> void:
 		target_crouch_cm = min_obs_h_cm - 8.0
 	else:
 		target_crouch_cm = -1.0
+
 
 func _is_ceiling_blocked() -> bool:
 	sensors[4].force_raycast_update()
