@@ -2525,6 +2525,8 @@ func _run_sleep_transition() -> void:
 	if player and player.has_method("update_measurements"):
 		player.call("update_measurements")
 	await _load_stage()
+	# 起床直後に詰まり判定が即発火しないよう猶予を設ける（_load_stage直後から_process()が走るためここで設定）
+	_crouch_impossible_suppress_timer = 2.0
 	# 起床後のスポーン位置をベッド(x=30〜230cm)の右隣に設定
 	# 高身長時は天井との衝突で押し出しが発生するため、1フレーム衝突を無効化してから戻す
 	if player:
@@ -2537,8 +2539,6 @@ func _run_sleep_transition() -> void:
 	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
 	await tw_out.finished
 	fade.queue_free()
-	# 起床直後に詰まり判定が即発火しないよう猶予を設ける
-	_crouch_impossible_suppress_timer = 2.0
 
 
 func _wait_for_dialogue_end() -> void:
