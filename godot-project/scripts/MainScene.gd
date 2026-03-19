@@ -713,6 +713,11 @@ func _get_stage_lock_message(stage_id: String) -> String:
 	var global = get_node_or_null("/root/Global")
 	if not global:
 		return ""
+	# 身長が天井より高い屋内ステージには入れない
+	# if StageBuilder.STAGES.has(stage_id) and player:
+	# 	var ceiling_h = StageBuilder.STAGES[stage_id].get("ceiling_height", null)
+	# 	if ceiling_h != null and player.visual_height_cm > float(ceiling_h):
+	# 		return "頭がつかえて入れない……。"
 	var age_value: int = int(global.age)
 	match stage_id:
 		"school_hallway_elementary", "school_elementary":
@@ -2320,6 +2325,9 @@ func _on_fast_travel_pressed(stage_id: String) -> void:
 	global.actions_today += 1
 	_update_actions_hud()
 	_load_stage()
+	# myroomへのファストトラベル: ベッド(x=30〜230cm)を避けてスポーン
+	if player and resolved_stage_id == "myroom":
+		player.position = Vector2(260 * p, 0)
 
 func _setup_sleep_menu() -> void:
 	if sleep_menu:
@@ -2480,6 +2488,10 @@ func _run_sleep_transition() -> void:
 	if player and player.has_method("update_measurements"):
 		player.call("update_measurements")
 	await _load_stage()
+	# 起床後のスポーン位置をベッド(x=30〜230cm)の右隣に設定
+	# デフォルトのX=100cmはベッド上にあり、高身長時にコリジョンがベッドと干渉して左落ちが発生するため
+	if player:
+		player.position = Vector2(260 * p, 0)
 	_update_actions_hud()
 	var tw_out = create_tween()
 	tw_out.tween_property(fade, "color:a", 0.0, 0.45)
@@ -2675,18 +2687,10 @@ func _update_actions_hud() -> void:
 	var day_in_term: int = int(global.day_in_term)
 	var action_count: int = int(global.actions_today)
 	var max_actions: int = int(global.max_actions_per_day)
-	if action_count > max_actions:
-		action_label.text = "%s  %d日目" % [
-			term_label,
-			day_in_term,
-		]
-	else:
-		action_label.text = "%s  %d日目  行動 %d/%d" % [
-			term_label,
-			day_in_term,
-			action_count,
-			max_actions,
-		]
+	action_label.text = "%s  %d日目" % [
+		term_label,
+		day_in_term,
+	]
 	var font_color = Color(0.95, 0.97, 1.0)
 	if action_count >= max_actions:
 		font_color = Color(1.0, 0.86, 0.78)
@@ -2715,22 +2719,12 @@ func _update_ui():
 	var age_val: int = global.age if global else 0
 	var term_val: int = global.term if global else 0
 	var stress_val: int = global.stress if global else 0
-	var debug_action_count: int = int(global.actions_today) if global else 0
-	var debug_max_actions: int = int(global.max_actions_per_day) if global else 3
 	var text = "【基本情報】\n"
 	text += "Stage: %s\n" % stage_name
-	if debug_action_count > debug_max_actions:
-		text += "day %d/%d\n" % [
-			int(global.day_in_term) if global else 1,
-			int(global.term_total_days) if global else 30,
-		]
-	else:
-		text += "day %d/%d  action %d/%d\n" % [
-			int(global.day_in_term) if global else 1,
-			int(global.term_total_days) if global else 30,
-			debug_action_count,
-			debug_max_actions,
-		]
+	text += "day %d/%d\n" % [
+		int(global.day_in_term) if global else 1,
+		int(global.term_total_days) if global else 30,
+	]
 	text += "%d歳 / %s\n" % [age_val, Global.get_school_term_label(age_val, term_val)]
 	text += "stress: %d / 100 (%s)\n" % [int(stress_val), _get_stress_state_text(int(stress_val))]
 	var confidence_val: int = global.self_confidence if global else 0
