@@ -93,8 +93,9 @@ var _last_soft_limit_notice_key: String = ""
 var _crouch_impossible_notified: bool = false
 var _crouch_impossible_suppress_timer: float = 0.0
 
-const CAMERA_FOOT_MARGIN_PX := 120.0
-const CAMERA_HEAD_MARGIN_PX := 60.0
+const CAMERA_HEIGHT_OFFSET_RATIO := 0.4
+const CAMERA_FOOT_MARGIN_PX := 180.0
+const CAMERA_TOP_PIN_MARGIN_PX := 0.0
 
 const GRADE_CHOICE_ORDER = ["continue", "ending"]
 const GRADE_CHOICES: Dictionary = {
@@ -647,10 +648,11 @@ func _get_camera_frame_top_cm(stage_id: String, height_cm: float) -> float:
 		frame_top_cm = minf(frame_top_cm, float(ceiling_raw))
 	return frame_top_cm
 
+#  カメラのズームとプレイヤーの身長に基づいて、カメラの下限を計算する
 func _get_camera_limit_bottom_px(viewport_height_px: float, zoom_y: float, frame_top_cm: float) -> int:
 	var safe_zoom: float = maxf(zoom_y, 0.001)
 	var visible_height_world: float = viewport_height_px / safe_zoom
-	var desired_bottom_y: float = visible_height_world - frame_top_cm * p - CAMERA_HEAD_MARGIN_PX
+	var desired_bottom_y: float = visible_height_world - frame_top_cm * p - CAMERA_TOP_PIN_MARGIN_PX / safe_zoom
 	return int(ceilf(maxf(desired_bottom_y, 0.0)))
 
 func _apply_player_camera_offset(cam: Camera2D = null, adjust_zoom: bool = true) -> void:
@@ -671,24 +673,20 @@ func _apply_player_camera_offset(cam: Camera2D = null, adjust_zoom: bool = true)
 	var viewport_height_px: float = maxf(get_viewport().get_visible_rect().size.y, 1.0)
 	var g = get_node_or_null("/root/Global")
 	var stage_id: String = String(g.current_stage_id) if g else ""
-	var ceiling_raw = StageBuilder.STAGES.get(stage_id, {}).get("ceiling_height", null)
 	var frame_top_cm: float = _get_camera_frame_top_cm(stage_id, height_cm)
 	if adjust_zoom:
-		var content_height_world: float = frame_top_cm * p + CAMERA_HEAD_MARGIN_PX + CAMERA_FOOT_MARGIN_PX
-		var new_zoom: float = minf(viewport_height_px / content_height_world, 1.0)
-		print("[CAM] sid=%s height=%.0f ceiling_raw=%s frame_top=%.0f viewport=%.0f content=%.0f zoom=%.3f" % [
-			stage_id if stage_id != "" else "?",
-			height_cm,
-			str(ceiling_raw),
-			frame_top_cm,
-			viewport_height_px,
-			content_height_world,
-			new_zoom
-		])
+		var available_height_px: float = maxf(
+			viewport_height_px - CAMERA_TOP_PIN_MARGIN_PX - CAMERA_FOOT_MARGIN_PX,
+			1.0
+		)
+		var content_height_world: float = maxf(frame_top_cm * p, 1.0)
+		var new_zoom: float = minf(available_height_px / content_height_world, 1.0)
 		target_cam.zoom = Vector2(new_zoom, new_zoom)
-	var visible_height_world: float = viewport_height_px / maxf(float(target_cam.zoom.y), 0.001)
-	var desired_top_world_y: float = -frame_top_cm * p - CAMERA_HEAD_MARGIN_PX
-	target_cam.offset = Vector2(0, desired_top_world_y + visible_height_world * 0.5)
+	var desired_offset_y: float = -height_cm * p * CAMERA_HEIGHT_OFFSET_RATIO
+	var ceiling_offset_y: float = -frame_top_cm * p + (viewport_height_px * 0.5 - CAMERA_TOP_PIN_MARGIN_PX) / float(target_cam.zoom.y)
+	var max_upward_offset_y: float = -(viewport_height_px * 0.5 - CAMERA_FOOT_MARGIN_PX) / float(target_cam.zoom.y)
+	var raw_offset_y: float = minf(desired_offset_y, ceiling_offset_y)
+	target_cam.offset = Vector2(0, maxf(raw_offset_y, max_upward_offset_y))
 
 func _get_stage_uniform_age(stage_id: String) -> int:
 	var global = get_node_or_null("/root/Global")
@@ -3050,8 +3048,8 @@ func _load_stage():
 				_apply_player_camera_offset(cam, true)
 			cam.limit_left = 0
 			cam.limit_right = stage_width_px
-			# zoom=0.75 時: limit_bottom=333 → 上端が約420cm（840px）に固定される
-			# 計算: top = limit_bottom - viewport_height_world = 333 - (880/0.75) ≈ -840px
+			# 通常ステージは、現在のズーム量と上端基準から bottom limit を逆算する。
+			# 体育館・校庭だけは既存の zoom-out 演出を優先する。
 			cam.limit_bottom = 333 if should_zoom_out else _get_camera_limit_bottom_px(
 				viewport_height_px,
 				float(cam.zoom.y),
