@@ -16,6 +16,14 @@ var m: Dictionary = {}
 # 視線追従
 var _look_angle: float = 0.0
 
+# 腕・脚ピボット
+var _arm_l_pivot: Node3D = null
+var _arm_r_pivot: Node3D = null
+var _leg_l_pivot: Node3D = null
+var _leg_r_pivot: Node3D = null
+var _walk_time: float = 0.0
+var _limbs_built: bool = false
+
 @onready var body_mesh: MeshInstance3D = $BodyMesh
 @onready var head_mesh: MeshInstance3D = $HeadMesh
 @onready var name_label: Label3D = $NameLabel
@@ -55,14 +63,14 @@ func _build_measurements() -> Dictionary:
 	}
 
 func _build_visual() -> void:
-	# 体: カプセル
+	# 体: カプセル（胴体専用 — 腕・脚は別途 _build_limbs で生成）
 	if body_mesh:
 		var capsule := CapsuleMesh.new()
-		var body_height: float = height_m * 0.75  # 首から下
+		var body_height: float = height_m * 0.40  # 胴体のみ
 		capsule.height = body_height
 		capsule.radius = height_m * 0.12
 		body_mesh.mesh = capsule
-		body_mesh.position.y = body_height * 0.5
+		body_mesh.position.y = height_m * 0.48 + height_m * 0.40 * 0.5  # 腰の上
 
 		var mat := StandardMaterial3D.new()
 		# NPCごとのカラー
@@ -98,8 +106,12 @@ func _build_visual() -> void:
 		cap.radius = min(0.2, height_m * 0.12)
 		col.position.y = height_m * 0.5
 
+	# 腕・脚
+	_build_limbs()
+
 func _process(delta: float) -> void:
 	_update_look_at_player(delta)
+	_update_walk_animation(delta)
 
 func _update_look_at_player(delta: float) -> void:
 	var player := _find_player()
@@ -145,6 +157,74 @@ func _find_player() -> Node:
 		if child != self and child.has_method("update_measurements"):
 			return child
 	return null
+
+func _build_limbs() -> void:
+	if _limbs_built:
+		return
+	_limbs_built = true
+
+	var leg_h: float = height_m * 0.48
+	var body_h: float = height_m * 0.40
+	var arm_h: float = body_h * 0.85
+	var leg_spacing: float = height_m * 0.09
+	var arm_spacing: float = height_m * 0.18
+	var shoulder_y: float = leg_h + body_h
+	var hip_y: float = leg_h
+
+	var skin_mat := StandardMaterial3D.new()
+	skin_mat.albedo_color = Color(0.92, 0.82, 0.72)
+	var body_mat := StandardMaterial3D.new()
+	body_mat.albedo_color = _get_npc_color()
+
+	# 腕（左: side=-1, 右: side=1）
+	for side in [-1, 1]:
+		var pivot := Node3D.new()
+		pivot.position = Vector3(side * arm_spacing, shoulder_y, 0.0)
+		add_child(pivot)
+		var arm_mesh := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = height_m * 0.035
+		cyl.bottom_radius = height_m * 0.030
+		cyl.height = arm_h
+		arm_mesh.mesh = cyl
+		arm_mesh.position.y = -arm_h * 0.5
+		arm_mesh.material_override = body_mat
+		pivot.add_child(arm_mesh)
+		if side == -1:
+			_arm_l_pivot = pivot
+		else:
+			_arm_r_pivot = pivot
+
+	# 脚（左: side=-1, 右: side=1）
+	for side in [-1, 1]:
+		var pivot := Node3D.new()
+		pivot.position = Vector3(side * leg_spacing, hip_y, 0.0)
+		add_child(pivot)
+		var leg_mesh := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = height_m * 0.055
+		cyl.bottom_radius = height_m * 0.045
+		cyl.height = leg_h
+		leg_mesh.mesh = cyl
+		leg_mesh.position.y = -leg_h * 0.5
+		leg_mesh.material_override = body_mat
+		pivot.add_child(leg_mesh)
+		if side == -1:
+			_leg_l_pivot = pivot
+		else:
+			_leg_r_pivot = pivot
+
+func _update_walk_animation(delta: float) -> void:
+	_walk_time += delta * 2.0
+	var swing: float = sin(_walk_time) * 0.25
+	if _arm_l_pivot:
+		_arm_l_pivot.rotation.x = swing
+	if _arm_r_pivot:
+		_arm_r_pivot.rotation.x = -swing
+	if _leg_l_pivot:
+		_leg_l_pivot.rotation.x = -swing * 0.6
+	if _leg_r_pivot:
+		_leg_r_pivot.rotation.x = swing * 0.6
 
 func _get_npc_color() -> Color:
 	match npc_id:

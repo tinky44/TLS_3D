@@ -49,6 +49,10 @@ const WALK_BOB_AMOUNT: float = 0.02
 var _head_bump_cooldown_left: float = 0.0
 var _head_bump_shake_left: float = 0.0
 
+# ─── カメラモード ─────────────────────────────────────────────────
+var _is_third_person: bool = false
+@onready var third_person_camera: Camera3D = null  # 動的に取得
+
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var first_person_camera: Camera3D = $CameraPivot/FirstPersonCamera
 @onready var camera_pivot: Node3D = $CameraPivot
@@ -65,6 +69,7 @@ func _ready() -> void:
 	update_measurements()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_mouse_captured = true
+	third_person_camera = get_node_or_null("ThirdPersonCamera") as Camera3D
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _mouse_captured:
@@ -73,7 +78,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_pitch -= motion.relative.y * MOUSE_SENSITIVITY
 		_pitch = clamp(_pitch, deg_to_rad(-PITCH_LIMIT), deg_to_rad(PITCH_LIMIT))
 
-	if event is InputEventKey and event.pressed:
+	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
 		if key_event.keycode == KEY_ESCAPE:
 			if _mouse_captured:
@@ -82,6 +87,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 				_mouse_captured = true
+		if key_event.keycode == KEY_R:
+			_toggle_camera_mode()
 
 	if event is InputEventMouseButton and event.pressed and not _mouse_captured:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -282,6 +289,19 @@ func _trigger_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_head_bump_shake_left = HEAD_BUMP_SHAKE_TIME
 	velocity.y = max(velocity.y, -0.5)
 	emit_signal("head_bump", obs_id, obs_height_cm)
+	# FOVパルス（頭ぶつけ演出）
+	if first_person_camera and not _is_third_person:
+		first_person_camera.fov = 95.0
+		var tw := create_tween()
+		tw.tween_property(first_person_camera, "fov", 75.0, 0.35)\
+		  .set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+
+func _toggle_camera_mode() -> void:
+	_is_third_person = not _is_third_person
+	if first_person_camera:
+		first_person_camera.current = not _is_third_person
+	if third_person_camera:
+		third_person_camera.current = _is_third_person
 
 func _mock_measurements(h: float = 180.0) -> Dictionary:
 	var ht = h / 7.5

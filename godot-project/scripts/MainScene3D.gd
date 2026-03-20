@@ -25,6 +25,11 @@ var _fade_rect: ColorRect
 # ─── NPC管理 ─────────────────────────────────────────────────────
 var _spawned_npcs: Array = []
 
+# ─── 頭ぶつけ・成長演出 ──────────────────────────────────────────
+var _bumped_obstacles: Array = []
+var _last_notified_height: float = 0.0
+const GROWTH_NOTIFY_THRESHOLD: float = 5.0
+
 # ─── ステージ別NPC配置テーブル ────────────────────────────────────
 const STAGE_NPC_SPAWNS: Dictionary = {
 	"myroom": [],
@@ -151,6 +156,15 @@ func _setup_ui() -> void:
 	_fade_rect.z_index = 100
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(_fade_rect)
+
+	# 頭ぶつけ赤フラッシュ用
+	var bump_flash_rect := ColorRect.new()
+	bump_flash_rect.name = "BumpFlashRect"
+	bump_flash_rect.color = Color(1.0, 0.1, 0.0, 0.0)
+	bump_flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bump_flash_rect.z_index = 50
+	bump_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_layer.add_child(bump_flash_rect)
 
 # ─── ステージ読み込み ────────────────────────────────────────────
 func _load_stage(spawn_x_cm: float = -1.0) -> void:
@@ -406,6 +420,14 @@ func _change_height(delta_cm: float) -> void:
 
 	player.update_measurements()
 
+	# 成長演出
+	var current_h: float = float(global.current_params.get("height", 170))
+	if _last_notified_height == 0.0:
+		_last_notified_height = current_h
+	if abs(current_h - _last_notified_height) >= GROWTH_NOTIFY_THRESHOLD:
+		_trigger_growth_effect(current_h)
+		_last_notified_height = current_h
+
 func _update_height_display() -> void:
 	if not player or not height_display_label:
 		return
@@ -498,9 +520,25 @@ func _get_door_destination_name(door_id: String) -> String:
 func _on_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	var player_h: float = player.visual_height_cm if player else 180.0
 	var diff: float = player_h - obs_height_cm
-	bump_alert_label.text = "ゴンッ！ %s に頭をぶつけた（障害物 %.0fcm / あなた %.0fcm）" % [obs_id, obs_height_cm, player_h]
+
+	# 初回ぶつかり判定
+	var is_first_bump := not _bumped_obstacles.has(obs_id)
+	if is_first_bump:
+		_bumped_obstacles.append(obs_id)
+		bump_alert_label.text = "初めて頭をぶつけた！（%.0fcm）" % obs_height_cm
+	else:
+		bump_alert_label.text = "ゴンッ！ %s に頭をぶつけた（障害物 %.0fcm / あなた %.0fcm）" % [obs_id, obs_height_cm, player_h]
+
 	bump_alert_label.show()
 	_bump_alert_time_left = 2.5
+
+	# 赤フラッシュ
+	var flash := ui_layer.get_node_or_null("BumpFlashRect")
+	if flash:
+		flash.color.a = 0.45
+		var tw := create_tween()
+		tw.tween_property(flash, "color:a", 0.0, 0.4)\
+		  .set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 
 func _update_bump_alert(delta: float) -> void:
 	if _bump_alert_time_left > 0:
@@ -511,3 +549,33 @@ func _update_bump_alert(delta: float) -> void:
 		if _bump_alert_time_left <= 0:
 			bump_alert_label.hide()
 			bump_alert_label.modulate.a = 1.0
+
+# ─── 成長演出 ─────────────────────────────────────────────────────
+func _trigger_growth_effect(new_height: float) -> void:
+	var notify := Label.new()
+	notify.text = "%.0f cm !" % new_height
+	notify.add_theme_font_size_override("font_size", 48)
+	notify.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	notify.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notify.set_anchors_preset(Control.PRESET_CENTER)
+	notify.offset_left = -150
+	notify.offset_right = 150
+	notify.offset_top = -40
+	ui_layer.add_child(notify)
+
+	var tw := create_tween()
+	tw.tween_property(notify, "position:y", notify.position.y - 60, 1.2)\
+	  .set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(notify, "modulate:a", 0.0, 1.2)\
+	  .set_ease(Tween.EASE_IN)
+	tw.tween_callback(notify.queue_free)
+
+	# カメラFOVパルス（成長を体感）
+	if player:
+		var cam := player.get_node_or_null("CameraPivot/FirstPersonCamera") as Camera3D
+		if cam:
+			var orig_fov := cam.fov
+			cam.fov = orig_fov + 8.0
+			var tw2 := create_tween()
+			tw2.tween_property(cam, "fov", orig_fov, 0.5)\
+			  .set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
