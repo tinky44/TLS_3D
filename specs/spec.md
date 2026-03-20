@@ -1,210 +1,413 @@
-# プロジェクト仕様書
+# Tall Life Simulator 3D — 技術仕様書
 
-このドキュメントは **Tall Life Simulator** の現行実装に対応した高レベル仕様です。  
-詳細なステージ構成や NPC 反応の一覧は、別ドキュメントを参照してください。
+## 1. プロジェクト概要
 
-## 関連ドキュメント
+### 1.1 目的
+既存の2D版「Tall Life Simulator」のゲームシステム（成長、NPC、ダイアログ、ステージ等）を継承しつつ、
+**Godot 4.x の3D機能を活用**して、"身長差の体感"をより直接的に伝えるゲームを構築する。
 
-- ステージ構成・接続・NPC配置: [stage_design.md](stage_design.md)
-- キャラクター描画: [character_drawing_system.md](character_drawing_system.md)
-- ポーズと姿勢: [character_pose_spec.md](character_pose_spec.md)
-- 髪描画: [hair_drawing_system.md](hair_drawing_system.md)
-- 服装・髪のロジック: [clothing_and_hair_logic.md](clothing_and_hair_logic.md)
-- 物語・会話仕様: [story_doalogue.md/dialogue_trigger_spec.md](story_doalogue.md/dialogue_trigger_spec.md), [story_doalogue.md/game_story_spec.md](story_doalogue.md/game_story_spec.md)
+### 1.2 コアコンセプト
+- **一人称視点での身長体験**: カメラの目線高さをキャラクターの身長パラメータと直結させ、
+  ドア枠、天井、つり革などが「近い」「当たる」感覚を視覚的に体験できるようにする。
+- **2.5D運用によるコスト抑制**: 移動は横スクロール（X軸）を基本とし、奥行き（Z軸）は限定的に使用。
+  見た目は3Dだが、ゲームプレイの複雑度は2Dに近い形を維持する。
+- **2D撮影モード**: Camera3Dの正投影（オルソグラフィック）で3Dシーンをレンダリングし、
+  ViewportTextureを用いてUIを合成。「漫画の一コマ」のようなビジュアルを出力可能にする。
 
-## 1. ゲーム概要
+### 1.3 エンジン選定結論
 
-本作は、高身長の少女が成長しながら日常空間と学校生活を過ごすシミュレーションゲームです。
+| 優先順位 | エンジン | 評価 |
+|---|---|---|
+| **第一候補** | **Godot Engine 4.x** | 既存資産を最大限再利用可能。3D APIが2Dと近く移行がスムーズ。MITライセンス。Web書き出し可。 |
+| 第二候補 | Unity 6 | 3Dツール・アセット生態系が強力。Web書き出し公式サポートあり。ライセンス閾値に注意。 |
+| 第三候補 | Unreal Engine | 高品質3D表現には強いが、Web運用には不向き。 |
 
-- 身長の伸びによって、同じ場所や同じ物体の見え方・使いにくさが変わる
-- 学校、家、駅、通学路での体験が、ストレスや自己認識に影響する
-- NPC との会話、学期イベント、身体測定を通して物語が進む
-- キャラクターの見た目は 2D 手描きベースで、正面・側面・ポーズ変化に対応する
+→ **Godot 4.x を採用**
 
-## 2. 現行のゲーム進行仕様
+---
 
-### 2-1. 進行単位
+## 2. アーキテクチャ
 
-旧仕様の「1ターン = 1学期」は廃止されています。  
-現行実装では、**学期 > 日 > 行動** の3段階で進行します。
+### 2.1 シーン構成（3D化後）
 
-| 単位 | 現行仕様 |
-| --- | --- |
-| 学期 | `term` で管理。進級・進学・成長の基準単位 |
-| 日 | `day_in_term` で管理。1学期は `term_total_days = 30` 日 |
-| 行動 | `actions_today` で管理。1日の目安は `max_actions_per_day = 3` |
+```
+Main3D (Node3D)
+├── WorldEnvironment
+├── DirectionalLight3D (太陽光)
+├── Stage3D (Node3D)                    ← StageBuilder3D が動的構築
+│   ├── Floor (StaticBody3D + MeshInstance3D)
+│   ├── Walls (StaticBody3D + MeshInstance3D)
+│   ├── Ceiling (StaticBody3D + MeshInstance3D)  ← 天井のあるステージのみ
+│   ├── Obstacles[] (StaticBody3D + MeshInstance3D)
+│   └── Props[] (背景オブジェクト)
+├── Player3D (CharacterBody3D)
+│   ├── CollisionShape3D (CapsuleShape3D)
+│   ├── PlayerModel (Node3D)            ← ボーン/メッシュ or 簡易プリミティブ
+│   ├── FirstPersonCamera (Camera3D)    ← 一人称視点カメラ
+│   ├── ThirdPersonCamera (Camera3D)    ← 三人称視点カメラ（2.5D）
+│   └── RayCast3D[] (センサー群)
+├── NPCs[] (CharacterBody3D)
+│   ├── NPCModel (Node3D)
+│   └── CollisionShape3D (CapsuleShape3D)
+├── OrthoCamera (Camera3D)              ← 2D撮影モード用
+└── UILayer (CanvasLayer)               ← 既存UIシステムをほぼそのまま流用
+    ├── StatusSidebar
+    ├── DialoguePanel
+    ├── MeasurementPanel
+    └── etc.
+```
 
-### 2-2. 1日の進み方
+### 2.2 座標系の設計
 
-- ドア移動 `door_to_*` は 1 行動消費する
-- 画面端移動は現在 `outdoor -> adjacent_town` と `adjacent_town -> outdoor` のみ実装されており、これも 1 行動消費する
-- NPC との会話、term hotspot、身体測定そのものは現状では行動消費しない
-- `actions_today >= max_actions_per_day` になると HUD 上で「今日はもう夕方だ」という警告が出る
-- ただし現状はソフト制限であり、行動そのものは強制停止しない
+| 軸 | 用途 | 備考 |
+|---|---|---|
+| X | 横移動（左右） | 2D版と同じ方向。1cm = 0.01ユニット（Godot標準の1m = 1ユニット） |
+| Y | 高さ（上下） | 身長・天井・障害物すべてこの軸で管理 |
+| Z | 奥行き | 2.5Dモードでは限定使用（NPC配置、部屋の奥行き表現） |
 
-### 2-3. 日送り
+**スケール換算**:
+- 2D版: `CM_TO_PX = 2.0` (1cm → 2px)
+- 3D版: `CM_TO_UNIT = 0.01` (1cm → 0.01ユニット = Godotの1mは100cm)
 
-日送りは `myroom` の `bed` から行います。
+### 2.3 モジュール構成
 
-- `今日を終える`: `day_in_term += 1`
-- `学期末まで一気に進める`: `day_in_term = term_total_days`
-- 日送り時に `actions_today` は 0 に戻る
-- 日送り後はフェード演出を挟み、`myroom` に戻る
+```
+godot-project/
+├── scripts/
+│   ├── Global.gd                    ← 【流用】ほぼそのまま使用
+│   ├── DialogueDatabase.gd          ← 【流用】そのまま使用
+│   ├── AchievementDatabase.gd       ← 【流用】そのまま使用
+│   │
+│   ├── MainScene3D.gd              ← 【新規】3D版メインシーン
+│   ├── StageBuilder3D.gd           ← 【新規】3Dステージ構築
+│   ├── Player3D.gd                 ← 【新規】3Dプレイヤー制御
+│   ├── NPC3D.gd                    ← 【新規】3D NPC制御
+│   ├── CameraController.gd         ← 【新規】視点切替・カメラ制御
+│   ├── CharacterModel3D.gd         ← 【新規】3Dキャラクターモデル管理
+│   ├── BodyProportionMapper.gd     ← 【新規】身体パラメータ → 3Dボーン変換
+│   │
+│   ├── CharacterPoseCalculator.gd  ← 【参考】ポーズ計算ロジックの3D移植元
+│   ├── CharacterBodyDrawer.gd      ← 【参考】2D描画ロジック（3Dモデル構築の参考）
+│   └── ...
+├── scenes/
+│   ├── Main3D.tscn                 ← 【新規】3Dメインシーン
+│   ├── Player3D.tscn               ← 【新規】3Dプレイヤーシーン
+│   ├── NPC3D.tscn                  ← 【新規】3D NPCシーン
+│   └── ...
+└── project.godot                    ← 【修正】3Dレンダリング設定追加
+```
 
-### 2-4. 学期末と身体測定
+---
 
-`day_in_term >= term_total_days` になると、`term_end_measurement` イベントが予約されます。
+## 3. 既存システムの流用方針
 
-- 学期末イベントは `myroom` で消化される
-- 学期末イベントの消化時に `Global.advance_term()` が呼ばれる
-- 学期進行後に身体測定結果パネルを表示する
-- 身体測定パネルを閉じると `myroom` に戻る
+### 3.1 完全流用（変更不要）
 
-このため、現行実装では **「学期末に測定して次の学期へ進む」** 流れになっています。
+| ファイル | 理由 |
+|---|---|
+| `Global.gd` | 身体パラメータ、成長システム、セーブ/ロード、NPC定義はUIレイヤーの問題。3D/2Dに依存しない。 |
+| `DialogueDatabase.gd` | テキストデータのみ。表示はUIレイヤーが担当。 |
+| `AchievementDatabase.gd` | データ定義のみ。 |
 
-### 2-5. 学校内の時間進行
+### 3.2 部分流用（ロジック参考、3D用に書き直し）
 
-教室で学期イベント会話 `term_school` を消化すると、放課後演出を経て廊下へ移ります。
+| モジュール | 流用する部分 | 書き直す部分 |
+|---|---|---|
+| `StageBuilder.gd` | `STAGES` 辞書（ステージ定義データ） | 描画部分を `MeshInstance3D` + `StaticBody3D` に置換 |
+| `SkeletalPlayer.gd` | 移動ロジック、オートクラウチ判定 | `CharacterBody2D` → `CharacterBody3D`、センサーを `RayCast3D` に |
+| `SkeletalNPC.gd` | NPC行動ロジック | 3D空間内での配置・アニメーション |
+| `MainScene.gd` | UI構築、ダイアログ制御、ステージ遷移 | カメラ制御、3Dステージロード |
+| `CharacterPoseCalculator.gd` | ポーズ計算数値 | 2D座標 → 3Dボーン回転に変換 |
 
-- 教室で会話
-- 「放課後になった。」の演出
-- `school_hallway_*` へ移動
-- 帰り道や寄り道のフェーズへ移行
+### 3.3 新規作成
 
-### 2-6. 成長処理
+| モジュール | 概要 |
+|---|---|
+| `CameraController.gd` | 一人称/三人称/正投影（2D撮影）の3モード切替 |
+| `StageBuilder3D.gd` | 既存の `STAGES` データを読み、3Dメッシュ+コリジョンで構築 |
+| `Player3D.gd` | 3D版プレイヤー。身長連動のカメラ高さ、衝突、自動屈み |
+| `CharacterModel3D.gd` | 簡易人体3Dモデル（プリミティブ合成 or glTFモデル） |
+| `BodyProportionMapper.gd` | `Global.get_body_measurements()` → 3Dスケール・ボーン変換 |
 
-学期進行時には以下がまとめて更新されます。
+---
 
-- `term` の増加
-- `age` の再計算
-- `current_params["height"]` の成長
-- 頭身比 `ratio` の自動更新
-- 学校段階が変わった場合の制服更新
-- `haruka_invited_this_term` など学期内フラグのリセット
-- `term_hotspot_flags` と `term_memory_note` のリセット
-- `semester_start` イベントの予約
+## 4. コア機能の3D実装設計
 
-通常の学期成長量は、年齢ごとの基礎成長量に `growth_type` の倍率とランダム補正を掛けて決まります。
+### 4.1 一人称視点カメラ
 
-- 計算式: `学期成長量 = get_base_growth(age) * growth_factor * randf_range(0.7, 1.3)`
+```gdscript
+# CameraController.gd（概要）
+enum ViewMode { FIRST_PERSON, THIRD_PERSON, ORTHO_2D }
 
-基礎成長量 `get_base_growth(age)` は以下の通りです。
+var current_mode: ViewMode = ViewMode.FIRST_PERSON
+var eye_height_m: float = 1.60  # Global.current_params["height"] * 0.9 * CM_TO_UNIT
 
-| 年齢 | 基礎成長量 |
-| --- | --- |
-| 5歳以下 | `2.0 cm / 学期` |
-| 6〜9歳 | `1.8 cm / 学期` |
-| 10〜12歳 | `2.5 cm / 学期` |
-| 13〜15歳 | `3.2 cm / 学期` |
-| 16歳 | `2.0 cm / 学期` |
-| 17歳以上 | `0.8 cm / 学期` |
+func update_camera_height(height_cm: float, head_ratio: float) -> void:
+    # 目線の高さ = 身長 × 0.9（おおよそアイレベル）
+    eye_height_m = height_cm * 0.9 * CM_TO_UNIT
+    first_person_camera.position.y = eye_height_m
+```
 
-`growth_type` はキャラクター作成時に選ぶ成長タイプで、内部的には `growth_factor` として通常成長にのみ反映されます。
+**身長体感の演出**:
+- 170cmのプレイヤー → ドア枠(200cm)は余裕をもって見上げる
+- 200cmのプレイヤー → ドア枠がギリギリ目線の高さ
+- 240cmのプレイヤー → 天井(240cm)が頭上すれすれ、圧迫感
 
-| `growth_type` | 倍率 |
-| --- | --- |
-| `slow` | `0.5` |
-| `normal` | `1.0` |
-| `fast` | `1.5` |
-| `explosive` | `2.5` |
+### 4.2 ステージの3D構築
 
-### 2-7. 感情・記録
+既存の `StageBuilder.STAGES` データを3Dに変換する。
 
-進行と並行して、以下の状態が蓄積されます。
+```gdscript
+# StageBuilder3D.gd（概要）
+# 既存データ形式:
+# {"id": "door_to_outdoor", "x": 100, "x2": 180, "height": 200, "type": "overhead"}
+#
+# 3D変換:
+# x, x2 → X軸の範囲（cm → m）
+# height → Y軸の高さ（cm → m）
+# type → コリジョンレイヤーとメッシュ形状の決定
 
-- `stress`: 今学期のしんどさ
-- `self_confidence`: 自己肯定寄りの蓄積
-- `self_complex`: コンプレックス寄りの蓄積
-- `term_hotspot_flags`: 今学期に触れたイベント地点
-- `term_memory_note`: 今学期の印象的な出来事メモ
-- `visited_stages`, `experienced_events`: 通算ログ
+static func build_stage_3d(stage_id: String, parent: Node3D) -> void:
+    var data = StageBuilder.STAGES[stage_id]
+    
+    # 床
+    _create_floor(parent, data["width"])
+    
+    # 天井（ある場合）
+    if data.get("ceiling_height") != null:
+        _create_ceiling(parent, data["width"], data["ceiling_height"])
+    
+    # 障害物
+    for obs in data.get("obstacles", []):
+        _create_obstacle_3d(parent, obs)
 
-## 3. ステージ仕様
+static func _create_obstacle_3d(parent: Node3D, obs: Dictionary) -> void:
+    var x_start = float(obs["x"]) * CM_TO_UNIT
+    var x_end = float(obs["x2"]) * CM_TO_UNIT
+    var height = float(obs["height"]) * CM_TO_UNIT
+    var width = x_end - x_start
+    var depth = 0.5  # 奥行き（2.5Dなので固定値）
+    
+    match obs["type"]:
+        "overhead":
+            # 上に浮いた障害物（ドア枠、天井灯など）
+            _create_overhead_obstacle(parent, obs, x_start, width, height, depth)
+        "ground":
+            # 地面に置かれた障害物（机、椅子など）
+            _create_ground_obstacle(parent, obs, x_start, width, height, depth)
+        "background":
+            # 背景装飾（衝突なし）
+            _create_background_prop(parent, obs, x_start, width, height, depth)
+```
 
-ステージは `StageBuilder.gd` が構築します。  
-学校系ステージは年齢に応じて実ステージ ID に解決されます。
+### 4.3 プレイヤー3D
 
-| ベースID | 11歳以下 | 12〜14歳 | 15歳以上 |
-| --- | --- | --- | --- |
-| `school_hallway` | `school_hallway_elementary` | `school_hallway_middle` | `school_hallway_high` |
-| `school` | `school_elementary` | `school_middle` | `school_high` |
-| `schoolyard` | `schoolyard_elementary` | `schoolyard_middle` | `schoolyard_high` |
-| `infirmary` | `infirmary_elementary` | `infirmary_middle` | `infirmary_high` |
-| `gymnasium` | `gymnasium_elementary` | `gymnasium_middle` | `gymnasium_high` |
+```gdscript
+# Player3D.gd（概要）
+extends CharacterBody3D
 
-現行ルートの要点は以下です。
+var CM_TO_UNIT: float = 0.01
+var visual_height_m: float = 1.80
+var target_crouch_m: float = -1.0
 
-- 家まわり: `myroom <-> room <-> outdoor`
-- 中学ルート: `outdoor` 右端 `-> adjacent_town -> school_hallway_middle`
-- 高校ルート: `station -> platform -> train -> gakuenmae -> gakuenmachi -> school_hallway_high`
-- 小学校ルート: `outdoor -> school_hallway_elementary`
+# 移動は基本X軸のみ（2.5D）
+func _physics_process(delta: float) -> void:
+    if not is_on_floor():
+        velocity.y -= 9.8 * delta  # 重力
+    
+    var direction := Input.get_axis("ui_left", "ui_right")
+    velocity.x = direction * speed
+    velocity.z = 0  # 2.5Dモードでは奥行き移動なし
+    
+    _handle_auto_crouch_3d()
+    move_and_slide()
+```
 
-ステージごとの接続、比較対象オブジェクト、インタラクト対象、NPC 反応の詳細は [stage_design.md](stage_design.md) を参照してください。
+### 4.4 「屈む（かがむ）」演出の3D強化
 
-## 4. NPC と会話
+2D版の屈み演出を3Dでリッチにする:
 
-NPC システムは主に `MainScene.gd`、`DialogueDatabase.gd`、`SkeletalNPC.gd` を中心に構成されています。
+| 演出要素 | 2D版 | 3D版 |
+|---|---|---|
+| 視覚的な圧迫 | 頭部の角度変更 | **FOV狭窄** + カメラ高さ低下 |
+| カメラの揺れ | オフセットシェイク | **頭部バンプ時の3Dシェイク** |
+| 移動速度低下 | `crouch_stride_ratio` | 同等のロジック |
+| 呼吸音 | なし | **AudioStreamPlayer3D で息苦しさの音響** |
+| 周辺視野 | なし | **ポストプロセス: ビネット効果** |
 
-- 固有 NPC: `haruka`, `nurse`, `senior`, `mother`, `father`
-- 汎用 NPC: `generic` として扱う
-- 身長差やストーリーフラグに応じて会話キーを切り替える
-- 一部 NPC は学期内フラグや部活ストーリー段階に依存して分岐する
+```gdscript
+# 屈み中のカメラ演出
+func _apply_crouch_camera_effects(crouch_ratio: float) -> void:
+    # FOV狭窄（屈むほど視野が狭まる）
+    var base_fov = 75.0
+    var min_fov = 55.0
+    first_person_camera.fov = lerp(base_fov, min_fov, 1.0 - crouch_ratio)
+    
+    # ビネット強度
+    vignette_material.set_shader_parameter("intensity", (1.0 - crouch_ratio) * 0.6)
+```
 
-NPC の出現場所や反応傾向は [stage_design.md](stage_design.md) を参照してください。
+### 4.5 NPCのリアクション（3D版）
 
-## 5. 主要システムと対応ファイル
+```gdscript
+# NPC3D.gd
+func _update_look_at_player() -> void:
+    var player_eye_y = player.global_position.y + player.eye_height_m
+    var my_eye_y = global_position.y + eye_height_m
+    
+    # 身長差による視線角
+    var diff_y = player_eye_y - my_eye_y
+    var dist_xz = Vector2(
+        global_position.x - player.global_position.x,
+        global_position.z - player.global_position.z
+    ).length()
+    
+    # NPCの頭を回転（見上げ/見下ろし）
+    var look_angle = atan2(diff_y, max(dist_xz, 0.5))
+    head_bone.rotation.x = clamp(look_angle, -PI/3.0, PI/3.0)
+```
 
-| 系統 | 主なファイル | 役割 |
-| --- | --- | --- |
-| グローバル状態管理 | `godot-project/scripts/Global.gd` | 成長、学期進行、感情値、保存データの管理 |
-| メインシーン進行 | `godot-project/scripts/MainScene.gd` | UI、移動、会話、日送り、学期末処理、測定表示 |
-| ステージ構築 | `godot-project/scripts/StageBuilder.gd` | ステージ背景、障害物、接続、年齢別学校解決 |
-| 会話データ | `godot-project/scripts/DialogueDatabase.gd` | NPC・プレイヤー会話定義 |
-| プレイヤー描画 | `godot-project/scripts/CharacterDrawer.gd` ほか | 正面・側面・髪・服装・体型描画 |
-| プレイヤー姿勢 | `godot-project/scripts/CharacterPoseCalculator.gd`, `godot-project/scripts/SkeletalPlayer.gd` | しゃがみ、頭ぶつけ、姿勢制御 |
-| NPC 表示 | `godot-project/scripts/SkeletalNPC.gd` | NPC の見た目と基本挙動 |
+### 4.6 2D撮影モード
 
-## 6. UI 仕様の要点
+```gdscript
+# CameraController.gd
+func switch_to_ortho_2d() -> void:
+    current_mode = ViewMode.ORTHO_2D
+    ortho_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+    ortho_camera.size = player.visual_height_m * 1.5  # キャラ全体が収まるサイズ
+    ortho_camera.position = Vector3(
+        player.global_position.x,
+        player.visual_height_m * 0.5,
+        10.0  # カメラ距離
+    )
+    ortho_camera.look_at(player.global_position + Vector3.UP * player.visual_height_m * 0.5)
+    ortho_camera.current = true
+```
 
-現行のメイン画面では以下の情報を常時表示します。
+---
 
-- 左上: `Q: ステータス設定`
-- 上中央: 現在のステージ名
-- 右上: `◯日目 行動 x/y`
-- 右下: 現在その場で可能な操作ヒント
-- 左上付近: ミニマップバー
+## 5. ステージデータの3D拡張
 
-補助 UI として以下があります。
+既存の `STAGES` 辞書を拡張し、3D固有のプロパティを追加する。
 
-- ポーズメニュー
-- 日送り用スリープメニュー
-- 身体測定結果パネル
-- 進級時の続行 / 終了選択パネル
+```gdscript
+# StageBuilder3D.gd
+const STAGE_3D_EXTENSIONS = {
+    "room": {
+        "depth": 400,  # 部屋の奥行き（cm）
+        "wall_material": "wallpaper_cream",
+        "floor_material": "flooring_brown",
+        "lighting": "indoor_warm",
+        "ambient_sound": "home_ambient",
+    },
+    "train": {
+        "depth": 300,
+        "wall_material": "train_panel",
+        "floor_material": "train_floor",
+        "lighting": "fluorescent",
+        "ambient_sound": "train_running",
+        "window_parallax": true,  # 窓の外の風景スクロール
+    },
+    "outdoor": {
+        "depth": null,  # 屋外は無限遠
+        "skybox": "daytime_sky",
+        "lighting": "outdoor_sun",
+        "ambient_sound": "city_ambient",
+    },
+    # ...
+}
+```
 
-## 7. 保存仕様
+---
 
-保存は `ConfigFile` ベースで行います。
+## 6. 開発フェーズ
 
-| 種類 | パス | 内容 |
-| --- | --- | --- |
-| 設定保存 | `user://settings.cfg` | 現在のプレイヤー状態、感情値、学期フラグ、見た目、システム設定 |
-| セーブスロット | `user://save_slots.cfg` | スロット別のプレイ状況保存 |
+### Phase 0: 基盤構築（現在のリポジトリ準備）
+- [x] `TLS_3D` リポジトリの作成
+- [ ] 既存コードのコピー（Global.gd, DialogueDatabase.gd, AchievementDatabase.gd）
+- [ ] `project.godot` の3D設定変更（Forward+レンダラー、3D物理）
 
-保存対象の主な内容:
+### Phase 1: 最小動作プロトタイプ
+- [ ] `Main3D.tscn` / `MainScene3D.gd` の基本構造
+- [ ] `Player3D.tscn` / `Player3D.gd` — CharacterBody3D + カプセル衝突
+- [ ] `StageBuilder3D.gd` — 1ステージ（myroom）の3D構築
+- [ ] 一人称カメラの基本実装（身長連動）
+- [ ] 基本移動（左右のみ、重力あり）
+- [ ] **到達目標**: 3D空間内で身長差を体感しながら歩ける
 
-- 身長、頭身、脚比率、性別
-- 見た目設定
-- `current_stage_id`
-- `age`, `term`, `day_in_term`, `actions_today`
-- 成長履歴
-- `stress`, `self_confidence`, `self_complex`
-- 学期フラグ、部活フラグ、同行フラグ
-- 訪問済みステージ、体験済みイベント
+### Phase 2: ステージ完成
+- [ ] 全ステージの3D化（STAGES辞書からの自動生成）
+- [ ] ステージ遷移（ドアのインタラクション）
+- [ ] 天井/障害物の衝突判定
+- [ ] 自動屈みシステムの3D実装
+- [ ] **到達目標**: 2D版と同等のステージを3Dで歩ける
 
-## 8. 現行仕様として明記しておく点
+### Phase 3: キャラクターモデル
+- [ ] 簡易3D人体モデル（プリミティブ合成 or glTF）
+- [ ] `BodyProportionMapper.gd` — 身長→モデルスケール変換
+- [ ] NPCモデルの配置と基本アニメーション
+- [ ] 服装の3D表現（テクスチャ or メッシュ切替）
+- [ ] **到達目標**: キャラクターが3Dモデルとして表示される
 
-- 旧仕様の「1ターン = 1学期」は現行実装では採用していない
-- 現在は **1学期 = 30日**, **1日 = 複数行動**, **ベッドで日送り** の構造
-- 学期末の身体測定は `myroom` に戻ってから処理される
-- ステージ構成は駅ルートと隣町ルートを含む複数ハブ型になっている
-- ステージ詳細や NPC 反応は [stage_design.md](stage_design.md) を正とする
+### Phase 4: 演出強化
+- [ ] 屈み演出（FOV変更、ビネット、音響）
+- [ ] 頭部バンプ演出の3D化（カメラシェイク + 効果音）
+- [ ] NPCの視線追従（見上げ/見下ろし）
+- [ ] 三人称カメラ（2.5Dビュー）
+- [ ] 2D撮影モード（正投影カメラ）
+- [ ] **到達目標**: 身長差の体験が演出込みで完成
+
+### Phase 5: UIとゲームループ統合
+- [ ] 既存UI（ダイアログ、ステータス、測定パネル等）の接続
+- [ ] 成長・学期進行システムの動作確認
+- [ ] セーブ/ロードの動作確認
+- [ ] Web書き出しテスト
+- [ ] **到達目標**: ゲームとしてプレイ可能な状態
+
+### Phase 6: ポリッシュ
+- [ ] マテリアル・テクスチャの品質向上
+- [ ] ライティング調整
+- [ ] パフォーマンス最適化（LOD、カリング）
+- [ ] 効果音・BGM
+- [ ] **到達目標**: リリース品質
+
+---
+
+## 7. 技術的な注意点
+
+### 7.1 パフォーマンス（Web ターゲット）
+- メッシュ数は最小限に抑える（ステージはプリミティブ合成主体）
+- テクスチャは軽量フォーマット（WebP/ASTC）
+- 影の品質を段階的に調整可能にする
+- Forward+レンダラーを使用（Godot 4.xのWebサポート）
+
+### 7.2 既存データとの互換性
+- `Global.gd` のセーブデータ形式は変更しない
+- `CM_TO_PX` → `CM_TO_UNIT` の換算はクラス内に閉じる
+- 2D版と3D版は `project.godot` レベルで別プロジェクトとして管理
+
+### 7.3 移行のリスク管理
+- 既存の2D版は `tall_life_simulator` リポジトリで維持
+- 3D版は `TLS_3D` リポジトリで独立開発
+- 共有ロジック（Global, DialogueDatabase等）は定期的に同期
+
+---
+
+## 8. 補足: 既存2Dシステムの主要クラス（参照）
+
+| クラス | 行数 | 役割 | 3D版での扱い |
+|---|---|---|---|
+| `Global.gd` | ~934行 | ゲーム状態管理（パラメータ、成長、セーブ） | **そのまま流用** |
+| `MainScene.gd` | ~4142行 | メインゲームループ、UI、ダイアログ制御 | ロジック参考に `MainScene3D.gd` 新規作成 |
+| `StageBuilder.gd` | ~4206行 | ステージデータ定義と2D描画 | データ流用、描画を3Dに |
+| `SkeletalPlayer.gd` | ~442行 | プレイヤー移動、オートクラウチ、衝突 | ロジック移植 `Player3D.gd` |
+| `SkeletalNPC.gd` | ~18184B | NPC行動制御 | ロジック移植 `NPC3D.gd` |
+| `CharacterPoseCalculator.gd` | ~11402B | ポーズの数値計算 | 3Dボーン回転に変換 |
+| `CharacterBodyDrawer.gd` | ~31213B | 2D人体描画 | 3Dモデルに置換 |
+| `DialogueDatabase.gd` | ~27465B | ダイアログテキスト | **そのまま流用** |
+| `AchievementDatabase.gd` | ~4193B | 実績定義 | **そのまま流用** |
+
+---
+
+*最終更新: 2026-03-20*
+*Co-Authored-By: gemini <218195315+gemini-cli@users.noreply.github.com>*

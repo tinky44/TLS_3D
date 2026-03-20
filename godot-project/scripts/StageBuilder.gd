@@ -112,7 +112,27 @@ const STAGES = {
             {"id": "door_to_station", "x": 650, "x2": 750, "height": 200, "type": "overhead"},
             {"id": "car", "x": 760, "x2": 930, "height": 150, "type": "background"},
             {"id": "bus_stop_sign", "x": 940, "x2": 968, "height": 250, "type": "background"},
-            {"id": "door_to_school_hallway_elementary", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"}
+            {"id": "door_to_school_hallway_elementary", "x": 1050, "x2": 1150, "height": 200, "type": "overhead"},
+            {"id": "door_to_park", "x": 1350, "x2": 1470, "height": 200, "type": "overhead"}
+        ]
+    },
+    "park": {
+        "name": "公園（野外）",
+        "width": 3000,
+        "ceiling_height": null,
+        "obstacles": [
+            {"id": "door_to_outdoor", "x": 50, "x2": 130, "height": 200, "type": "overhead"},
+            {"id": "park_bench_1", "x": 350, "x2": 550, "height": 45, "type": "ground"},
+            {"id": "park_bench_2", "x": 800, "x2": 1000, "height": 45, "type": "ground"},
+            {"id": "fountain", "x": 1300, "x2": 1500, "height": 90, "type": "ground"},
+            {"id": "park_bench_3", "x": 1700, "x2": 1900, "height": 45, "type": "ground"},
+            {"id": "park_lamp_1", "x": 600, "x2": 620, "height": 300, "type": "background"},
+            {"id": "park_lamp_2", "x": 1100, "x2": 1120, "height": 300, "type": "background"},
+            {"id": "park_lamp_3", "x": 1600, "x2": 1620, "height": 300, "type": "background"},
+            {"id": "park_lamp_4", "x": 2100, "x2": 2120, "height": 300, "type": "background"},
+            {"id": "big_tree_1", "x": 200, "x2": 280, "height": 500, "type": "background"},
+            {"id": "big_tree_2", "x": 2700, "x2": 2800, "height": 500, "type": "background"},
+            {"id": "park_sign", "x": 2900, "x2": 2980, "height": 180, "type": "background"}
         ]
     },
     "school_hallway": {
