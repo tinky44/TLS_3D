@@ -1,158 +1,115 @@
-# plan_by_agent.md — AIメモ
+# plan_by_agent.md — 3D化開発計画
 
-## 議論: 500cm超の屈みシステム限界問題（2026-03-19）
+> 最終更新: 2026-03-20
 
-### 課題
-- 屈みシステムはこのゲームのコア演出（天井より高くても膝・腰を曲げて入れる）
-- 500cm超になると、家の天井（約240cm）に対して屈んでも物理的に入れない
-- 起床時に左に落ちるバグがある
-- プレイヤーは巨大化して家を突き抜ける演出を楽しんでいる
-
-### 設計方針: A案「突き抜け演出」路線（採用）
-
-「もうこの家には住めない」体験こそがゲームのコンセプト。
-500cm超で家の中を移動不可にするのは仕様として受け入れる。
+## 現在のステータス: Phase 0（基盤構築）
 
 ---
 
-## 詳細設計（2026-03-19）
+## Phase 0: 基盤構築 ← **今ここ**
 
-### 現状把握
+### 完了
+- [x] `TLS_3D` リポジトリ作成
+- [x] 仕様書 `specs/spec.md` 作成（3D化の全体設計）
+- [x] `project.godot` を3D用に設定更新（Forward+, 入力マッピング追加）
+- [x] 既存の流用スクリプト確認（Global.gd, DialogueDatabase.gd, AchievementDatabase.gd → 変更不要）
+- [x] `Main3D.tscn` + `MainScene3D.gd` 作成（ステージ構築、UI、ライティング）
+- [x] `Player3D.tscn` + `Player3D.gd` 作成（移動、一人称カメラ、オートクラウチ、頭部バンプ）
+- [x] `StageBuilder3D.gd` 作成（STAGESデータから3Dメッシュ+コリジョン自動生成）
+- [x] Godot 4.6.1 + RTX 4060 Ti で動作確認済み ✅
 
-| 項目 | 値 |
+### 次のアクション（Phase 1 へ）
+- [ ] 実際にプレイして一人称視点の見え方を確認
+- [ ] 身長スライダーを追加し、リアルタイムに身長変更 → 体感確認
+- [ ] 障害物のデザイン改善（BoxMeshから特徴的な形状へ）
+- [ ] ステージ遷移（ドアのインタラクション）
+
+---
+
+## Phase 1: 最小動作プロトタイプ
+
+**ゴール**: 3D空間内で身長差を体感しながら歩ける
+
+- [ ] CharacterBody3D ベースのプレイヤー（移動＋重力）
+- [ ] 一人称カメラ（身長パラメータ連動）
+- [ ] myroom ステージの3D構築（StageBuilder.STAGES データ流用）
+- [ ] 天井コリジョン＋頭ぶつけ検出
+- [ ] 基本的な障害物表示（ドア枠、ベッド、机など）
+
+---
+
+## Phase 2: ステージ完成
+
+**ゴール**: 2D版と同等のステージを3Dで歩ける
+
+- [ ] 全ステージの3D自動生成
+- [ ] ステージ遷移（ドア → フェード → ステージ切替）
+- [ ] 自動屈みシステムの3D版
+- [ ] 屋外ステージの背景（スカイボックス + 建物）
+
+---
+
+## Phase 3: キャラクターモデル
+
+**ゴール**: キャラクターが3Dモデルとして見える
+
+- [ ] 簡易3D人体モデル（プリミティブ合成 or glTF）
+- [ ] BodyProportionMapper — 身長→モデルスケール変換
+- [ ] NPC配置と視線追従
+- [ ] 服装の3D表現
+
+---
+
+## Phase 4: 演出強化
+
+**ゴール**: 身長差の体験が演出込みで完成
+
+- [ ] 屈み演出（FOV狭窄、ビネット、息苦しさの音響）
+- [ ] 頭部バンプの3Dカメラシェイク + SE
+- [ ] 三人称カメラ（2.5Dビュー）
+- [ ] 2D撮影モード（正投影カメラ）
+
+---
+
+## Phase 5: UIとゲームループ統合
+
+**ゴール**: ゲームとしてプレイ可能
+
+- [ ] ダイアログシステム接続（CanvasLayer UIそのまま流用）
+- [ ] 成長・学期進行の動作確認
+- [ ] セーブ/ロード動作確認
+- [ ] Web書き出しテスト
+
+---
+
+## Phase 6: ポリッシュ
+
+**ゴール**: リリース品質
+
+- [ ] マテリアル・テクスチャ品質向上
+- [ ] ライティング調整
+- [ ] パフォーマンス最適化
+- [ ] 効果音・BGM
+
+---
+
+## 設計メモ
+
+### 流用ファイル一覧
+| ファイル | 方針 |
 |---|---|
-| myroomの天井 | 240cm |
-| ベッド位置 | x=30〜230cm |
-| 起床スポーン位置 | x=260cm（既にベッド右隣に修正済み） |
-| キャラ衝突形状 | CapsuleShape2D、高さ = visual_height_cm * CM_TO_PX |
+| `Global.gd` | **そのまま流用**。3D/2Dに依存しないゲーム状態管理。 |
+| `DialogueDatabase.gd` | **そのまま流用**。テキストデータのみ。 |
+| `AchievementDatabase.gd` | **そのまま流用**。データ定義のみ。 |
+| `StageBuilder.gd` | **STAGESデータのみ流用**。描画ロジックは3D用に新規作成。 |
+| `SkeletalPlayer.gd` | **ロジック参考**。移動・オートクラウチの考え方を3Dに移植。 |
+| `MainScene.gd` | **ロジック参考**。UI構築・ダイアログ制御の考え方を移植。 |
 
-**起床バグの真因**: 500cmキャラのカプセル衝突形状（高さ1000px）が
-天井（240cm=480px）に当たり、物理エンジンに押し出される。
+### スケール方針
+- 2D版: `CM_TO_PX = 2.0` (1cm → 2px)
+- 3D版: `CM_TO_UNIT = 0.01` (1cm → 0.01ユニット。Godot標準: 1m = 1ユニット)
 
----
-
-### 実装タスク
-
-#### 【1】起床バグ修正（最優先）
-対象: `MainScene.gd` / `_run_sleep_transition()`
-
-スポーン直後に衝突を1フレーム無効化する。
-
-```gdscript
-if player:
-    player.position = Vector2(260 * p, 0)
-    player.collision_shape.disabled = true
-    await get_tree().process_frame
-    player.collision_shape.disabled = false
-```
-
-#### 【2】「屈み不能」フラグの追加
-対象: `SkeletalPlayer.gd`
-
-変数追加:
-```gdscript
-var is_crouch_impossible: bool = false
-```
-
-`_handle_auto_crouch()` 末尾に判定追加:
-```gdscript
-if target_crouch_cm > 0 and target_crouch_cm < visual_height_cm * 0.45:
-    is_crouch_impossible = true
-else:
-    is_crouch_impossible = false
-```
-
-`_physics_process()` で移動停止:
-```gdscript
-if is_crouch_impossible:
-    velocity.x = move_toward(velocity.x, 0, SPEED)
-```
-
-#### 【3】「家より大きくなった」演出と屋外への強制退出
-対象: `MainScene.gd`、`DialogueDatabase.gd`
-
-**トリガー条件:**
-- `player.is_crouch_impossible == true`
-- 現在のステージが `room` または `myroom`（天井のある家系）
-- 1回だけ（フラグで二重起動防止）
-
-**処理の流れ:**
-1. `_process()` で `player.is_crouch_impossible` を監視
-2. 初回のみ `_trigger_too_big_for_house()` を呼ぶ（`call_deferred`）
-3. 暗転（フェードアウト）
-4. `global.current_stage_id = "outdoor"` に切り替え
-5. `await _load_stage()`
-6. プレイヤー位置を outdoor 左端付近（x=80cm）に設定
-7. フェードイン
-8. ダイアログ `"player"` / `"too_big_for_house"` を表示
-
-**MainScene.gd に追加する変数・関数:**
-```gdscript
-var _crouch_impossible_notified: bool = false
-
-# _process() 内
-if player and player.get("is_crouch_impossible"):
-    var sid = String(global.current_stage_id) if global else ""
-    if (sid == "room" or sid == "myroom") and not _crouch_impossible_notified:
-        _crouch_impossible_notified = true
-        call_deferred("_trigger_too_big_for_house")
-elif player and not player.get("is_crouch_impossible"):
-    _crouch_impossible_notified = false
-
-# 新規関数
-func _trigger_too_big_for_house() -> void:
-    if _edge_transition_running or _in_dialogue:
-        return
-    var global = get_node_or_null("/root/Global")
-    if not global:
-        return
-    _edge_transition_running = true
-    # フェードアウト
-    var fade = ColorRect.new()
-    fade.color = Color(0, 0, 0, 0)
-    fade.set_anchors_preset(Control.PRESET_FULL_RECT)
-    fade.z_index = 110
-    ui_layer.add_child(fade)
-    var tw = create_tween()
-    tw.tween_property(fade, "color:a", 1.0, 0.5)
-    await tw.finished
-    # outdoorへ遷移
-    global.current_stage_id = "outdoor"
-    await _load_stage()
-    if player:
-        player.position = Vector2(80 * p, 0)
-    # フェードイン
-    var tw_out = create_tween()
-    tw_out.tween_property(fade, "color:a", 0.0, 0.5)
-    await tw_out.finished
-    fade.queue_free()
-    _edge_transition_running = false
-    # ダイアログ表示
-    _start_dialogue("player", "too_big_for_house")
-```
-
-**DialogueDatabase.gd の `"player"` セクションに追加:**
-```gdscript
-"too_big_for_house": [
-    {"speaker": "（主人公）", "text": "家より大きくなっちゃった……。"},
-],
-```
-
----
-
-### 対応しないこと（仕様として受け入れ）
-- 500cm超の家内部での移動 → 不可。ゲームの意図する体験
-- ドア方向だけ移動可能にする → 複雑になるので実装しない
-
----
-
-### フェーズ分け
-
-| 優先 | 内容 | ファイル |
-|---|---|---|
-| 1 | 起床バグ修正（衝突1フレーム無効化） | MainScene.gd |
-| 2 | is_crouch_impossible フラグ + 移動停止 | SkeletalPlayer.gd |
-| 3 | 屋外への強制退出 + ダイアログ演出 | MainScene.gd、DialogueDatabase.gd |
-
-### 次のアクション
-- [ ] ユーザーの承認を得て実装開始
+### 座標軸
+- X: 横移動（左右）
+- Y: 高さ（上下）— 身長・天井・障害物
+- Z: 奥行き（2.5Dでは限定使用）
