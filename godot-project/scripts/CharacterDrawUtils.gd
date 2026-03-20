@@ -112,7 +112,7 @@ static func draw_hand_with_thumb(canvas: CanvasItem, pos: Vector2, hw: float, hh
     # 2. 親指（小さな三角形）を描画
     # 親指の基点: 手の幅の位置（右or左）、高さは手の上部（手の半分くらい）
     var thumb_base_offset = Vector2(thumb_side * hw * 1.2, hh * 0.3)
-    var thumb_tip_offset = Vector2(thumb_side * hw * 1.5, -hh * 0.5)
+    var thumb_tip_offset = Vector2(thumb_side * hw * 1.9, hh * 1.0)
     var thumb_corner_offset = Vector2(thumb_side * hw * 0.8, hh * 0.8)
 
     var thumb_pts = PackedVector2Array()
