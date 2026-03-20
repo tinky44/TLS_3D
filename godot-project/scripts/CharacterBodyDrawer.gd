@@ -29,7 +29,7 @@ class_name CharacterBodyDrawer
 # ---------------------------------------------------------------
 static func draw_sleeve_arm(ctx: DrawContext, p_shoulder: Vector2, p_elbow: Vector2, p_hand: Vector2,
 		arm_w: float, hand_hw: float, hand_hh: float, hand_angle: float,
-		tops_type: String, skin: Color, shirt: Color, is_side: bool = false) -> void:
+		tops_type: String, skin: Color, shirt: Color, is_side: bool = false, thumb_side: int = 1) -> void:
 	# 【調整用】袖の太さ。肩側(top)と袖口側(bot)を別々に調整できる
 	var sleeve_top_w = arm_w * 1.5 # 袖の肩側の太さ（肩をカバー）
 	var sleeve_bot_w = arm_w * 1.8 # 袖口の太さ（末広がり）
@@ -87,8 +87,6 @@ static func draw_sleeve_arm(ctx: DrawContext, p_shoulder: Vector2, p_elbow: Vect
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
 
-	# hand_angle から左右を判定（sin > 0 なら左手、< 0 なら右手）
-	var thumb_side = 1 if sin(hand_angle) < 0.0 else -1
 	CharacterDrawUtils.draw_hand_with_thumb(ctx.canvas, p_hand, hand_hw, hand_hh, skin, hand_angle, thumb_side)
 
 # ---------------------------------------------------------------

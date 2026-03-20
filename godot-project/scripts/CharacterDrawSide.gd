@@ -57,7 +57,7 @@ static func draw(ctx: DrawContext) -> void:
 	var p_hand_l = CharacterPoseCalculator.rotated_point(p_elb_l.x, p_elb_l.y, l_arm, d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
 	var s_arm_l_ang = d["arm_l_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
-	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark, true)
+	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_arm_shoulder, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, s_arm_l_ang - PI / 2, tops_type, skin_dark, shirt_dark, true, 1)
 
 	# 2. 奥の足
 	var pants_thigh_w = thigh_w * 1.3
@@ -125,7 +125,7 @@ static func draw(ctx: DrawContext) -> void:
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1)
 
 	var s_arm_r_ang = d["arm_r_angle"] * PI / 180 + d["waist_angle"] + PI / 2 - 0.1
-	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true)
+	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_arm_shoulder, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, s_arm_r_ang - PI / 2, tops_type, skin_color, base_shirt_color, true, 1)
 
 static func _draw_mouth_side(ctx: DrawContext, hx: float, hy: float, head_r: float, head_angle: float) -> void:
 	var mouth_offset = Vector2(head_r * 0.5, head_r * 0.5)

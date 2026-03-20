@@ -90,8 +90,10 @@ static func draw(ctx: DrawContext) -> void:
 	var p_elb_r = CharacterPoseCalculator.rotated_point(p_sh_r.x, p_sh_r.y, u_arm, f_arm_r_ang)
 	var p_hand_r = CharacterPoseCalculator.rotated_point(p_elb_r.x, p_elb_r.y, l_arm, f_arm_r_ang)
 
-	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_l, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, f_arm_l_ang - PI / 2, tops_type, arm_skin, arm_shirt)
-	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_r, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, f_arm_r_ang - PI / 2, tops_type, arm_skin, arm_shirt)
+	# 正面: 左手の親指は右側(1)、右手は左側(-1)。背面は逆。
+	var front_thumb = 1 if facing == "front" else -1
+	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_l, p_elb_l, p_hand_l, arm_w, hand_hw, hand_hh, f_arm_l_ang - PI / 2, tops_type, arm_skin, arm_shirt, false, front_thumb)
+	CharacterBodyDrawer.draw_sleeve_arm(ctx, p_sh_r, p_elb_r, p_hand_r, arm_w, hand_hw, hand_hh, f_arm_r_ang - PI / 2, tops_type, arm_skin, arm_shirt, false, -front_thumb)
 
 	# 2. 胴体 (シャツ) — 正面ビュー用座標を使用
 	CharacterDrawUtils.draw_torso_part(ctx.canvas, ctx.part_shapes["torso_front_lower"], Vector2(d["front_navel_x"], d["front_navel_y"]), Vector2(d["cx"], d["cy"]), body_w, body_w, base_shirt_color)
