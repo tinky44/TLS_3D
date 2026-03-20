@@ -1,0 +1,25 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/NPC3D.gd" id="1_npc3d"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_npc"]
+radius = 0.18
+height = 1.55
+
+[node name="NPC3D" type="CharacterBody3D"]
+script = ExtResource("1_npc3d")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.775, 0)
+shape = SubResource("CapsuleShape3D_npc")
+
+[node name="BodyMesh" type="MeshInstance3D" parent="."]
+
+[node name="HeadMesh" type="MeshInstance3D" parent="."]
+
+[node name="NameLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+billboard = 1
+text = "NPC"
+font_size = 48
+outline_size = 8
