@@ -1,18 +1,22 @@
 extends CharacterBody3D
 ## Player3D.gd — 3Dプレイヤー制御
 ##
-## 2D版 SkeletalPlayer.gd のロジックを3Dに移植。
-## 身長パラメータと連動したカメラ高さ、自動屈み、頭部バンプ検出を担当。
+## 一人称視点で身長差を体感する。
+## マウスで周囲を見回し、A/Dキーで横移動。
 
 signal head_bump(obs_id: String, obs_height_cm: float)
 
 # ─── 定数 ────────────────────────────────────────────────────────
 const CM_TO_UNIT: float = 0.01  # 1cm → 0.01 Godot ユニット（1m = 1.0）
-const BASE_MOVE_SPEED: float = 2.5     # m/s（2D版の250px/sに相当）
+const BASE_MOVE_SPEED: float = 2.5     # m/s
 const GRAVITY: float = 9.8
 const HEAD_BUMP_COOLDOWN := 0.35
 const HEAD_BUMP_SHAKE_TIME := 0.18
 const HEAD_BUMP_SHAKE_STRENGTH := 0.06  # メートル単位
+
+# ─── マウスルック設定 ─────────────────────────────────────────────
+const MOUSE_SENSITIVITY: float = 0.002  # マウス感度
+const PITCH_LIMIT: float = 85.0        # 上下の視線制限（度）
 
 # ─── 身体パラメータ ──────────────────────────────────────────────
 var visual_height_cm: float = 180.0
@@ -31,18 +35,55 @@ var pose: String = "normal"
 var is_walking: bool = false
 var m: Dictionary = {}  # Global.get_body_measurements() の結果
 
+# ─── マウスルック ─────────────────────────────────────────────────
+var _mouse_captured: bool = false
+var _yaw: float = 0.0     # 左右の回転（ラジアン）
+var _pitch: float = 0.0   # 上下の回転（ラジアン）
+
+# ─── 歩行アニメーション ──────────────────────────────────────────
+var _walk_time: float = 0.0
+const WALK_BOB_SPEED: float = 10.0    # 歩行揺れの速度
+const WALK_BOB_AMOUNT: float = 0.02   # 歩行揺れの幅（メートル）
+
 # ─── 内部 ────────────────────────────────────────────────────────
 var _head_bump_cooldown_left: float = 0.0
 var _head_bump_shake_left: float = 0.0
-var _camera_base_y: float = 0.0
 
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
-@onready var first_person_camera: Camera3D = $FirstPersonCamera
+@onready var first_person_camera: Camera3D = $CameraPivot/FirstPersonCamera
+@onready var camera_pivot: Node3D = $CameraPivot
 @onready var ceiling_ray: RayCast3D = $CeilingRay
 
 # ─── 初期化 ──────────────────────────────────────────────────────
 func _ready() -> void:
 	update_measurements()
+	# マウスキャプチャ
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_mouse_captured = true
+
+func _unhandled_input(event: InputEvent) -> void:
+	# マウス移動 → 視線回転
+	if event is InputEventMouseMotion and _mouse_captured:
+		var motion := event as InputEventMouseMotion
+		_yaw -= motion.relative.x * MOUSE_SENSITIVITY
+		_pitch -= motion.relative.y * MOUSE_SENSITIVITY
+		_pitch = clamp(_pitch, deg_to_rad(-PITCH_LIMIT), deg_to_rad(PITCH_LIMIT))
+
+	# Escキーでマウスカーソル復帰/キャプチャ切替
+	if event is InputEventKey and event.pressed:
+		var key_event := event as InputEventKey
+		if key_event.keycode == KEY_ESCAPE:
+			if _mouse_captured:
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+				_mouse_captured = false
+			else:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+				_mouse_captured = true
+
+	# クリックでマウスを再キャプチャ
+	if event is InputEventMouseButton and event.pressed and not _mouse_captured:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_mouse_captured = true
 
 func update_measurements() -> void:
 	if has_node("/root/Global"):
@@ -71,15 +112,14 @@ func _update_collision() -> void:
 		collision_shape.position.y = visual_height_m * 0.5
 
 func _update_camera_height() -> void:
-	if first_person_camera:
-		first_person_camera.position.y = eye_height_m
+	if camera_pivot:
+		camera_pivot.position.y = eye_height_m
 
 func _update_speed() -> void:
 	var base_speed := BASE_MOVE_SPEED
 	if has_node("/root/Global"):
 		var global = get_node("/root/Global")
 		base_speed = float(global.system_settings.get("move_speed", 250.0)) / 100.0
-	# 脚の長さに応じた速度スケーリング
 	var leg_cm: float = float(m.get("leg", visual_height_cm * 0.48))
 	var base_leg_cm: float = 180.0 * 0.48
 	var leg_scale: float = clampf(leg_cm / base_leg_cm, 0.65, 1.8)
@@ -91,24 +131,53 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
 
-	# 横移動（2.5D: X軸のみ）
-	var direction := Input.get_axis("move_left", "move_right")
-	# ui_left/ui_right もフォールバックとして対応
-	if direction == 0:
-		direction = Input.get_axis("ui_left", "ui_right")
+	# ─── 視線の回転を適用 ─────────────────────────────
+	rotation.y = _yaw
+	if camera_pivot:
+		camera_pivot.rotation.x = _pitch
+
+	# ─── 移動（カメラの向きに基づく） ─────────────────
+	var input_dir := Vector2.ZERO
+	# A/D or ←→ で左右
+	input_dir.x = Input.get_axis("move_left", "move_right")
+	if input_dir.x == 0:
+		input_dir.x = Input.get_axis("ui_left", "ui_right")
+	# W/S or ↑↓ で前後
+	input_dir.y = Input.get_axis("move_forward", "move_backward")
+	if input_dir.y == 0:
+		input_dir.y = Input.get_axis("ui_up", "ui_down")
 
 	if pose != "normal" or is_crouch_impossible:
 		velocity.x = move_toward(velocity.x, 0, speed * delta * 10.0)
-	elif direction != 0:
-		velocity.x = direction * speed
-		dir = int(sign(direction))
+		velocity.z = move_toward(velocity.z, 0, speed * delta * 10.0)
+	elif input_dir != Vector2.ZERO:
+		input_dir = input_dir.normalized()
+		# カメラの向きに合わせて移動方向を計算
+		var forward := -transform.basis.z  # カメラの前方向
+		var right := transform.basis.x       # カメラの右方向
+		forward.y = 0
+		right.y = 0
+		forward = forward.normalized()
+		right = right.normalized()
+
+		var move_dir := (right * input_dir.x + forward * (-input_dir.y)).normalized()
+		velocity.x = move_dir.x * speed
+		velocity.z = move_dir.z * speed
 	else:
 		velocity.x = move_toward(velocity.x, 0, speed * delta * 10.0)
+		velocity.z = move_toward(velocity.z, 0, speed * delta * 10.0)
 
-	# Z軸は固定（2.5Dモード）
-	velocity.z = 0
+	is_walking = Vector2(velocity.x, velocity.z).length() > 0.01
 
-	is_walking = abs(velocity.x) > 0.01
+	# ─── 歩行揺れ（ヘッドボブ） ──────────────────────
+	if is_walking and is_on_floor() and first_person_camera:
+		_walk_time += delta * WALK_BOB_SPEED
+		var bob_y := sin(_walk_time) * WALK_BOB_AMOUNT
+		var bob_x := cos(_walk_time * 0.5) * WALK_BOB_AMOUNT * 0.5
+		first_person_camera.position = Vector3(bob_x, bob_y, 0)
+	elif first_person_camera:
+		first_person_camera.position = first_person_camera.position.lerp(Vector3.ZERO, 10.0 * delta)
+		_walk_time = 0.0
 
 	_handle_auto_crouch_3d()
 	_update_visual_height(delta)
@@ -124,7 +193,6 @@ func _handle_auto_crouch_3d() -> void:
 		is_crouch_impossible = false
 		return
 
-	# 天井レイキャストをフレーム同期
 	if ceiling_ray:
 		ceiling_ray.force_raycast_update()
 		if ceiling_ray.is_colliding():
@@ -134,8 +202,6 @@ func _handle_auto_crouch_3d() -> void:
 
 			if ceil_h_cm < visual_height_cm + 10.0:
 				target_crouch_cm = ceil_h_cm - 8.0
-
-				# 屈み不能判定（身長の45%以下まで屈む必要がある場合）
 				if target_crouch_cm < visual_height_cm * 0.45:
 					is_crouch_impossible = true
 				else:
@@ -173,7 +239,6 @@ func _process_head_bump(delta: float) -> void:
 	if _head_bump_cooldown_left > 0.0:
 		return
 
-	# 天井衝突チェック
 	if ceiling_ray and ceiling_ray.is_colliding():
 		var hit_point: Vector3 = ceiling_ray.get_collision_point()
 		var head_y: float = global_position.y + visual_height_m
@@ -188,9 +253,7 @@ func _process_head_bump(delta: float) -> void:
 	# カメラシェイク
 	if _head_bump_shake_left > 0.0 and first_person_camera:
 		var strength := HEAD_BUMP_SHAKE_STRENGTH * (_head_bump_shake_left / HEAD_BUMP_SHAKE_TIME)
-		first_person_camera.position.y = eye_height_m + randf_range(-strength, strength)
-	elif first_person_camera:
-		first_person_camera.position.y = eye_height_m
+		first_person_camera.position.y += randf_range(-strength, strength)
 
 func _trigger_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	_head_bump_cooldown_left = HEAD_BUMP_COOLDOWN
