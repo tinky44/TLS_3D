@@ -23,3 +23,5 @@ node_modules/
 
 godot-project/artifacts/godot-captures/*
 artifacts/godot-runtime/*
+
+.claude/*
