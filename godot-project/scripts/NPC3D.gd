@@ -51,10 +51,13 @@ func setup(id: String, data: Dictionary, age: int = 6) -> void:
 	_build_visual()
 
 func _build_measurements() -> Dictionary:
-	var ht = height_cm / 7.5
+	# 身長連動で頭身を計算（プレイヤーと同じ式）
+	var ratio: float = clamp(5.5 + (height_cm - 100.0) / 30.0, 5.0, 9.0)
+	var ht: float = height_cm / ratio
 	return {
 		"height": height_cm,
 		"head": ht,
+		"ratio": ratio,
 		"landmarks": {
 			"top": height_cm,
 			"eye": height_cm - ht * 0.5,
@@ -77,22 +80,24 @@ func _build_visual() -> void:
 		mat.albedo_color = _get_npc_color()
 		body_mesh.material_override = mat
 
-	# 頭: 球
+	# 頭: 球（m["head"] ベースのサイズ）
 	if head_mesh:
 		var sphere := SphereMesh.new()
-		var head_size: float = height_m * 0.13
+		var head_cm: float = m["head"]
+		var head_size: float = head_cm * CM_TO_UNIT
 		sphere.radius = head_size
 		sphere.height = head_size * 2.0
 		head_mesh.mesh = sphere
-		head_mesh.position.y = height_m * 0.75 + head_size
+		# 頭頂基準（確実な位置）
+		head_mesh.position.y = height_m - head_size
 
 		var mat := StandardMaterial3D.new()
 		mat.albedo_color = Color(0.92, 0.82, 0.72)  # 肌色
 		head_mesh.material_override = mat
 
-	# 名前ラベル
+	# 名前ラベル（身長表示付き）
 	if name_label:
-		name_label.text = npc_name
+		name_label.text = "%s\n%d cm" % [npc_name, int(height_cm)]
 		name_label.position.y = height_m + 0.15
 		name_label.font_size = 48
 		name_label.outline_size = 8
@@ -214,6 +219,21 @@ func _build_limbs() -> void:
 		else:
 			_leg_r_pivot = pivot
 
+	# スカート（対象: haruka, mother, nurse）
+	if _has_skirt():
+		var skirt_mesh := MeshInstance3D.new()
+		var skirt_cyl := CylinderMesh.new()
+		var skirt_height: float = height_m * 0.18
+		skirt_cyl.top_radius = height_m * 0.14      # 腰幅
+		skirt_cyl.bottom_radius = height_m * 0.20   # 裾の広がり
+		skirt_cyl.height = skirt_height
+		skirt_mesh.mesh = skirt_cyl
+		skirt_mesh.position.y = hip_y - skirt_height * 0.5
+		var skirt_mat := StandardMaterial3D.new()
+		skirt_mat.albedo_color = _get_skirt_color()
+		skirt_mesh.material_override = skirt_mat
+		add_child(skirt_mesh)
+
 func _update_walk_animation(delta: float) -> void:
 	_walk_time += delta * 2.0
 	var swing: float = sin(_walk_time) * 0.25
@@ -240,3 +260,17 @@ func _get_npc_color() -> Color:
 			return Color(0.90, 0.90, 0.92)   # 白衣
 		_:
 			return Color(0.65, 0.65, 0.70)   # 汎用グレー
+
+func _has_skirt() -> bool:
+	return npc_id in ["haruka", "mother", "nurse"]
+
+func _get_skirt_color() -> Color:
+	match npc_id:
+		"haruka":
+			return Color(0.2, 0.2, 0.3)    # 制服紺
+		"mother":
+			return Color(0.44, 0.33, 0.22)
+		"nurse":
+			return Color(0.90, 0.90, 0.92)
+		_:
+			return Color(0.4, 0.4, 0.45)
