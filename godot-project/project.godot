@@ -32,5 +32,5 @@ window/stretch/aspect="expand"
 theme/custom_font="res://fonts/NotoSansCJKjp-Regular.otf"
 
 [rendering]
+
 renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.web="gl_compatibility"
