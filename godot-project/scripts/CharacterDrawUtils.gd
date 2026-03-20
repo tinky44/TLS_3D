@@ -93,6 +93,36 @@ static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, co
         pts.append(pos + Vector2(rx, ry))
     canvas.draw_polygon(pts, PackedColorArray([color]))
 
+static func draw_hand_with_thumb(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, color: Color, angle: float = 0.0, thumb_side: int = 1):
+    # 手を親指付きで描画
+    # hw=半幅, hh=半高さ, thumb_side: 1=右親指, -1=左親指
+
+    # 1. 手本体（長方形）を描画
+    var pts = PackedVector2Array()
+    var corners = [
+        Vector2(-hw, 0), Vector2(hw, 0),
+        Vector2(hw, hh * 2.0), Vector2(-hw, hh * 2.0)
+    ]
+    for c in corners:
+        var rx = c.x * cos(angle) - c.y * sin(angle)
+        var ry = c.x * sin(angle) + c.y * cos(angle)
+        pts.append(pos + Vector2(rx, ry))
+    canvas.draw_polygon(pts, PackedColorArray([color]))
+
+    # 2. 親指（小さな三角形）を描画
+    # 親指の基点: 手の幅の位置（右or左）、高さは手の上部（手の半分くらい）
+    var thumb_base_offset = Vector2(thumb_side * hw * 1.2, hh * 0.3)
+    var thumb_tip_offset = Vector2(thumb_side * hw * 1.5, -hh * 0.5)
+    var thumb_corner_offset = Vector2(thumb_side * hw * 0.8, hh * 0.8)
+
+    var thumb_pts = PackedVector2Array()
+    for offset in [thumb_base_offset, thumb_tip_offset, thumb_corner_offset]:
+        var rx = offset.x * cos(angle) - offset.y * sin(angle)
+        var ry = offset.x * sin(angle) + offset.y * cos(angle)
+        thumb_pts.append(pos + Vector2(rx, ry))
+
+    canvas.draw_polygon(thumb_pts, PackedColorArray([color]))
+
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
     # 正面: 台形（上端=脚の太さ、底辺が少し広い）
     # 【design task 4】つま先の色を変える場合：

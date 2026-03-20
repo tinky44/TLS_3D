@@ -87,7 +87,9 @@ static func draw_sleeve_arm(ctx: DrawContext, p_shoulder: Vector2, p_elbow: Vect
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_shoulder, p_elbow, arm_w, skin)
 		CharacterDrawUtils.draw_limb_part(ctx.canvas, ctx.part_shapes["limb"], p_elbow, p_hand, arm_w * 0.8, skin)
 
-	CharacterDrawUtils.draw_hand(ctx.canvas, p_hand, hand_hw, hand_hh, skin, hand_angle)
+	# hand_angle から左右を判定（sin > 0 なら左手、< 0 なら右手）
+	var thumb_side = 1 if sin(hand_angle) < 0.0 else -1
+	CharacterDrawUtils.draw_hand_with_thumb(ctx.canvas, p_hand, hand_hw, hand_hh, skin, hand_angle, thumb_side)
 
 # ---------------------------------------------------------------
 # パンツ付き脚を描画するヘルパー
