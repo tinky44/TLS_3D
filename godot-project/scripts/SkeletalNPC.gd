@@ -162,6 +162,22 @@ var _player_is_close: bool = false
 	"sex": "female"
 }
 
+# 【design task 全体】NPC の外見定義
+# このDictionary に以下のキーを追加・変更することで NPC の見た目が決まります：
+#
+# 【Task 1】髪型追加: "hair_style" に新しい値を設定
+#   現在: "short", "long", "ponytail", "side_tail"
+#   例: "hair_style": "wavy"
+#
+# 【Task 2】帽子追加: "hat_type" / "hat_color" を追加
+#   例: "hat_type": "cap", "hat_color": "#ff0000"
+#
+# 【Task 4】上履きのカスタマイズ: "shoes_toe_color" を追加
+#   例: "shoes_toe_color": "#ff6600"
+#
+# 【Task 5】服装変更: "tops_type" / "bottoms_type" を変更
+#   上: "t_shirt", "sweater", "sailor", "blazer", "jumper_skirt" など
+#   下: "pants", "skirt_long", "sweatpants" など
 @export var custom_appearance: Dictionary = {
 	"hair_style": "long",
 	"hair_color": "#111111",

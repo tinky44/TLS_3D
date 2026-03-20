@@ -78,6 +78,10 @@ static func draw_pentagon_lower_torso(canvas: CanvasItem, p_top: Vector2, p_bott
 
 static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, color: Color, angle: float = 0.0):
     # 手（長方形）: hw=半幅, hh=半高さ
+    # 【design task 3】親指を追加する場合：
+    # draw_hand_with_thumb() という新規関数を作成
+    # または既存の draw_hand() 内に親指描画ロジックを追加
+    # 親指は小さな三角形として描画（angle 考慮）
     var pts = PackedVector2Array()
     var corners = [
         Vector2(-hw, 0), Vector2(hw, 0),
@@ -91,6 +95,10 @@ static func draw_hand(canvas: CanvasItem, pos: Vector2, hw: float, hh: float, co
 
 static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
     # 正面: 台形（上端=脚の太さ、底辺が少し広い）
+    # 【design task 4】つま先の色を変える場合：
+    # この関数を2つのポリゴンに分割
+    # - 足本体（かかと～甲）: color で描画
+    # - つま先: toe_color で描画
     var top_w = foot_w
     var bot_w = foot_w * 1.15
     var pts = PackedVector2Array([
@@ -103,6 +111,9 @@ static func draw_foot_front(canvas: CanvasItem, ankle: Vector2, foot_w: float, f
 
 static func draw_foot_side(canvas: CanvasItem, ankle: Vector2, foot_w: float, foot_h: float, color: Color):
     # 側面: 靴シルエット（6頂点、つま先に短い縦面を持たせて丸みを表現）
+    # 【design task 4】つま先の色を変える場合：
+    # 点3・4（ankle + Vector2(foot_w, foot_h * 0.4) ～ 0.85）のつま先部分
+    # を別色で描き分ける
     var pts = PackedVector2Array([
         ankle,                                  # 1. 踵上
         ankle + Vector2(foot_w * 0.3, 0.0),    # 2. 甲上端（短い上辺）

@@ -50,6 +50,9 @@ func _draw() -> void:
 	ctx.flip = flip
 
 	# 色の設定
+	# 【design task】新しい色や素材を追加する場合：
+	# 以下に ctx.新規色 = Color(...) を追加
+	# 例: ctx.sweatpants_color = Color(appearance.get("sweatpants_color", "#333333"))
 	ctx.skin_color = Color("#ffe4c4")
 	ctx.base_shirt_color = Color(appearance.get("tops_color", "#ab82a8"))
 	ctx.pants_color = Color(appearance.get("bottoms_color", "#e5d6ba"))
@@ -77,8 +80,12 @@ func _draw() -> void:
 	ctx.hair_color = Color(appearance.get("hair_color", "#4a3c31"))
 	ctx.shoes_type = appearance.get("shoes_type", "sneakers")
 	ctx.shoe_color = Color(appearance.get("shoes_color", "#f0f0f0"))
+	# 【design task 4】つま先の色を追加する場合：
+	# ctx.shoe_toe_color = Color(appearance.get("shoes_toe_color", ctx.shoe_color))
 	ctx.hat_type = appearance.get("hat_type", "none")
-	
+
+	# 【design task 2】新しい帽子を追加する場合：
+	# ここに新しい hat_type に対応したデフォルト色を設定
 	var default_hat_color = "#ffd700" if ctx.hat_type == "school_hat" else "#ffffff"
 	ctx.hat_color = Color(appearance.get("hat_color", default_hat_color))
 	ctx.bag_type = appearance.get("bag_type", "none")

@@ -601,9 +601,15 @@ static func draw_suspenderSkirt_side(ctx: DrawContext, sx: float, sy: float, nav
 # ============================================================
 
 static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float, _head_w: float, hat_type: String, hat_color: Color) -> void:
+	# 【design task 2】帽子タイプを追加する場合：
+	# 1. ここに新しい hat_type の case を追加
+	# 2. draw_hat_side() にも同じく新規 case を追加
+	# 3. 帽子の形状を描画ポリゴンで定義
+	# 例: "cap": draw_cap_front(ctx, hx, hy, head_r, hat_color)
+
 	if hat_type == "none" or hat_type == "":
 		return
-	
+
 	match hat_type:
 		"school_hat":
 			# 通学帽 (正面) - ハット型 (全周つば)
@@ -635,9 +641,13 @@ static func draw_hat_front(ctx: DrawContext, hx: float, hy: float, head_r: float
 			ctx.canvas.draw_polygon(brim_pts, PackedColorArray([hat_color.darkened(0.15)]))
 
 static func draw_hat_side(ctx: DrawContext, hx: float, hy: float, head_r: float, _head_w: float, head_angle: float, hat_type: String, hat_color: Color) -> void:
+	# 【design task 2】帽子タイプを追加する場合：
+	# draw_hat_front() と同じく新しい hat_type の case を追加
+	# 側面から見た帽子のシルエットを描画
+
 	if hat_type == "none" or hat_type == "":
 		return
-	
+
 	match hat_type:
 		"school_hat":
 			# 通学帽 (側面) - ハット型 (全周つば)

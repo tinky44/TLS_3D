@@ -452,6 +452,11 @@ static func draw_face_overlay_side(ctx: DrawContext, head_center: Vector2, hr: f
 	ctx.canvas.draw_polygon(bangs_pts, PackedColorArray([hair_color]))
 
 static func _get_back_hair_bottom_y(head_center: Vector2, hr: float, hair_style: String) -> float:
+	# 【design task】新しい髪型を追加する場合：
+	# 1. ここに新しい hair_style の場合分岐を追加
+	# 2. head_center.y + hr * (倍率) の形で髪の下端Y位置を返す
+	# 例: if hair_style == "wavy": return head_center.y + hr * 2.0
+
 	if hair_style == "long":
 		return head_center.y + hr * 3.5
 	if hair_style == "ponytail":
