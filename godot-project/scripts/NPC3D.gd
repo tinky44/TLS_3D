@@ -24,6 +24,25 @@ var _leg_r_pivot: Node3D = null
 var _walk_time: float = 0.0
 var _limbs_built: bool = false
 
+# 身長差反応
+var _speech_label: Label3D = null
+var _speech_timer: float = 0.0
+var _reaction_cooldown: float = 0.0
+var _last_height_category: String = ""
+var _patrol_origin_x: float = 0.0
+var _patrol_dir: int = 1
+const PATROL_RANGE: float = 1.5  # 巡回半径（m）
+const PATROL_SPEED_BASE: float = 0.5  # 巡回速度（m/s）
+
+const REACTION_LINES: Dictionary = {
+	"shorter": ["あ、どうも...", "こんにちは"],
+	"same": ["背が揃ってますね", "同じくらいですね"],
+	"slightly_tall": ["背が高いんですね...", "あ、見上げちゃう", "すらっとしてますね"],
+	"tall": ["え、いつから...？", "す、すごく高いですね！", "えっ、何cmですか？"],
+	"very_tall": ["す、凄い...！", "うわぁ、見上げちゃう...", "そんなに高いんですか！？"],
+	"extreme": ["う、動かないで... 圧迫感が...", "わ、わた... 頭が...！", "ひ、ひぃ... でかすぎる..."],
+}
+
 @onready var body_mesh: MeshInstance3D = $BodyMesh
 @onready var head_mesh: MeshInstance3D = $HeadMesh
 @onready var name_label: Label3D = $NameLabel
@@ -49,6 +68,10 @@ func setup(id: String, data: Dictionary, age: int = 6) -> void:
 	m = _build_measurements()
 
 	_build_visual()
+	_patrol_origin_x = 0.0  # 配置後に MainScene から呼ばれる set_patrol_origin() で上書き
+
+func set_patrol_origin() -> void:
+	_patrol_origin_x = position.x
 
 func _build_measurements() -> Dictionary:
 	# 身長連動で頭身を計算（プレイヤーと同じ式）
@@ -114,9 +137,22 @@ func _build_visual() -> void:
 	# 腕・脚
 	_build_limbs()
 
+	# セリフラベル（身長差反応表示）
+	_speech_label = Label3D.new()
+	_speech_label.position.y = height_m + 0.42
+	_speech_label.font_size = 52
+	_speech_label.outline_size = 6
+	_speech_label.modulate = Color(1, 1, 0.85, 0.0)
+	_speech_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_speech_label.no_depth_test = true
+	add_child(_speech_label)
+
 func _process(delta: float) -> void:
 	_update_look_at_player(delta)
 	_update_walk_animation(delta)
+	_update_patrol(delta)
+	_check_reactions(delta)
+	_update_speech_label(delta)
 
 func _update_look_at_player(delta: float) -> void:
 	var player := _find_player()
@@ -245,6 +281,78 @@ func _update_walk_animation(delta: float) -> void:
 		_leg_l_pivot.rotation.x = -swing * 0.6
 	if _leg_r_pivot:
 		_leg_r_pivot.rotation.x = swing * 0.6
+
+func _update_patrol(delta: float) -> void:
+	var player := _find_player()
+	if player != null and player.global_position.distance_to(global_position) < 3.0:
+		return
+
+	var patrol_speed := PATROL_SPEED_BASE * (height_m / 1.7)
+	var target_x: float = _patrol_origin_x + _patrol_dir * PATROL_RANGE
+
+	if _patrol_dir > 0 and position.x >= target_x:
+		_patrol_dir = -1
+	elif _patrol_dir < 0 and position.x <= target_x:
+		_patrol_dir = 1
+
+	position.x += _patrol_dir * patrol_speed * delta
+
+func _get_height_category(diff: float) -> String:
+	if diff < -15.0: return "shorter"
+	elif diff < 5.0: return "same"
+	elif diff < 20.0: return "slightly_tall"
+	elif diff < 40.0: return "tall"
+	elif diff < 70.0: return "very_tall"
+	else: return "extreme"
+
+func _check_reactions(delta: float) -> void:
+	if _reaction_cooldown > 0:
+		_reaction_cooldown -= delta
+		return
+
+	var player := _find_player()
+	if player == null:
+		return
+
+	var dist: float = player.global_position.distance_to(global_position)
+	if dist > 3.5:
+		_last_height_category = ""
+		return
+
+	var player_h: float = player.visual_height_cm if player.has_method("update_measurements") else 170.0
+	var diff := player_h - height_cm
+	var category := _get_height_category(diff)
+
+	if category == _last_height_category:
+		return
+
+	_last_height_category = category
+	_reaction_cooldown = 8.0
+
+	var lines: Array = REACTION_LINES.get(category, [])
+	if lines.is_empty():
+		return
+	_show_speech(lines[randi() % lines.size()])
+
+func _show_speech(text: String) -> void:
+	if not _speech_label:
+		return
+	_speech_label.text = text
+	_speech_timer = 3.0
+
+func _update_speech_label(delta: float) -> void:
+	if not _speech_label:
+		return
+	if _speech_timer > 0:
+		_speech_timer -= delta
+		var alpha: float = 1.0
+		if _speech_timer < 0.5:
+			alpha = _speech_timer / 0.5
+		elif _speech_timer > 2.5:
+			alpha = (3.0 - _speech_timer) / 0.5
+		_speech_label.modulate = Color(1, 1, 0.85, alpha)
+	else:
+		_speech_label.modulate.a = 0.0
 
 func _get_npc_color() -> Color:
 	match npc_id:

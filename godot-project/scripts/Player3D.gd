@@ -48,6 +48,7 @@ const WALK_BOB_AMOUNT: float = 0.02
 # ─── 内部 ────────────────────────────────────────────────────────
 var _head_bump_cooldown_left: float = 0.0
 var _head_bump_shake_left: float = 0.0
+var _base_fov: float = 75.0
 
 # ─── カメラモード ─────────────────────────────────────────────────
 var _is_third_person: bool = false
@@ -114,6 +115,7 @@ func update_measurements() -> void:
 	_update_camera_height()
 	_update_speed()
 	_update_body_model()
+	_update_fov()
 
 func _update_collision() -> void:
 	if collision_shape and collision_shape.shape is CapsuleShape3D:
@@ -135,6 +137,17 @@ func _update_speed() -> void:
 	var base_leg_cm: float = 180.0 * 0.48
 	var leg_scale: float = clampf(leg_cm / base_leg_cm, 0.65, 1.8)
 	speed = base_speed * leg_scale
+
+# ─── FOV動的変更（身長連動） ───────────────────────────────────────────────────────────────
+func _update_fov() -> void:
+	if not first_person_camera: return
+	# 170cm: FOV=75°, 240cm: FOV=60°（世界が小さく見える効果）
+	var h := visual_height_cm
+	_base_fov = lerpf(75.0, 60.0, clampf((h - 170.0) / 70.0, 0.0, 1.0))
+	if not _is_third_person:
+		var tw := create_tween()
+		tw.tween_property(first_person_camera, "fov", _base_fov, 0.4)\
+		  .set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 
 # ─── 身体モデルの動的更新 ───────────────────────────────────────
 func _update_body_model() -> void:
@@ -281,7 +294,8 @@ func _process_head_bump(delta: float) -> void:
 			if collider and collider.has_meta("obs_id"):
 				_trigger_head_bump(String(collider.get_meta("obs_id")), float(collider.get_meta("obs_height_cm")))
 	if _head_bump_shake_left > 0.0 and first_person_camera:
-		var strength := HEAD_BUMP_SHAKE_STRENGTH * (_head_bump_shake_left / HEAD_BUMP_SHAKE_TIME)
+		var height_scale := clampf(visual_height_cm / 170.0, 1.0, 2.5)
+		var strength := HEAD_BUMP_SHAKE_STRENGTH * (_head_bump_shake_left / HEAD_BUMP_SHAKE_TIME) * height_scale
 		first_person_camera.position.y += randf_range(-strength, strength)
 
 func _trigger_head_bump(obs_id: String, obs_height_cm: float) -> void:
@@ -291,9 +305,9 @@ func _trigger_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	emit_signal("head_bump", obs_id, obs_height_cm)
 	# FOVパルス（頭ぶつけ演出）
 	if first_person_camera and not _is_third_person:
-		first_person_camera.fov = 95.0
+		first_person_camera.fov = _base_fov + 20.0
 		var tw := create_tween()
-		tw.tween_property(first_person_camera, "fov", 75.0, 0.35)\
+		tw.tween_property(first_person_camera, "fov", _base_fov, 0.35)\
 		  .set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
 
 func _toggle_camera_mode() -> void:

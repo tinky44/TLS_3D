@@ -25,6 +25,12 @@ var _fade_rect: ColorRect
 # ─── NPC管理 ─────────────────────────────────────────────────────
 var _spawned_npcs: Array = []
 
+# ─── NPC視点カメラ ─────────────────────────────────────────────────
+var _npc_view_cam: Camera3D = null
+var _npc_view_active: bool = false
+var _e_hold_time: float = 0.0
+var _e_hold_npc: Node = null
+
 # ─── 頭ぶつけ・成長演出 ──────────────────────────────────────────
 var _bumped_obstacles: Array = []
 var _last_notified_height: float = 0.0
@@ -39,15 +45,32 @@ const STAGE_NPC_SPAWNS: Dictionary = {
 	],
 	"school": [
 		{"npc_id": "haruka", "x_cm": 1200, "z_cm": 0},
+		{"npc_id": "generic_f", "x_cm": 400, "z_cm": -50, "height_cm": 160.0, "sex": "female"},
+		{"npc_id": "generic_m", "x_cm": 600, "z_cm": 30, "height_cm": 175.0, "sex": "male"},
 	],
 	"school_hallway": [
 		{"npc_id": "haruka", "x_cm": 800, "z_cm": 0},
+		{"npc_id": "generic_f2", "x_cm": 1500, "z_cm": -40, "height_cm": 158.0, "sex": "female"},
+		{"npc_id": "generic_m2", "x_cm": 2200, "z_cm": 20, "height_cm": 170.0, "sex": "male"},
 	],
 	"outdoor": [
 		{"npc_id": "haruka", "x_cm": 400, "z_cm": 0},
+		{"npc_id": "generic_f3", "x_cm": 650, "z_cm": -40, "height_cm": 162.0, "sex": "female"},
+		{"npc_id": "generic_m3", "x_cm": 900, "z_cm": 30, "height_cm": 173.0, "sex": "male"},
+		{"npc_id": "generic_f4", "x_cm": 1100, "z_cm": -20, "height_cm": 155.0, "sex": "female"},
+		{"npc_id": "generic_m4", "x_cm": 1300, "z_cm": 10, "height_cm": 178.0, "sex": "male"},
+	],
+	"park": [
+		{"npc_id": "generic_f5", "x_cm": 600, "z_cm": -60, "height_cm": 165.0, "sex": "female"},
+		{"npc_id": "generic_m5", "x_cm": 900, "z_cm": 40, "height_cm": 172.0, "sex": "male"},
+		{"npc_id": "generic_f6", "x_cm": 1400, "z_cm": -30, "height_cm": 158.0, "sex": "female"},
+		{"npc_id": "generic_m6", "x_cm": 1800, "z_cm": 50, "height_cm": 180.0, "sex": "male"},
+		{"npc_id": "generic_f7", "x_cm": 2200, "z_cm": -50, "height_cm": 163.0, "sex": "female"},
+		{"npc_id": "haruka", "x_cm": 2600, "z_cm": 20},
 	],
 	"gymnasium": [
 		{"npc_id": "senior", "x_cm": 1600, "z_cm": 0},
+		{"npc_id": "generic_f8", "x_cm": 800, "z_cm": -50, "height_cm": 170.0, "sex": "female"},
 	],
 	"infirmary": [
 		{"npc_id": "nurse", "x_cm": 800, "z_cm": -30},
@@ -59,6 +82,7 @@ const STAGE_NPC_SPAWNS: Dictionary = {
 func _ready() -> void:
 	_setup_ui()
 	_load_stage()
+	_setup_npc_view_camera()
 
 	if player and player.has_signal("head_bump"):
 		player.connect("head_bump", _on_head_bump)
@@ -146,7 +170,7 @@ func _setup_ui() -> void:
 	controls_hint.offset_top = -120
 	controls_hint.offset_bottom = -10
 	controls_hint.offset_right = 250
-	controls_hint.text = "WASD: 移動  マウス: 見回し\nPgUp/PgDn: 身長変更\nE: インタラクション  Q: ステータス\nEsc: カーソル切替"
+	controls_hint.text = "WASD: 移動  マウス: 見回し\nPgUp/PgDn: 身長変更\nE: 移動/[長押]NPC視点  Q: ステータス\nEsc: カーソル切替"
 	ui_layer.add_child(controls_hint)
 
 	# フェード用（ステージ遷移等）
@@ -165,6 +189,14 @@ func _setup_ui() -> void:
 	bump_flash_rect.z_index = 50
 	bump_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(bump_flash_rect)
+
+# ─── NPC視点カメラ構築 ────────────────────────────────────────────
+func _setup_npc_view_camera() -> void:
+	_npc_view_cam = Camera3D.new()
+	_npc_view_cam.name = "NpcViewCamera"
+	_npc_view_cam.fov = 70.0
+	_npc_view_cam.current = false
+	add_child(_npc_view_cam)
 
 # ─── ステージ読み込み ────────────────────────────────────────────
 func _load_stage(spawn_x_cm: float = -1.0) -> void:
@@ -219,16 +251,17 @@ func _spawn_npcs(stage_id: String, age: int) -> void:
 
 	for spawn_info in spawns:
 		var npc_id: String = String(spawn_info["npc_id"])
-		if not global.core_npcs.has(npc_id):
-			# nurse等、core_npcsに無い場合は汎用データ
+		if global.core_npcs.has(npc_id):
+			_create_npc(npc_id, global.core_npcs[npc_id], spawn_info, age)
+		else:
+			# 汎用NPC（generic_* / nurse等）— spawn_infoに身長/性別を指定可
 			var generic_data := {
-				"name": npc_id,
-				"height_base": 158.0,
+				"name": _get_generic_npc_name(npc_id),
+				"height_base": float(spawn_info.get("height_cm", 163.0)),
 				"height_mode": "fixed",
+				"sex": String(spawn_info.get("sex", "female")),
 			}
 			_create_npc(npc_id, generic_data, spawn_info, age)
-		else:
-			_create_npc(npc_id, global.core_npcs[npc_id], spawn_info, age)
 
 func _create_npc(npc_id: String, npc_data: Dictionary, spawn_info: Dictionary, age: int) -> void:
 	var npc_node: CharacterBody3D = NPC3D_SCENE.instantiate()
@@ -240,12 +273,20 @@ func _create_npc(npc_id: String, npc_data: Dictionary, spawn_info: Dictionary, a
 		float(spawn_info.get("z_cm", 0)) * CM_TO_UNIT
 	)
 	_spawned_npcs.append(npc_node)
+	# 巡回原点を設定（配置位置をセット）
+	if npc_node.has_method("set_patrol_origin"):
+		npc_node.set_patrol_origin()
 
 func _clear_npcs() -> void:
 	for npc in _spawned_npcs:
 		if is_instance_valid(npc):
 			npc.queue_free()
 	_spawned_npcs.clear()
+
+func _get_generic_npc_name(npc_id: String) -> String:
+	if npc_id == "nurse":
+		return "養護教諭"
+	return "通行人"
 
 # ─── ステージ遷移 ────────────────────────────────────────────────
 func _check_nearby_doors() -> void:
@@ -334,6 +375,7 @@ func _setup_lighting(stage_id: String) -> void:
 		stage_id == "outdoor" or stage_id == "adjacent_town"
 		or stage_id == "gakuenmachi" or stage_id.begins_with("schoolyard")
 		or stage_id == "platform" or stage_id == "gakuenmae"
+		or stage_id == "park"
 	)
 
 	if is_outdoor:
@@ -378,23 +420,34 @@ func _process(delta: float) -> void:
 	_update_action_hints()
 	_update_bump_alert(delta)
 	_update_height_display()
-	_handle_input()
+	_handle_input(delta)
+	_update_npc_view(delta)
 
-func _handle_input() -> void:
+func _handle_input(delta: float) -> void:
 	# Qキー: サイドバートグル
 	if Input.is_action_just_pressed("toggle_status"):
 		sidebar.visible = not sidebar.visible
 
-	# Eキー: インタラクション（ステージ遷移）
-	if Input.is_action_just_pressed("interact"):
-		if _nearby_transition_door != "":
+	# Eキー: NPC視点（近くにNPCがいる場合）/ ステージ遷移
+	var near_npc := _get_nearest_npc(2.5)
+	if Input.is_action_pressed("interact") and near_npc != null and _nearby_transition_door == "":
+		_e_hold_time += delta
+		_e_hold_npc = near_npc
+	elif _npc_view_active:
+		_deactivate_npc_view()
+		_e_hold_time = 0.0
+		_e_hold_npc = null
+	else:
+		if Input.is_action_just_pressed("interact") and _nearby_transition_door != "":
 			_do_stage_transition(_nearby_transition_door)
+		_e_hold_time = 0.0
+		_e_hold_npc = null
 
 	# PgUp / PgDown: 身長変更（テスト＆演出用）
 	if Input.is_key_pressed(KEY_PAGEUP):
-		_change_height(1.0)  # +1cm/フレーム
+		_change_height(1.0)
 	if Input.is_key_pressed(KEY_PAGEDOWN):
-		_change_height(-1.0)  # -1cm/フレーム
+		_change_height(-1.0)
 
 	# Home: 身長リセット
 	if Input.is_key_pressed(KEY_HOME):
@@ -403,6 +456,59 @@ func _handle_input() -> void:
 			global.current_params["height"] = 180.0
 			if player:
 				player.update_measurements()
+
+func _get_nearest_npc(max_dist: float) -> Node:
+	if not player:
+		return null
+	var nearest: Node = null
+	var nearest_dist: float = max_dist
+	for npc in _spawned_npcs:
+		if is_instance_valid(npc):
+			var d := player.global_position.distance_to(npc.global_position)
+			if d < nearest_dist:
+				nearest_dist = d
+				nearest = npc
+	return nearest
+
+func _update_npc_view(_delta: float) -> void:
+	if _e_hold_time >= 0.5 and _e_hold_npc != null and is_instance_valid(_e_hold_npc):
+		if not _npc_view_active:
+			_activate_npc_view(_e_hold_npc)
+	elif _npc_view_active and (_e_hold_npc == null or not is_instance_valid(_e_hold_npc)):
+		_deactivate_npc_view()
+
+	if _npc_view_active and _npc_view_cam and _e_hold_npc != null and is_instance_valid(_e_hold_npc):
+		# NPC目線位置にカメラを配置
+		var npc3d := _e_hold_npc as CharacterBody3D
+		if npc3d:
+			var eye_h: float = npc3d.get("eye_height_m")
+			_npc_view_cam.global_position = npc3d.global_position + Vector3(0, eye_h, 0)
+			# プレイヤーを見上げる
+			if player:
+				var player_eye: Vector3 = player.global_position + Vector3(0, player.eye_height_m * 0.5, 0)
+				_npc_view_cam.look_at(player_eye, Vector3.UP)
+
+func _activate_npc_view(npc: Node) -> void:
+	if _npc_view_active:
+		return
+	_npc_view_active = true
+	_npc_view_cam.current = true
+	if player:
+		var fp_cam := player.get_node_or_null("CameraPivot/FirstPersonCamera") as Camera3D
+		if fp_cam:
+			fp_cam.current = false
+	# ヒント表示
+	action_hint_label.text = "👁 NPC視点 — E を離すと戻る"
+
+func _deactivate_npc_view() -> void:
+	if not _npc_view_active:
+		return
+	_npc_view_active = false
+	_npc_view_cam.current = false
+	if player:
+		var fp_cam := player.get_node_or_null("CameraPivot/FirstPersonCamera") as Camera3D
+		if fp_cam:
+			fp_cam.current = true
 
 func _change_height(delta_cm: float) -> void:
 	var global = get_node_or_null("/root/Global")
@@ -496,12 +602,14 @@ func _update_action_hints() -> void:
 	if player and player.is_crouch_impossible:
 		hints.append("⚠ ここでは先に進めない")
 
-	# 近くのNPCがいる場合
-	for npc in _spawned_npcs:
-		if is_instance_valid(npc) and player:
-			var dist: float = player.global_position.distance_to(npc.global_position)
-			if dist < 2.0:
-				hints.append("👤 %s がそばにいる" % npc.npc_name)
+	# 近くのNPCがいる場合（E長押しでNPC視点）
+	if not _npc_view_active:
+		for npc in _spawned_npcs:
+			if is_instance_valid(npc) and player:
+				var dist: float = player.global_position.distance_to(npc.global_position)
+				if dist < 2.5 and _nearby_transition_door == "":
+					hints.append("👤 %s（%.0fcm） — [E] 長押しでNPC視点" % [npc.npc_name, npc.height_cm])
+					break
 
 	action_hint_label.text = "\n".join(hints)
 
@@ -532,12 +640,13 @@ func _on_head_bump(obs_id: String, obs_height_cm: float) -> void:
 	bump_alert_label.show()
 	_bump_alert_time_left = 2.5
 
-	# 赤フラッシュ
+	# 赤フラッシュ（身長が高いほど強い）
 	var flash := ui_layer.get_node_or_null("BumpFlashRect")
 	if flash:
-		flash.color.a = 0.45
+		var flash_alpha := clampf(0.3 + (player_h - 170.0) / 200.0, 0.3, 0.65)
+		flash.color.a = flash_alpha
 		var tw := create_tween()
-		tw.tween_property(flash, "color:a", 0.0, 0.4)\
+		tw.tween_property(flash, "color:a", 0.0, 0.5)\
 		  .set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 
 func _update_bump_alert(delta: float) -> void:

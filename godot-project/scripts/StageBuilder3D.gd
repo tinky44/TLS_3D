@@ -20,6 +20,7 @@ const FLOOR_COLORS: Dictionary = {
 	"myroom":     Color(0.48, 0.38, 0.28),   # フローリング（暖色）
 	"train":      Color(0.32, 0.32, 0.35),   # 電車の床
 	"outdoor":    Color(0.55, 0.53, 0.50),   # アスファルト
+	"park":       Color(0.45, 0.60, 0.35),   # 草地
 	"station":    Color(0.58, 0.57, 0.55),   # コンクリート
 	"school":     Color(0.45, 0.35, 0.25),   # フローリング（教室）
 }
@@ -75,6 +76,10 @@ static func build_stage(stage_id: String, parent: Node3D, age: int = 0) -> void:
 
 	# 左右の見えない壁
 	_create_boundary_walls(parent, width_cm, depth_cm)
+
+	# 屋外/公園: 追加デコレーション
+	if stage_id == "outdoor" or stage_id == "park":
+		_create_outdoor_background(parent, width_cm, depth_cm, stage_id)
 
 # ─── 床 ──────────────────────────────────────────────────────────
 static func _create_floor(parent: Node3D, width_cm: float, depth_cm: float, color: Color) -> void:
@@ -272,6 +277,90 @@ static func _create_boundary_walls(parent: Node3D, width_cm: float, depth_cm: fl
 	right_wall.add_child(right_shape)
 	parent.add_child(right_wall)
 
+# ─── 屋外背景デコレーション ─────────────────────────────────────
+static func _create_outdoor_background(parent: Node3D, width_cm: float, depth_cm: float, stage_id: String) -> void:
+	var w := width_cm * CM_TO_UNIT
+	var d := depth_cm * CM_TO_UNIT
+
+	# 空（後方の青い大きな板）
+	var sky_body := StaticBody3D.new()
+	sky_body.set_meta("is_stage_obj", true)
+	sky_body.name = "SkyBackground"
+	var sky_mesh := MeshInstance3D.new()
+	var sky_box := BoxMesh.new()
+	sky_box.size = Vector3(w + 20.0, 15.0, 0.1)
+	sky_mesh.mesh = sky_box
+	sky_mesh.position = Vector3(w * 0.5, 7.0, -d * 0.6)
+	var sky_mat := StandardMaterial3D.new()
+	sky_mat.albedo_color = Color(0.55, 0.78, 0.98)
+	sky_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sky_mesh.material_override = sky_mat
+	sky_body.add_child(sky_mesh)
+	parent.add_child(sky_body)
+
+	# 地平線の建物シルエット
+	if stage_id == "outdoor":
+		var building_colors: Array[Color] = [
+			Color(0.62, 0.65, 0.72), Color(0.58, 0.60, 0.68),
+			Color(0.55, 0.58, 0.65), Color(0.60, 0.63, 0.70),
+		]
+		var building_data: Array = [
+			[0.1, 3.0, 5.0], [0.25, 5.5, 7.0], [0.50, 2.5, 4.5],
+			[0.70, 4.0, 6.5], [0.85, 3.2, 5.2],
+		]
+		for i in range(building_data.size()):
+			var bd: Array = building_data[i]
+			var bx: float = bd[0] * w
+			var bh: float = bd[1]
+			var btop: float = bd[2]
+			var bw: float = w * 0.15
+			var b_mesh := MeshInstance3D.new()
+			b_mesh.set_meta("is_stage_obj", true)
+			var b_box := BoxMesh.new()
+			b_box.size = Vector3(bw, bh, 0.1)
+			b_mesh.mesh = b_box
+			b_mesh.position = Vector3(bx, bh * 0.5, -d * 0.58)
+			var b_mat := StandardMaterial3D.new()
+			b_mat.albedo_color = building_colors[i % building_colors.size()]
+			b_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			b_mesh.material_override = b_mat
+			parent.add_child(b_mesh)
+
+	# 公園: 木のシルエット（円柱の幹 + 球の葉）
+	if stage_id == "park":
+		var tree_positions: Array[float] = [0.08, 0.22, 0.38, 0.62, 0.78, 0.92]
+		for tx in tree_positions:
+			var tree_x: float = tx * w
+			# 幹
+			var trunk_body := Node3D.new()
+			trunk_body.set_meta("is_stage_obj", true)
+			var trunk_mesh := MeshInstance3D.new()
+			var trunk_cyl := CylinderMesh.new()
+			trunk_cyl.top_radius = 0.12
+			trunk_cyl.bottom_radius = 0.15
+			trunk_cyl.height = 2.5
+			trunk_mesh.mesh = trunk_cyl
+			trunk_mesh.position = Vector3(tree_x, 1.25, -d * 0.45)
+			var trunk_mat := StandardMaterial3D.new()
+			trunk_mat.albedo_color = Color(0.40, 0.28, 0.18)
+			trunk_mesh.material_override = trunk_mat
+			trunk_body.add_child(trunk_mesh)
+			parent.add_child(trunk_body)
+			# 葉
+			var leaf_body := Node3D.new()
+			leaf_body.set_meta("is_stage_obj", true)
+			var leaf_mesh := MeshInstance3D.new()
+			var leaf_sphere := SphereMesh.new()
+			leaf_sphere.radius = 1.2
+			leaf_sphere.height = 2.4
+			leaf_mesh.mesh = leaf_sphere
+			leaf_mesh.position = Vector3(tree_x, 3.7, -d * 0.45)
+			var leaf_mat := StandardMaterial3D.new()
+			leaf_mat.albedo_color = Color(0.28, 0.60, 0.22)
+			leaf_mesh.material_override = leaf_mat
+			leaf_body.add_child(leaf_mesh)
+			parent.add_child(leaf_body)
+
 # ─── カラーヘルパー ─────────────────────────────────────────────
 static func _get_floor_color(stage_id: String) -> Color:
 	for key in FLOOR_COLORS:
@@ -307,5 +396,13 @@ static func _get_obs_color(obs_type: String, obs_id: String) -> Color:
 		return Color(0.35, 0.35, 0.40)  # つり革 → 金属色
 	if obs_id.contains("light"):
 		return Color(1.0, 0.98, 0.90)  # 照明 → 白
+	if obs_id.contains("bench"):
+		return Color(0.55, 0.42, 0.28)  # ベンチ → 木目
+	if obs_id.contains("fountain"):
+		return Color(0.55, 0.70, 0.90)  # 噴水 → 水色
+	if obs_id.contains("tree"):
+		return Color(0.28, 0.55, 0.22)  # 木 → 緑
+	if obs_id.contains("lamp"):
+		return Color(0.80, 0.80, 0.85)  # 街灯 → 銀色
 
 	return OBS_COLORS.get(obs_type, Color(0.6, 0.6, 0.6))
